@@ -1,0 +1,73 @@
+openapi: 3.0.1
+info:
+  title: Easy Writer
+  description: Generate article for a topic from links provided by retrieving relevent data from urls on the topic.
+  version: "v1"
+servers:
+  - url: https://trendscopeai.web.app/
+paths:
+  /analyze:
+    get:
+      operationId: analyze
+      summary: Provide up to 3 urls to analyze and write an article based off of.  Provide list of questions relevent to the article topic to receive relevent info from articles
+      parameters:
+        - in: query
+          name: urls
+          schema:
+            type: array
+            items:
+              type: string
+          required: true
+          description: The URLs of the web pages to analyze.
+        - in: query
+          name: queries
+          schema:
+            type: array
+            items:
+              type: string
+          required: true
+          description: The Array of query questions that need to be examined regarding the topic chosen by user.  These queries will return relevent info from articles
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  content:
+                    type: string
+                    description: The truncated text content of the web page.
+  /query:
+    get:
+      operationId: query
+      summary: Query these articles for relevent details for the topic.  Use this endpoint if you have already sent the urls to the /analyze endpoint
+      parameters:
+        - in: query
+          name: queries
+          schema:
+            type: array
+            items:
+              type: string
+          required: true
+          description: The Array of query questions that need to be examined regarding the topic chosen by user.  These queries will return relevent info from articles
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  description: The matching results and their similarity scores to the query provided
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Error message.

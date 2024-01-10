@@ -1,0 +1,18 @@
+{
+    "schema_version": "v1",
+    "name_for_human": "Write Easy",
+    "name_for_model": "WriteEasy",
+    "description_for_model": "Craft comprehensive articles based on a chosen topic. Use provided links, up to a maximum of three, to extract relevant information about the topic. These URLs are analyzed by the plugin and must be sent to in a comma-separated array. A list of keyword-specific questions pertinent to the topic is required to guide the extraction of information. DO NOT ask the user for these queries, you must auto generate them based on the topic the user provides.  These questions are used to return relevant information from the analyzed webpages. After the research phase, the construction of the article begins, based on the data returned from the server. By following these instructions, webpages can be effectively analyzed to construct a comprehensive article." ,
+    "description_for_human": "Provide a topic and links to craft AI-detection evasive content. Evasion not guaranteed.",
+    "auth": {
+        "type": "none"
+    },
+    "api": {
+        "type": "openapi",
+        "url": "http://localhost:3000/openai.yaml",
+        "is_user_authenticated": false
+    },
+    "logo_url": "https://trendscopeai.web.app/logo.png",
+    "contact_email": "contact@trendseerai.com",
+    "legal_info_url": "https://trendscopeai.web.app/legal"
+}
