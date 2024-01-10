@@ -102,20 +102,44 @@ app.get('/documents/:docId', async (req, res) => {
           <head>
               <title>Toggle HTML View</title>
               <style>
-                  #content {
-                      border: 1px solid #ddd;
-                      padding: 10px;
-                      margin-top: 10px;
-                      white-space: pre-wrap;
-                  }
-                  button {
-                      margin-bottom: 10px;
-                  }
-              </style>
+                body {
+                    background-color: #333; /* Dark background */
+                    color: #fff; /* Light text */
+                    font-family: 'Arial', sans-serif; /* Modern font */
+                    margin: 0;
+                    padding: 20px;
+                }
+
+                #content {
+                    border: none;
+                    background-color: #444; /* Slightly lighter than body for contrast */
+                    padding: 20px;
+                    margin-top: 20px;
+                    white-space: pre-wrap;
+                    border-radius: 10px; /* Rounded corners */
+                }
+                
+                button {
+                  background-color: #6a0dad; /* Purple background */
+                  color: white; /* White text for contrast */
+                  border: none;
+                  padding: 15px 20px; /* Increased padding for larger button */
+                  margin-bottom: 10px;
+                  border-radius: 5px; /* Rounded corners */
+                  cursor: pointer;
+                  transition: background-color 0.3s ease;
+                  font-size: 16px; /* Larger font size for better readability */
+                  font-weight: bold; /* Bold text for clarity */
+                }
+      
+                button:hover {
+                    background-color: #7c2ae8; /* Lighter purple on hover */
+                }
+            </style>
           </head>
           <body>
 
-          <button id="toggleButton">Toggle View</button>
+          <button id="toggleButton">Toggle HTML Tags On/Off</button>
 
           <div id="content"></div>
 
