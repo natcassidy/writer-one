@@ -86,25 +86,81 @@ app.get('/getCompletedDoc/:docId', async (req, res) => {
 app.get('/documents/:docId', async (req, res) => {
   try {
     const docId = req.params.docId;
-
-    console.log('docId', docId);
-    // Access the specific document by its ID
     const documentRef = admin.firestore().collection('documents').doc(docId);
     const documentSnapshot = await documentRef.get();
 
     if (documentSnapshot.exists) {
-      // If a document with docId exists, fetch its content and send it in the response
       const documentData = documentSnapshot.data();
 
       if (documentData && documentData.content) {
-        const content = documentData.content;
-        console.log('content ', content);
-        res.status(200).send(content);
+        const rawContent = documentData.content;
+
+        // HTML response with toggle functionality
+        const htmlResponse = `
+          <!DOCTYPE html>
+          <html>
+          <head>
+              <title>Toggle HTML View</title>
+              <style>
+                  #content {
+                      border: 1px solid #ddd;
+                      padding: 10px;
+                      margin-top: 10px;
+                      white-space: pre-wrap;
+                  }
+                  button {
+                      margin-bottom: 10px;
+                  }
+              </style>
+          </head>
+          <body>
+
+          <button id="toggleButton">Toggle View</button>
+
+          <div id="content"></div>
+
+          <script>
+            const rawContent = \`${rawContent}\`;
+            const contentDiv = document.getElementById('content');
+            let isRawHTML = true;
+
+            function escapeHTML(htmlStr) {
+              return htmlStr.replace(/[&<>"']/g, function(match) {
+                return {
+                  '&': '&amp;',
+                  '<': '&lt;',
+                  '>': '&gt;',
+                  '"': '&quot;',
+                  "'": '&#39;'
+                }[match];
+              });
+            }
+
+            function updateContent() {
+              if (isRawHTML) {
+                contentDiv.innerHTML = escapeHTML(rawContent);
+              } else {
+                contentDiv.innerHTML = rawContent;
+              }
+            }
+
+            document.getElementById('toggleButton').addEventListener('click', function() {
+              isRawHTML = !isRawHTML;
+              updateContent();
+            });
+
+            updateContent(); // Initial call to set the content
+          </script>
+
+          </body>
+          </html>
+        `;
+
+        res.status(200).send(htmlResponse);
       } else {
         res.status(400).send('Document content not found');
       }
     } else {
-      // If no document with docId exists, return an error
       res.status(400).send('Document not found');
     }
   } catch (error) {
