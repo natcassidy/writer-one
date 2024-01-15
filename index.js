@@ -178,7 +178,7 @@ const tasksClient = new CloudTasksClient();
                 // console.log('vector: ', vector)
                 vectors.push(vector)
             } catch (e) {
-                console.log('excpetion creating embedding: \n', e)
+                console.log('exception creating embedding: \n', e)
             }
 
         }
