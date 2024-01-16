@@ -33,7 +33,7 @@ Here's the body to expect from the client
 
 */
 router.post('/processBlogPost', (req, res) => {
-  res.status(200).send("Processed Blog Post")
+  res.status(200).send("Yummy blog posts for my tummy.")
 });
 
 module.exports = router;
