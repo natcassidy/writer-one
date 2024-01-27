@@ -24,13 +24,20 @@ router.post('/webhooks', async (req, res) => {
         const invoiceId = payment.invoice;
         let stripePricing = await getPricingFromStripe(invoiceId)
         let wordCount = 0
-        let isAppendApplied = true
+        
 
         if(stripePricing === 'price_1OdG7VIW3HzLJAuwyZiBwJ6m') {
             wordCount = 15000
         } else if(stripePricing === 'price_1OdG7VIW3HzLJAuwNX7hfEL5') {
             wordCount = 40000
         }
+        
+        let oldPlanId = await getOldPlanId(customer)
+        //Must do some sort of lookup to find out old info
+        let isPlanUpdradeOrDowngradeStatus = isPlanUpgradeOrDowngrade(stripePricing, oldPlanId)
+        let isAppendApplied = isAppendAppliedCheck(isPlanUpdradeOrDowngradeStatus)
+
+        console.log('plan status: ', isPlanUpdradeOrDowngradeStatus)
 
         let planInfoStatus = await updateFirebasePlanInfo(isAppendApplied, wordCount, stripePricing, customer)
 
@@ -99,7 +106,64 @@ const updateFirebasePlanInfo = async (isAppendApplied, wordCount, stripePricing,
     }
 };
 
+const isPlanUpgradeOrDowngrade = (newPlanId, oldPlanId) => {
+    const currentPlansInOrderOfPrice = [
+        {
+            planId: 'price_1OdG7VIW3HzLJAuwyZiBwJ6m',
+            price: 9
+        },
+        {
+            planId: 'price_1OdG7VIW3HzLJAuwNX7hfEL5',
+            price: 19
+        },
+    ];
 
+    // Check if both plan IDs are the same
+    if (newPlanId === oldPlanId) {
+        return "Same Plan";
+    }
+
+    let newPlanIdPosition = currentPlansInOrderOfPrice.findIndex(plan => plan.planId === newPlanId);
+    let oldPlanIdPosition = currentPlansInOrderOfPrice.findIndex(plan => plan.planId === oldPlanId);
+
+    // Check if either plan ID is not found in the list
+    if (newPlanIdPosition === -1 || oldPlanIdPosition === -1) {
+        throw new Error("One or both plan IDs are not found in the current plans.");
+    }
+
+    return newPlanIdPosition > oldPlanIdPosition ? 'Upgrade' : 'Downgrade';
+};
+
+const getOldPlanId = async (customer) => {
+    try {
+        // Query Firestore for the customer document
+        const customerRef = await admin.firestore().collection("customers").where("stripeId", "==", customer).get();
+
+        // Check if any documents are found
+        if (customerRef.empty) {
+            console.log("No matching customer found.");
+            return null;
+        }
+
+        // Assuming there's only one document per customer
+        const customerDoc = customerRef.docs[0];
+        const customerData = customerDoc.data();
+
+        // Return the plan ID
+        return customerData.plan || null;
+    } catch (e) {
+        console.error("Error retrieving old plan ID:", e);
+        return null;
+    }
+};
+
+const isAppendAppliedCheck = (isPlanUpdradeOrDowngradeStatus) => {
+    if(isPlanUpdradeOrDowngradeStatus === 'Upgrade') {
+        return true
+    } else {
+        return false
+    }
+}
 
 
 // HTTP-triggered Cloud Function to add tokens
