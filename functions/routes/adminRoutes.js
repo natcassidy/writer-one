@@ -12,59 +12,95 @@ router.get('/health', (req, res) => {
 })
 
 router.post('/webhooks', async (req, res) => {
-    console.log('Inside webhook')
     const paymentIntent = req.body.data.object.id
     const customer = req.body.data.object.customer
 
-    console.log('payment intent: ', paymentIntent)
-    console.log('customer: ', customer)
-
     // Confirm the payment status using the Stripe API
     const payment = await stripe.paymentIntents.retrieve(paymentIntent);
-    console.log('payment: ', payment)
+
     if (payment.status === 'succeeded') {
         console.log('payment status succeeded')
-        let stripePricing
+
         const invoiceId = payment.invoice;
+        let stripePricing = await getPricingFromStripe(invoiceId)
+        let wordCount = 0
+        let isAppendApplied = true
 
-        console.log('invoice: ', invoiceId)
-
-        if (invoiceId) {
-            try {
-                // Retrieve the invoice using the Stripe API
-                const invoice = await stripe.invoices.retrieve(invoiceId);
-
-                // Process the line items from the invoice
-                invoice.lines.data.forEach(lineItem => {
-                    console.log(lineItem.description); // Product description
-                    console.log(lineItem.price.id); // Price ID
-                    
-                    stripePricing = lineItem.price.id
-                });
-            } catch (error) {
-                console.error("Error retrieving invoice:", error);
-            }
-        } else {
-            console.log("No invoice associated with this payment intent.");
+        if(stripePricing === 'price_1OdG7VIW3HzLJAuwyZiBwJ6m') {
+            wordCount = 15000
+        } else if(stripePricing === 'price_1OdG7VIW3HzLJAuwNX7hfEL5') {
+            wordCount = 40000
         }
 
-        try {
-            const customerRef = await admin.firestore().collection("customers").where("stripeId", "==", customer).get()
-            customerRef.forEach((doc) => {
-                doc.ref.update({
-                    words: 15000,
-                    plan: (stripePricing ? stripePricing : 0)
-                })
-            })
-            return res.status(200).send({ message: 'Token count updated' });
-        } catch (e) {
-            return res.status(400).send({ error: 'Payment failed' });
+        let planInfoStatus = await updateFirebasePlanInfo(isAppendApplied, wordCount, stripePricing, customer)
+
+        if(planInfoStatus === "Success") {
+            return res.status(200).send({ message: 'Plan updated Successfully'})
+        } else {
+            return res.status(500).send({ message: 'Payment failed'})
         }
 
     } else {
-        return res.status(400).send({ error: 'Payment failed' });
+        return res.status(500).send({ error: 'Payment failed' });
     }
 });
+
+const getPricingFromStripe = async (invoiceId) => {
+    if (invoiceId) {
+        try {
+            // Retrieve the invoice using the Stripe API
+            const invoice = await stripe.invoices.retrieve(invoiceId);
+
+            // Check if there are any line items in the invoice
+            if (invoice.lines.data.length > 0) {
+                const lineItem = invoice.lines.data[0]; // Get the first line item
+                console.log(lineItem.description); // Product description
+                console.log(lineItem.price.id); // Price ID
+
+                return lineItem.price.id; // Return the price ID
+            } else {
+                console.log("No line items found in the invoice.");
+                return 0;
+            }
+        } catch (error) {
+            console.error("Error retrieving invoice:", error);
+            return 0;
+        }
+    } else {
+        console.log("No invoice ID provided.");
+        return 0;
+    }
+};
+
+const updateFirebasePlanInfo = async (isAppendApplied, wordCount, stripePricing, customer) => {
+    try {
+        const customerRef = await admin.firestore().collection("customers").where("stripeId", "==", customer).get();
+
+        await Promise.all(customerRef.docs.map(async (doc) => {
+            if (isAppendApplied) {
+                // Retrieve the current words count and add the new wordCount to it
+                const currentWords = doc.data().words || 0; // Fallback to 0 if 'words' field is not present
+                await doc.ref.update({
+                    words: currentWords + wordCount,
+                    plan: (stripePricing ? stripePricing : 0)
+                });
+            } else {
+                // Replace the existing words value with the new wordCount
+                await doc.ref.update({
+                    words: wordCount,
+                    plan: (stripePricing ? stripePricing : 0)
+                });
+            }
+        }));
+        
+        return "Success"
+    } catch (e) {
+        return "Error"
+    }
+};
+
+
+
 
 // HTTP-triggered Cloud Function to add tokens
 // router.get('/addTokens', cors(), async (req, res) => {
