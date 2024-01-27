@@ -12,20 +12,48 @@ router.get('/health', (req, res) => {
 })
 
 router.post('/webhooks', async (req, res) => {
+    console.log('Inside webhook')
     const paymentIntent = req.body.data.object.id
     const customer = req.body.data.object.customer
 
+    console.log('payment intent: ', paymentIntent)
+    console.log('customer: ', customer)
+
     // Confirm the payment status using the Stripe API
     const payment = await stripe.paymentIntents.retrieve(paymentIntent);
-
+    console.log('payment: ', payment)
     if (payment.status === 'succeeded') {
         console.log('payment status succeeded')
+        let stripePricing
+        const invoiceId = payment.invoice;
+
+        console.log('invoice: ', invoiceId)
+
+        if (invoiceId) {
+            try {
+                // Retrieve the invoice using the Stripe API
+                const invoice = await stripe.invoices.retrieve(invoiceId);
+
+                // Process the line items from the invoice
+                invoice.lines.data.forEach(lineItem => {
+                    console.log(lineItem.description); // Product description
+                    console.log(lineItem.price.id); // Price ID
+                    
+                    stripePricing = lineItem.price.id
+                });
+            } catch (error) {
+                console.error("Error retrieving invoice:", error);
+            }
+        } else {
+            console.log("No invoice associated with this payment intent.");
+        }
 
         try {
             const customerRef = await admin.firestore().collection("customers").where("stripeId", "==", customer).get()
             customerRef.forEach((doc) => {
                 doc.ref.update({
-                    words: 15000
+                    words: 15000,
+                    plan: (stripePricing ? stripePricing : 0)
                 })
             })
             return res.status(200).send({ message: 'Token count updated' });

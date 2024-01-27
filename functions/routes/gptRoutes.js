@@ -85,7 +85,7 @@ router.get('/getCompletedDoc/:docId', async (req, res) => {
       const firestoreDocId = querySnapshot.docs[0].id;
       console.log('docId; ', firestoreDocId)
 
-      let urlForResponse = `https://writer-one.com/documents/${firestoreDocId}`
+      let urlForResponse = `https://writer-one.com/gpt/documents/${firestoreDocId}`
       console.log('url: ', urlForResponse)
       res.status(200).send({ documentUrl: urlForResponse })
     } else {
