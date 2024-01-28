@@ -2,6 +2,8 @@ const express = require('express');
 const admin = require('../config/firebase');
 require('dotenv').config();
 const router = express.Router();
+const fs = require('fs');
+const path = require('path');
 
 // app.use(cors(corsOptions));
 
@@ -21,7 +23,8 @@ const router = express.Router();
 // app.use(authMiddleware);
 
 router.get('/health', (req, res) => {
-  res.status(200).send("I'm alive")
+  console.log('Healthy')
+  res.status(200).send("I'm alive gpt")
 })
 
 router.post('/addToDoc/:docId', async (req, res) => {
@@ -82,7 +85,7 @@ router.get('/getCompletedDoc/:docId', async (req, res) => {
       const firestoreDocId = querySnapshot.docs[0].id;
       console.log('docId; ', firestoreDocId)
 
-      let urlForResponse = `https://writer-one.com/documents/${firestoreDocId}`
+      let urlForResponse = `https://writer-one.com/gpt/documents/${firestoreDocId}`
       console.log('url: ', urlForResponse)
       res.status(200).send({ documentUrl: urlForResponse })
     } else {
@@ -203,6 +206,30 @@ router.get('/documents/:docId', async (req, res) => {
     console.error('Error:', error);
     res.status(500).send('Error fetching document content');
   }
+});
+
+// Serve the Privacy Policy HTML page
+router.get('/privacy-policy', (req, res) => {
+  const filePath = path.join(__dirname, '../public/privacy-policy.html'); // Adjust the path as necessary
+  fs.readFile(filePath, 'utf8', (err, htmlContent) => {
+    if (err) {
+      console.error('Error reading privacy-policy.html:', err);
+      return res.status(500).send('Error loading the privacy policy page');
+    }
+    res.status(200).send(htmlContent);
+  });
+});
+
+// Serve the Main Index HTML page
+router.get('/', (req, res) => {
+  const filePath = path.join(__dirname, '../public/index.html'); // Adjust the path as necessary
+  fs.readFile(filePath, 'utf8', (err, htmlContent) => {
+    if (err) {
+      console.error('Error reading index.html:', err);
+      return res.status(500).send('Error loading the main page');
+    }
+    res.status(200).send(htmlContent);
+  });
 });
 
 module.exports = router;
