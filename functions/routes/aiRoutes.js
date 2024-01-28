@@ -36,5 +36,9 @@ router.post('/processBlogPost', (req, res) => {
   res.status(200).send("Yummy blog posts for my tummy.")
 });
 
+router.get('/generateTreatise', (req, res) => {
+  res.status(200).send("I demand a sandwich!")
+});
+
 module.exports = router;
 
