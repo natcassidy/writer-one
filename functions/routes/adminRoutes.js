@@ -33,23 +33,16 @@ router.post('/webhooks', async (req, res) => {
         //Must do some sort of lookup to find out old info
         let isPlanUpdradeOrDowngradeStatus = isPlanUpgradeOrDowngrade(stripePricing, oldPlanId)
         let isAppendApplied = isAppendAppliedCheck(isPlanUpdradeOrDowngradeStatus)
-        let subscription
 
-        if (isPlanUpdradeOrDowngradeStatus === 'Upgrade') {
-            subscription = await getSubscriptionData(customer)
-            upgradeResponse = await upgradeSubscription(subscription, oldPlanId)
+        if (isPlanUpdradeOrDowngradeStatus === 'Upgrade' || isPlanUpdradeOrDowngradeStatus === 'Downgrade') {
+            let subscription = await getSubscriptionData(customer)
+            cancelResponse = await cancelSubscription(subscription, oldPlanId)
         }
 
         console.log('plan status: ', isPlanUpdradeOrDowngradeStatus)
 
         let planInfoStatus = await updateFirebasePlanInfo(isAppendApplied, wordCount, stripePricing, customer)
 
-        /*
-        if upgrade
-            cancel current plan - no refund
-            start new plan as of today.
-            add credits on top of old credits
-        */
         if (planInfoStatus === "Success") {
             return res.status(200).send({ message: 'Plan updated Successfully' })
         } else {
@@ -167,7 +160,7 @@ const getOldPlanId = async (customer) => {
 };
 
 const isAppendAppliedCheck = (isPlanUpdradeOrDowngradeStatus) => {
-    if (isPlanUpdradeOrDowngradeStatus === 'Upgrade') {
+    if (isPlanUpdradeOrDowngradeStatus === 'Upgrade' || isPlanUpdradeOrDowngradeStatus === 'Downgrade') {
         return true
     } else {
         return false
@@ -182,7 +175,17 @@ const getSubscriptionData = async (customerId) => {
     return sub;
 }
 
-const upgradeSubscription = async (subscriptions, oldPlanId) => {
+const cancelSubscription = async (subscriptions, oldPlanId) => {
+    const subscriptionIdToUpgrade = findOldSubscriptionId(subscriptions, oldPlanId)
+
+    const subscription = await stripe.subscriptions.cancel(
+        subscriptionIdToUpgrade
+    );
+
+    return 1
+}
+
+const findOldSubscriptionId = (subscriptions, oldPlanId) => {
     //find the subscription with the oldPrice to cancel
     let subscriptionIdToUpgrade = null;
 
@@ -201,11 +204,7 @@ const upgradeSubscription = async (subscriptions, oldPlanId) => {
         if (subscriptionIdToUpgrade) break;
     }
 
-    const subscription = await stripe.subscriptions.cancel(
-        subscriptionIdToUpgrade
-    );
-
-    return 1
+    return subscriptionIdToUpgrade
 }
 
 // HTTP-triggered Cloud Function to add tokens
