@@ -8,7 +8,7 @@ router.get('/health', (req, res) => {
 /*
 
 These routes are accessible on the local emulator at:
-http://127.0.0.1:5001/writeeasy-675b2/us-central1/plugin/ai/route
+http://127.0.0.1:5001/writeeasy-675b2/us-central1/plugin/ai/routes
 
 
 Here's the body to expect from the client
@@ -45,6 +45,8 @@ TODO: Figure out how to do the web scraping and SERP fetching for realTimeResear
   - Axios to fetch
   - Cheerio to extract body and anything else required to pass to model
   - TODO: will this be expensive to do on firebase functions?
+
+TODO: 
 
 */
 router.post('/process', (req, res) => {
