@@ -2,9 +2,6 @@ const express = require('express');
 const router = express.Router();
 const Stripe = require('stripe');
 const stripe = Stripe('sk_test_51MWVWpIW3HzLJAuw5UVhKj2Cnd6SbmjPmux3mEeXgudPczWwJGmLxq6Ald38sZvdQUG9sDAahxsfJnSwjAhdCyf700QXuT9dIk');
-// const firestore = require("firebase/firestore");
-// const { doc, setDoc, getDoc } = firestore;
-// const firebase = require('./firebase');
 const admin = require('firebase-admin');
 
 router.get('/health', (req, res) => {
@@ -24,27 +21,39 @@ router.post('/webhooks', async (req, res) => {
         const invoiceId = payment.invoice;
         let stripePricing = await getPricingFromStripe(invoiceId)
         let wordCount = 0
-        
 
-        if(stripePricing === 'price_1OdG7VIW3HzLJAuwyZiBwJ6m') {
+
+        if (stripePricing === 'price_1OdG7VIW3HzLJAuwyZiBwJ6m') {
             wordCount = 15000
-        } else if(stripePricing === 'price_1OdG7VIW3HzLJAuwNX7hfEL5') {
+        } else if (stripePricing === 'price_1OdG7VIW3HzLJAuwNX7hfEL5') {
             wordCount = 40000
         }
-        
+
         let oldPlanId = await getOldPlanId(customer)
         //Must do some sort of lookup to find out old info
         let isPlanUpdradeOrDowngradeStatus = isPlanUpgradeOrDowngrade(stripePricing, oldPlanId)
         let isAppendApplied = isAppendAppliedCheck(isPlanUpdradeOrDowngradeStatus)
+        let subscription
+
+        if (isPlanUpdradeOrDowngradeStatus === 'Upgrade') {
+            subscription = await getSubscriptionData(customer)
+            upgradeResponse = await upgradeSubscription(subscription, oldPlanId)
+        }
 
         console.log('plan status: ', isPlanUpdradeOrDowngradeStatus)
 
         let planInfoStatus = await updateFirebasePlanInfo(isAppendApplied, wordCount, stripePricing, customer)
 
-        if(planInfoStatus === "Success") {
-            return res.status(200).send({ message: 'Plan updated Successfully'})
+        /*
+        if upgrade
+            cancel current plan - no refund
+            start new plan as of today.
+            add credits on top of old credits
+        */
+        if (planInfoStatus === "Success") {
+            return res.status(200).send({ message: 'Plan updated Successfully' })
         } else {
-            return res.status(500).send({ message: 'Payment failed'})
+            return res.status(500).send({ message: 'Payment failed' })
         }
 
     } else {
@@ -99,7 +108,7 @@ const updateFirebasePlanInfo = async (isAppendApplied, wordCount, stripePricing,
                 });
             }
         }));
-        
+
         return "Success"
     } catch (e) {
         return "Error"
@@ -119,7 +128,7 @@ const isPlanUpgradeOrDowngrade = (newPlanId, oldPlanId) => {
     ];
 
     // Check if both plan IDs are the same
-    if (newPlanId === oldPlanId) {
+    if (newPlanId === oldPlanId || oldPlanId == null) {
         return "Same Plan";
     }
 
@@ -158,13 +167,46 @@ const getOldPlanId = async (customer) => {
 };
 
 const isAppendAppliedCheck = (isPlanUpdradeOrDowngradeStatus) => {
-    if(isPlanUpdradeOrDowngradeStatus === 'Upgrade') {
+    if (isPlanUpdradeOrDowngradeStatus === 'Upgrade') {
         return true
     } else {
         return false
     }
 }
 
+const getSubscriptionData = async (customerId) => {
+    let sub = await stripe.subscriptions.list({
+        customer: customerId,
+    });
+
+    return sub;
+}
+
+const upgradeSubscription = async (subscriptions, oldPlanId) => {
+    //find the subscription with the oldPrice to cancel
+    let subscriptionIdToUpgrade = null;
+
+    // Loop through each subscription
+    for (const subscription of subscriptions.data) {
+        // Loop through each item in the subscription
+        for (const item of subscription.items.data) {
+            // Check if the item's price matches the oldPlanId
+            if (item.price.id === oldPlanId) {
+                // If match is found, store the subscription ID and break the loop
+                subscriptionIdToUpgrade = subscription.id;
+                break;
+            }
+        }
+        // Break the outer loop if we have found the subscription ID
+        if (subscriptionIdToUpgrade) break;
+    }
+
+    const subscription = await stripe.subscriptions.cancel(
+        subscriptionIdToUpgrade
+    );
+
+    return 1
+}
 
 // HTTP-triggered Cloud Function to add tokens
 // router.get('/addTokens', cors(), async (req, res) => {
