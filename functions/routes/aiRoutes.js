@@ -3,19 +3,19 @@ const router = express.Router();
 const axios = require('axios');
 const cheerio = require('cheerio');
 const qs = require('qs');
-const { Configuration, OpenAIApi } = require("openai");
-const configuration = new Configuration({
+require('dotenv').config()
+const OpenAI = require("openai");
+const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
-const openai = new OpenAIApi(configuration);
-
 // ------ Dev Dep ------
 const fs = require("node:fs");
 
 router.get('/health', async (req, res) => {
 
+  let completion;
   try {
-    const completion = await openai.chat.completions.create({
+    completion = await openai.chat.completions.create({
       messages: [
         {
           role: "system",
@@ -26,12 +26,16 @@ router.get('/health', async (req, res) => {
       model: "gpt-3.5-turbo-1106",
       response_format: { type: "json_object" },
     });
-  } catch (e) {
-    console.log('exception:, ', e)
+  }catch (e) {
+    console.log('exception:', e);
+    return res.status(500).send(e); // Send error response
   }
 
-
-  res.status(200).send(completion.choices[0].message.content)
+  if (completion && completion.choices && completion.choices.length > 0) {
+    res.status(200).send(completion.choices[0].message.content);
+  } else {
+    res.status(500).send('No completion available');
+  }
 });
 /*
 
@@ -98,6 +102,11 @@ TODO: support geotargetting at either the country or the city/area level
 TODO: Bulk article creation UI
   - article templates
 
+TODO: --- Job System ---
+  - setup job template
+  - setup function triggers based on db additions, changes, etc.
+  - look into firebase pub/sub
+
 FIXME: complete the catch() methods in case something fails
 FIXME: setup logging, probably by adding logs to the db or using some firebase hosted service or something
 */
@@ -116,7 +125,7 @@ router.post('/process', (req, res) => {
     - Submit article to LLM for final review, along with the initial specification
   */
 
-  console.log(req.body);
+  // console.log(req.body);
   let countryCode;
   if (req.body.countryCode) {
     countryCode = req.body.countryCode;
@@ -124,8 +133,8 @@ router.post('/process', (req, res) => {
     countryCode = "";
   }
 
-  console.log(req.body.mainKeyword);
-  console.log(countryCode);
+  // console.log(req.body.mainKeyword);
+  // console.log(countryCode);
 
   // fetch SERP results from /serp endpoint
   // maybe wrap this into a single function later, but for now it's easier to watch it from here
@@ -145,9 +154,14 @@ router.post('/process', (req, res) => {
   };
 
   axios.get('/serp', axiosConfig)
-    .then(function(axiosResponse){ 
-      console.log(Object.keys(axiosResponse));
-      res.status(200).send(axiosResponse.data);
+    .then(function(axiosResponse){
+      if (testing = true) {
+        res.status(200).send(axiosResponse.data[0].data);
+      } else {
+        res.status(200).send(axiosResponse.data);
+      }
+
+
     })
     .catch( /* 
     put request in a loop and just set a failed flag of some kind to true in here. 
@@ -159,9 +173,6 @@ router.post('/process', (req, res) => {
       res.status(500).send(err);
 
   })
-    .finally();
-
-  
 });
 
 // This is required for the scraping to work through the proxy
@@ -211,53 +222,43 @@ router.get('/serp', (req,res) => {
     }
   }
 
-  let trimmed = [];
-
   axios.get(`http://www.google.com/search`, serpConfig)
-  .then(axiosResponse => {
-    /* 
-      the BrightData response object refers to itself internally 
-      JSON.stringify (called inside send()) cannot handle circular data structures
-    */
-    axiosResponse.data.organic.forEach(async (element) => {
-
-      // FIXME: scraping currently fails with a TLS error saying the cert doesn't match the domain. 
-      // the proxy doesn't seem to be working
-      await axios.get(element.link, scrapeConfig)
-        .then(data => {
-
-          if (false) {
-            console.log("-----scrape successful-----")
-            console.log(element.link)
-            // FIXME: BLURB FROM SERP
-            console.log("------------end----------")
-          }
-          trimmed.push({
-            link: element.link,
-            page: data
+    .then(axiosResponse => {
+      // Map each element to a Promise created by the axios call
+      let promises = axiosResponse.data.organic.map(el => {
+        // TODO: url filtering to avoid sites like youtube, etc.
+        return axios.get(el.link, scrapeConfig)
+          .then(response => {
+            const $ = cheerio.load(response.data);
+            const body = $('body').html();
+            return {
+              status: "good",
+              link: el.link,
+              title: el.title,
+              description: el.description ? el.description : "", 
+              data: body
+            };
+          })
+          .catch(err => {
+            console.log("scrape error")
+            console.err(new Error("243: err: " + err));
+            console.err(new Error("244: err headers: " + err.headers));
+            return { status: "bad" };
           });
-          console.log(trimmed.length);
-        })
-        .catch(err => {
-          console.log("err");
-          if (false) {
-            console.log("-----------------------------start error--------------------------------")
-            console.log(element.link)
-            console.log(err.code);
-            console.log(err.name);
-            console.log(err.message);
-            console.log(err.response);
-            console.log("------------------------------end error---------------------------------")
-          }
-          return err;
-        })
+      });
+
+      // Return a Promise that resolves when all axios calls are complete
+      return Promise.allSettled(promises);
     })
-  })
-  .then(() => {
-    // FIXME: returns early. is the solution to use async/await or some setup with promise.all(), or something else?
-    console.log("trimmed output: " + trimmed);
-    res.status(200).send(trimmed);
-  });
+    .then(trimmed => {
+      res.status(200).send(trimmed);
+    })
+    .catch(err => {
+      console.log("--- FINAL ERR OUTPUT ---")
+      console.log(Object.keys(err));
+      console.log("error message: " + err);
+      console.log("------------------------")
+    });
     
 });
 
