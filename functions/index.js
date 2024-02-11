@@ -8,7 +8,7 @@ const adminRoutes = require('./routes/adminRoutes');
 require('dotenv').config();
 
 const corsOptions = {
-  origin: 'https://chat.openai.com',
+  origin: ['https://chat.openai.com','http://localhost:3000'],
   optionsSuccessStatus: 200 
 }
 

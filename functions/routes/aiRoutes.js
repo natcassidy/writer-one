@@ -352,5 +352,10 @@ router.get('/routes', (req, res) => {
     `);
 });
 
+router.post("/outline", (req, res) => {
+
+  res.status(200).send(req.body)
+})
+
 module.exports = router;
 
