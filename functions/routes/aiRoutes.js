@@ -1,5 +1,8 @@
 const express = require('express');
 const router = express.Router();
+// FIXME: in 6~ months (May, June, in there somewhere) when node 22 is out 
+// see about node 22 on firebase functions & weigh up zxios vs the new 
+// node fetch() api. might save $/memory/second at least
 const axios = require('axios');
 const cheerio = require('cheerio');
 const qs = require('qs');
@@ -10,6 +13,28 @@ const openai = new OpenAI({
 });
 // ------ Dev Dep ------
 const fs = require("node:fs");
+
+// FIXME: make this its own endpoint in a different folder somewhere...probably
+function stripToText(html, source) {
+  if (!html) {
+    return "";
+  }
+  const $ = cheerio.load(html);
+
+  // if (source.include(".wikipedia.")) {
+    // TODO: consider checking an api for wikipedia mebe
+  //   // has had this id for their main content since at least 2013
+  //   // may still need to update it in the future though
+    
+  // }
+
+  // $('script').remove();
+  // $('style').remove();
+  // $('svg').remove();
+  // $('img').remove();
+  // return $('body').text();
+  return $('body').prop('innerText');
+}
 
 router.get('/health', async (req, res) => {
 
@@ -37,11 +62,7 @@ router.get('/health', async (req, res) => {
     res.status(500).send('No completion available');
   }
 });
-/*
-
-These routes are accessible on the local emulator at:
-http://127.0.0.1:5001/writeeasy-675b2/us-central1/plugin/ai/routes
-
+/* ----- Main Notes -----
 
 Here's the body to expect from the client submitting the form
 
@@ -106,8 +127,38 @@ TODO: --- Job System ---
   - setup job template
   - setup function triggers based on db additions, changes, etc.
   - look into firebase pub/sub
+  - if one of the advantages is not having complex state flow (in functions passing everything to downstream functions),
+    or having complex manager functions that track the overall state and call simpler individual functions similar to 
+    main() or an event loop architecture...does going this route as an alternative risk just making the triggering system 
+    in the database *be* the complex main() or event loop instead? is that any better?
+      - using the db as the manager/triggering system thing would probably lock us into firebase much more
+        - is that a problem though? is migrating to something else a goal?
+        - if we designed each job to use a single master script that held the "recipe" for the *whole* job, then whenever 
+          a change to the job record came in (instead of changes to the individual records inside the job document) then that
+          would fix the lock-in problem since that would be very easy to port to any other platform that we could use as an 
+          event loop
+            - a potential issue is that the logic could get complicated in that one file
+            - the other side of the coin, though, is that if all that complexity has to be there in the job anyway...
+              do you really want it scattered around in a bunch of different places?
+            - having a single master recipe file would definitely make it much easier to use different recipes for different
+              things, and that would make the architecture much more flexible on the whole without having to add complexity
+              - unless I'm missing something?
+  - {
+    jobId: randomUniqueID,
+    formData: { formFields },
+    serpResults: {
+      started: bool,
+      completed: bool,
+      [arrayOfLinks, etc.],
+    },
 
-FIXME: complete the catch() methods in case something fails
+    outline: [arrayOfSectionObjects],
+  }
+
+  TODO: have some way to automatically notify *us* when a page we have special rules for (like wikipedia) changes 
+  how they format their content and potentially breaks our scraper
+    - if the rules for the page involve finding a specific dom element that has now gone missing, just skip that rule
+
 FIXME: setup logging, probably by adding logs to the db or using some firebase hosted service or something
 */
 
@@ -133,19 +184,22 @@ router.post('/process', (req, res) => {
     countryCode = "";
   }
 
-  // console.log(req.body.mainKeyword);
-  // console.log(countryCode);
-
   // fetch SERP results from /serp endpoint
   // maybe wrap this into a single function later, but for now it's easier to watch it from here
 
+  let url;
+  if (process.env.FUNCTIONS_EMULATOR) {
+    url = "http://127.0.0.1:5001/writeeasy-675b2/us-central1/plugin/ai";
+  } else {
+    url = "https://us-central1-writeeasy-675b2.cloudfunctions.net/plugin/ai";
+  }
   const axiosConfig = {
-    baseURL: "http://127.0.0.1:5001/writeeasy-675b2/us-central1/plugin/ai", // FIXME: local emulator url
+    baseURL: url,
     maxRedirects: 5,
     paramsSerializer: function (params) {
       // qs does a number of things, stringify just does what we need here by default
       // https://www.npmjs.com/package/qs
-      return qs.stringify(params, {arrayFormat: 'brackets'})
+      return qs.stringify(params, { arrayFormat: 'brackets' });
     },
     params: {
       query: req.body.mainKeyword,
@@ -155,13 +209,7 @@ router.post('/process', (req, res) => {
 
   axios.get('/serp', axiosConfig)
     .then(function(axiosResponse){
-      if (testing = true) {
-        res.status(200).send(axiosResponse.data[0].data);
-      } else {
         res.status(200).send(axiosResponse.data);
-      }
-
-
     })
     .catch( /* 
     put request in a loop and just set a failed flag of some kind to true in here. 
@@ -180,7 +228,16 @@ process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
 router.get('/serp', (req,res) => {
 
-  // FIXME: put brightdata credentials in the .env file
+  // TODO: label each of these as these doNotScrape or tryBetterProxy or something
+  const forbiddenDomains = [
+    "youtube.com",
+    "pizzahut.com",
+    "blazepizza.com",
+    "dominos.com",
+    "littlecaesars.com",
+    "doi.gov", //setup alternate scraper
+    ];
+
   const query = req.query.query;
   let countryCode;
   if (req.query.countryCode) {
@@ -204,8 +261,8 @@ router.get('/serp', (req,res) => {
       host: 'brd.superproxy.io',
       port: '22225',
       auth: {
-        username: `brd-customer-hl_0c420d11-zone-serp_api1${countryCode}`,
-        password: '75tc7jsaumj2'
+        username: `${process.env.BRIGHTDATA_SERP_USERNAME}${countryCode}`,
+        password: process.env.BRIGHTDATA_SERP_PASSWORD
       }
     }
   }
@@ -216,48 +273,110 @@ router.get('/serp', (req,res) => {
       host: 'brd.superproxy.io',
       port: '22225',
       auth: {
-        username: `brd-customer-hl_0c420d11-zone-data_center${countryCode}`,
-        password: 'bcqii8i01fc7'
+        username: `${process.env.BRIGHTDATA_DC_USERNAME}${countryCode}`,
+        password: process.env.BRIGHTDATA_DC_PASSWORD
       }
     }
   }
 
+  // -------------------------------
+  // ---------WIKIPEDIA API---------
+  // -------------------------------
+  // URL for the Wikipedia API call to get the content of the "Python (programming language)" page
+  const url = "https://en.wikipedia.org/w/api.php?action=query&prop=extracts&format=json&origin=*&titles=Python_(programming_language)";
+
+  // Make the GET request using the Fetch API
+  fetch(url)
+    .then(response => {
+      // Check if the request was successful
+      if (!response.ok) {
+          throw new Error('Network response was not ok');
+      }
+      return response.json(); // Parse the response body as JSON
+    })
+    .then(data => {
+      // Process the JSON data
+      const pages = data.query.pages;
+      const page = pages[Object.keys(pages)[0]]; // Get the first page in the response
+      const content = page.extract; // Extract the content of the page
+
+      // Output the content to the console or handle as needed
+      console.log(content);
+    })
+    .catch(error => {
+      // Handle any errors that occurred during the fetch
+      console.error('Failed to fetch data:', error);
+    });
+  // -------------------------------
+  // -------END WIKIPEDIA API-------
+  // -------------------------------
+
   axios.get(`http://www.google.com/search`, serpConfig)
     .then(axiosResponse => {
       // Map each element to a Promise created by the axios call
+      // TODO: add some way to check whether we've successfully scraped at least some minimum number of pages
+      // and if we haven't continue on page two of the SERP
+
+      // TODO: is there some way to figure out whether we're getting business home pages in the search results 
+      // other than to just send the whole thing to the model and see what it thinks?
       let promises = axiosResponse.data.organic.map(el => {
-        // TODO: url filtering to avoid sites like youtube, etc.
-        return axios.get(el.link, scrapeConfig)
-          .then(response => {
-            const $ = cheerio.load(response.data);
-            const body = $('body').html();
-            return {
-              status: "good",
-              link: el.link,
-              title: el.title,
-              description: el.description ? el.description : "", 
-              data: body
-            };
-          })
-          .catch(err => {
-            console.log("scrape error")
-            console.err(new Error("243: err: " + err));
-            console.err(new Error("244: err headers: " + err.headers));
-            return { status: "bad" };
-          });
+        if (forbiddenDomains.some(domain => el.link.includes(domain))) {
+          return { 
+            status: "not scraped - forbidden", 
+            link: el.link, 
+            title: el.title, 
+            description: el.description ? el.description : "" // TODO: figure out a way to strip out svg's
+          };
+        } else {
+          return axios.get(el.link, scrapeConfig)
+            .then(response => {
+              /* 
+              FIXME: FIXME: figure out match/case/switch/whatever setup for handling different sites via API, etc.
+              TODO: decide for sure on how to handle specific, problem sites
+                - youtube : eventually do something with video, audio, and transcript
+                - wikipedia : has a *lot* of page formatting that can be skipped by jumping to #mw-content-text
+              */
+              const body = stripToText(response.data, el.link);
+              const description = stripToText(el.description);
+              return {
+                status: "good",
+                link: el.link,
+                title: el.title,
+                description: description, 
+                data: body
+              };
+            })
+            .catch(err => {
+              console.log("\nscrape error")
+              console.log(new Error("err: " + err));
+              console.log(new Error("err keys: " + Object.keys(err)) + "\n");
+              return { status: "bad", err: err, headers: err.headers };
+            });
+        }
       });
 
       // Return a Promise that resolves when all axios calls are complete
       return Promise.allSettled(promises);
     })
-    .then(trimmed => {
+    .catch(err => {
+      console.log("\nearly err: " + err);
+    })
+    .then(trimmedPromises => {
+      // "trimmed" because most of the data from axios and brightdata have been discarded
+      trimmed = trimmedPromises.map(item => {
+        if (item.status === "fulfilled"){
+          return item.value;
+        } else {
+          return item;
+        }
+      });
       res.status(200).send(trimmed);
     })
     .catch(err => {
-      console.log("--- FINAL ERR OUTPUT ---")
+      console.log("\n--- FINAL ERR OUTPUT ---")
       console.log(Object.keys(err));
       console.log("error message: " + err);
-      console.log("------------------------")
+      console.log("------------------------\n")
     });
     
 });
@@ -265,7 +384,7 @@ router.get('/serp', (req,res) => {
 router.get('/routes', (req, res) => {
   // test page for local dev
 
-  const baseURL = "http://127.0.0.1:5001/writeeasy-675b2/us-central1/plugin/ai";  // FIXME: local emulator url
+  const baseURL = url;
 
   res.status(200).send(`
     <!DOCTYPE html>
