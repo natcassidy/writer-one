@@ -1,40 +1,22 @@
 const express = require('express');
 const router = express.Router();
 // FIXME: in 6~ months (May, June, in there somewhere) when node 22 is out 
-// see about node 22 on firebase functions & weigh up zxios vs the new 
+// see about node 22 on firebase functions & weigh up axios vs the new 
 // node fetch() api. might save $/memory/second at least
 const axios = require('axios');
-const cheerio = require('cheerio');
 const qs = require('qs');
 require('dotenv').config()
 const OpenAI = require("openai");
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
+
+// ------ Helper .js Deps ------
+const apiFunctions = require('./apiFunctions');
+const misc = require('./miscFunctions');
+
 // ------ Dev Dep ------
 const fs = require("node:fs");
-
-// FIXME: make this its own endpoint in a different folder somewhere...probably
-function stripToText(html, source) {
-  if (!html) {
-    return "";
-  }
-  const $ = cheerio.load(html);
-
-  // if (source.include(".wikipedia.")) {
-    // TODO: consider checking an api for wikipedia mebe
-  //   // has had this id for their main content since at least 2013
-  //   // may still need to update it in the future though
-    
-  // }
-
-  // $('script').remove();
-  // $('style').remove();
-  // $('svg').remove();
-  // $('img').remove();
-  // return $('body').text();
-  return $('body').prop('innerText');
-}
 
 router.get('/health', async (req, res) => {
 
@@ -51,7 +33,7 @@ router.get('/health', async (req, res) => {
       model: "gpt-3.5-turbo-1106",
       response_format: { type: "json_object" },
     });
-  }catch (e) {
+  } catch (e) {
     console.log('exception:', e);
     return res.status(500).send(e); // Send error response
   }
@@ -88,78 +70,6 @@ Here's the body to expect from the client submitting the form
   "internalUrl": "String"
 }
 
-TODO: Determine approximately how many words articles of each length are supposed to be
-TODO: Figure out how to ensure citations happen properly
-TODO: What needs to happen for the image generation to work properly?
-TODO: internalURL will need some kind of sitemap - what did Nathaniel mention for that?
-  - this isn't what I thought it was, but I think I remember something about linking 
-    across posts on the rest of the blog, so we'd need to figure that out
-
-TODO: Figure out how to do the web scraping and SERP fetching for realTimeResearch to work
-  - allow specifying an array of pages to scrape manually?
-  - do we want all scraping to be done after a web search, or do we want to search 
-    amazon directly for some things?
-  - Axios to fetch
-  - Cheerio to extract body and anything else required to pass to model
-  - TODO: will this be expensive to do on firebase functions?
-  - Do we want to take advantage of Brightdata's proxies and let people do auto SERP in their local region? 
-
-TODO: Figure out some way to use a small model as a basic moderator to ensure we don't 
-  send bannable data to OpenAI, etc.
-  - use small model (maybe gpt-3.5 turbo for now, but maybe something cheaper in the future) to verify the 
-    blurb below each link in the SERP results is relevant and inoffensive
-
-TODO: research output quality with GPT-4 at different token lengths
-
-TODO: interactive blog post generation/tinkering
-
-TODO: support geotargetting at either the country or the city/area level
-  - BrightData supports:
-    - a country code list in their examples. it MIGHT just be the country code sublist from below link
-    - https://developers.google.com/google-ads/api/data/geotargets
-      - the country codes here just track ISO 3166-1 alpha-2 (is subject to change, so we should have this automatically update)
-      - if we do set this up to update itself we should make a cheap api people can use that keeps these up-to-date for extra money
-
-TODO: Bulk article creation UI
-  - article templates
-
-TODO: --- Job System ---
-  - setup job template
-  - setup function triggers based on db additions, changes, etc.
-  - look into firebase pub/sub
-  - if one of the advantages is not having complex state flow (in functions passing everything to downstream functions),
-    or having complex manager functions that track the overall state and call simpler individual functions similar to 
-    main() or an event loop architecture...does going this route as an alternative risk just making the triggering system 
-    in the database *be* the complex main() or event loop instead? is that any better?
-      - using the db as the manager/triggering system thing would probably lock us into firebase much more
-        - is that a problem though? is migrating to something else a goal?
-        - if we designed each job to use a single master script that held the "recipe" for the *whole* job, then whenever 
-          a change to the job record came in (instead of changes to the individual records inside the job document) then that
-          would fix the lock-in problem since that would be very easy to port to any other platform that we could use as an 
-          event loop
-            - a potential issue is that the logic could get complicated in that one file
-            - the other side of the coin, though, is that if all that complexity has to be there in the job anyway...
-              do you really want it scattered around in a bunch of different places?
-            - having a single master recipe file would definitely make it much easier to use different recipes for different
-              things, and that would make the architecture much more flexible on the whole without having to add complexity
-              - unless I'm missing something?
-  - {
-    jobId: randomUniqueID,
-    formData: { formFields },
-    serpResults: {
-      started: bool,
-      completed: bool,
-      [arrayOfLinks, etc.],
-    },
-
-    outline: [arrayOfSectionObjects],
-  }
-
-  TODO: have some way to automatically notify *us* when a page we have special rules for (like wikipedia) changes 
-  how they format their content and potentially breaks our scraper
-    - if the rules for the page involve finding a specific dom element that has now gone missing, just skip that rule
-
-FIXME: setup logging, probably by adding logs to the db or using some firebase hosted service or something
 */
 
 router.post('/process', (req, res) => {
@@ -229,6 +139,8 @@ process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 router.get('/serp', (req,res) => {
 
   // TODO: label each of these as these doNotScrape or tryBetterProxy or something
+  // TODO: add known stores as discovered
+  // TODO: prevent stores with blogs from getting forbidden...just only scrape the blog
   const forbiddenDomains = [
     "youtube.com",
     "pizzahut.com",
@@ -237,6 +149,10 @@ router.get('/serp', (req,res) => {
     "littlecaesars.com",
     "doi.gov", //setup alternate scraper
     ];
+  const apiAbleDomains = [
+    "wikipedia.",
+    //"wikimedia.",
+  ];
 
   const query = req.query.query;
   let countryCode;
@@ -265,7 +181,7 @@ router.get('/serp', (req,res) => {
         password: process.env.BRIGHTDATA_SERP_PASSWORD
       }
     }
-  }
+  };
 
   const scrapeConfig = {
     rejectUnauthorized: false,
@@ -277,39 +193,7 @@ router.get('/serp', (req,res) => {
         password: process.env.BRIGHTDATA_DC_PASSWORD
       }
     }
-  }
-
-  // -------------------------------
-  // ---------WIKIPEDIA API---------
-  // -------------------------------
-  // URL for the Wikipedia API call to get the content of the "Python (programming language)" page
-  const url = "https://en.wikipedia.org/w/api.php?action=query&prop=extracts&format=json&origin=*&titles=Python_(programming_language)";
-
-  // Make the GET request using the Fetch API
-  fetch(url)
-    .then(response => {
-      // Check if the request was successful
-      if (!response.ok) {
-          throw new Error('Network response was not ok');
-      }
-      return response.json(); // Parse the response body as JSON
-    })
-    .then(data => {
-      // Process the JSON data
-      const pages = data.query.pages;
-      const page = pages[Object.keys(pages)[0]]; // Get the first page in the response
-      const content = page.extract; // Extract the content of the page
-
-      // Output the content to the console or handle as needed
-      console.log(content);
-    })
-    .catch(error => {
-      // Handle any errors that occurred during the fetch
-      console.error('Failed to fetch data:', error);
-    });
-  // -------------------------------
-  // -------END WIKIPEDIA API-------
-  // -------------------------------
+  };
 
   axios.get(`http://www.google.com/search`, serpConfig)
     .then(axiosResponse => {
@@ -319,7 +203,11 @@ router.get('/serp', (req,res) => {
 
       // TODO: is there some way to figure out whether we're getting business home pages in the search results 
       // other than to just send the whole thing to the model and see what it thinks?
+      
+      // switch statement for different types of pages?
       let promises = axiosResponse.data.organic.map(el => {
+
+        // --- Forbidden Domain ---
         if (forbiddenDomains.some(domain => el.link.includes(domain))) {
           return { 
             status: "not scraped - forbidden", 
@@ -327,7 +215,17 @@ router.get('/serp', (req,res) => {
             title: el.title, 
             description: el.description ? el.description : "" // TODO: figure out a way to strip out svg's
           };
-        } else {
+        } else if (apiAbleDomains.some(domain => el.link.includes(domain))) { // --- API'able Domain ---
+          switch (domain) {
+            case "wikipedia.":
+              return apiFunctions.fetchWikipedia(el);
+              break;
+            default: // --- Unhandled Domain ---
+              console.log("domain in apiAbleDomains but not handled: " + domain + " - " + el.link);
+              return { status: "API not accessed - unhandled domain", type: "api - unknown", link: el.link, title: el.title, description: el.description ? el.description : "" };
+              break;
+          }
+        } else { // --- Regular Domain ---
           return axios.get(el.link, scrapeConfig)
             .then(response => {
               /* 
@@ -336,21 +234,28 @@ router.get('/serp', (req,res) => {
                 - youtube : eventually do something with video, audio, and transcript
                 - wikipedia : has a *lot* of page formatting that can be skipped by jumping to #mw-content-text
               */
-              const body = stripToText(response.data, el.link);
-              const description = stripToText(el.description);
+              const body = misc.stripToText(response.data, el.link);
+              const description = misc.stripToText(el.description);
+
+              let type = "scraped";
+              if (misc.checkIfStore(body)) {
+                type = "scraped - store";
+              }
+
               return {
                 status: "good",
+                type: type,
                 link: el.link,
                 title: el.title,
                 description: description, 
-                data: body
+                data: misc.stripEscapeChars(body)
               };
             })
             .catch(err => {
               console.log("\nscrape error")
               console.log(new Error("err: " + err));
               console.log(new Error("err keys: " + Object.keys(err)) + "\n");
-              return { status: "bad", err: err, headers: err.headers };
+              return { status: "bad", type: "scraped", err: err, headers: err.headers };
             });
         }
       });
@@ -384,6 +289,12 @@ router.get('/serp', (req,res) => {
 router.get('/routes', (req, res) => {
   // test page for local dev
 
+  let url;
+  if (process.env.FUNCTIONS_EMULATOR) {
+    url = "http://127.0.0.1:5001/writeeasy-675b2/us-central1/plugin/ai";
+  } else {
+    url = "https://us-central1-writeeasy-675b2.cloudfunctions.net/plugin/ai";
+  }
   const baseURL = url;
 
   res.status(200).send(`
@@ -474,7 +385,13 @@ router.get('/routes', (req, res) => {
 router.post("/outline", (req, res) => {
 
   res.status(200).send(req.body)
-})
+});
+
+router.get("/testWikipedia", (req, res) => {
+  res.status(200).send(
+    apiFunctions.fetchWikipedia({link: "https://en.wikipedia.org/wiki/Miss_Meyers", title: "Miss Meyers - Wikipedia"})
+  );
+});
 
 module.exports = router;
 
