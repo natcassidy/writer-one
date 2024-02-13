@@ -44,7 +44,7 @@ const removeImages = (string) => {
 }
 
 const stripDotDotDotItems = (string) => {
-    return string.replace(/\.{3}[a-Z]{,25}\.{3}/g, '...');
+    return string.replace(/\.{3}[a-zA-Z]{0,25}\.{3}/g, '...');
 }
 
 const removeKnownGremlins = (string) => {

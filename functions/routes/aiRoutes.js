@@ -118,8 +118,8 @@ router.post('/process', (req, res) => {
   };
 
   axios.get('/serp', axiosConfig)
-    .then(function(axiosResponse){
-        res.status(200).send(axiosResponse.data);
+    .then(function (axiosResponse) {
+      res.status(200).send(axiosResponse.data);
     })
     .catch( /* 
     put request in a loop and just set a failed flag of some kind to true in here. 
@@ -127,16 +127,16 @@ router.post('/process', (req, res) => {
 
     maybe I could do something sort of clever by increasing the loop limit as a 
     natural retry counter & method for forcing a retry
-    */ function(err){ 
-      res.status(500).send(err);
+    */ function (err) {
+        res.status(500).send(err);
 
-  })
+      })
 });
 
 // This is required for the scraping to work through the proxy
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
-router.get('/serp', (req,res) => {
+router.get('/serp', (req, res) => {
 
   // TODO: label each of these as these doNotScrape or tryBetterProxy or something
   // TODO: add known stores as discovered
@@ -148,7 +148,7 @@ router.get('/serp', (req,res) => {
     "dominos.com",
     "littlecaesars.com",
     "doi.gov", //setup alternate scraper
-    ];
+  ];
   const apiAbleDomains = [
     "wikipedia.",
     //"wikimedia.",
@@ -167,7 +167,7 @@ router.get('/serp', (req,res) => {
     paramsSerializer: function (params) {
       // qs does a number of things, stringify just does what we need here by default
       // https://www.npmjs.com/package/qs
-      return qs.stringify(params, {arrayFormat: 'brackets'})
+      return qs.stringify(params, { arrayFormat: 'brackets' })
     },
     params: {
       q: query,
@@ -203,16 +203,16 @@ router.get('/serp', (req,res) => {
 
       // TODO: is there some way to figure out whether we're getting business home pages in the search results 
       // other than to just send the whole thing to the model and see what it thinks?
-      
+
       // switch statement for different types of pages?
       let promises = axiosResponse.data.organic.map(el => {
 
         // --- Forbidden Domain ---
         if (forbiddenDomains.some(domain => el.link.includes(domain))) {
-          return { 
-            status: "not scraped - forbidden", 
-            link: el.link, 
-            title: el.title, 
+          return {
+            status: "not scraped - forbidden",
+            link: el.link,
+            title: el.title,
             description: el.description ? el.description : "" // TODO: figure out a way to strip out svg's
           };
         } else if (apiAbleDomains.some(domain => el.link.includes(domain))) { // --- API'able Domain ---
@@ -254,7 +254,7 @@ router.get('/serp', (req,res) => {
                 type: type,
                 link: el.link,
                 title: el.title,
-                description: description, 
+                description: description,
                 data: body,
               };
             })
@@ -276,7 +276,7 @@ router.get('/serp', (req,res) => {
     .then(trimmedPromises => {
       // "trimmed" because most of the data from axios and brightdata have been discarded
       trimmed = trimmedPromises.map(item => {
-        if (item.status === "fulfilled"){
+        if (item.status === "fulfilled") {
           return item.value;
         } else {
           return item;
@@ -290,7 +290,7 @@ router.get('/serp', (req,res) => {
       console.log("error message: " + err);
       console.log("------------------------\n")
     });
-    
+
 });
 
 router.get('/routes', (req, res) => {
@@ -389,14 +389,76 @@ router.get('/routes', (req, res) => {
     `);
 });
 
-router.post("/outline", (req, res) => {
+router.post("/outline", async (req, res) => {
+  let completion;
+  let responseMessage;
 
-  res.status(200).send(req.body)
+  toolsForNow =
+  [{
+    "type": "function",
+    "function": {
+      "name": "generateOutline",
+      "description": "Generate an outline for the given keyword using the structure provided.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "sections": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "subsections": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      }
+                    },
+                    "required": ["name"]
+                  }
+                }
+              },
+              "required": ["name", "subsections"]
+            }
+          }
+        },
+        "required": ["title", "sections"]
+      }
+    }
+  }]
+
+  try {
+    completion = await openai.chat.completions.create({
+      messages: [
+        {
+          role: "system",
+          content: "You are a helpful assistant designed to output JSON. Your job is to provide a json object to call a fuction called generateOutline.  You will provide a JSON object in your response and ONLY a json object based on the fields specified.",
+        },
+        { role: "user", content: `Generate an outline for the keyword: ${req.body.keyWord}` },
+      ],
+      tools: toolsForNow,
+      model: "gpt-3.5-turbo-1106",
+      response_format: { type: "json_object" },
+    });
+    responseMessage = completion.choices[0].message.tool_calls[0].function.arguments
+  } catch (e) {
+    console.log('exception:', e);
+    return res.status(500).send(e); // Send error response
+  }
+  res.status(200).send(responseMessage)
 });
 
 router.get("/testWikipedia", (req, res) => {
   res.status(200).send(
-    apiFunctions.fetchWikipedia({link: "https://en.wikipedia.org/wiki/Miss_Meyers", title: "Miss Meyers - Wikipedia"})
+    apiFunctions.fetchWikipedia({ link: "https://en.wikipedia.org/wiki/Miss_Meyers", title: "Miss Meyers - Wikipedia" })
   );
 });
 
