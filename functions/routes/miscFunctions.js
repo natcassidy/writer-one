@@ -39,8 +39,27 @@ const checkIfStore = (string) => {
     }
 }
 
+const removeImages = (string) => {
+    return string.replace(/<img[^>]*>/g, "");
+}
+
+const stripDotDotDotItems = (string) => {
+    return string.replace(/\.{3}[a-Z]{,25}\.{3}/g, '...');
+}
+
+const removeKnownGremlins = (string) => {
+    string = string.replace(/’/g, "'");
+    string = string.replace(/–/g, "-");
+    string = string.replace(/[“”]/g, '"');
+    string = string.replace(/⁄/g, '/');
+    return string;
+}
+
 module.exports = {
     stripEscapeChars,
     stripToText,
     checkIfStore,
+    removeKnownGremlins,
+    removeImages,
+    stripDotDotDotItems,
 };

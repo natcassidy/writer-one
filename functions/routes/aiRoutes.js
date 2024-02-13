@@ -234,13 +234,20 @@ router.get('/serp', (req,res) => {
                 - youtube : eventually do something with video, audio, and transcript
                 - wikipedia : has a *lot* of page formatting that can be skipped by jumping to #mw-content-text
               */
-              const body = misc.stripToText(response.data, el.link);
+              let body = misc.stripToText(response.data, el.link);
               const description = misc.stripToText(el.description);
 
+              // TODO: maybe filter these out later
               let type = "scraped";
               if (misc.checkIfStore(body)) {
                 type = "scraped - store";
               }
+
+              // strip out useless data
+              body = misc.removeImages(body);
+              body = misc.removeKnownGremlins(body);
+              body = misc.stripEscapeChars(body);
+              body = misc.stripDotDotDotItems(body);
 
               return {
                 status: "good",
@@ -248,7 +255,7 @@ router.get('/serp', (req,res) => {
                 link: el.link,
                 title: el.title,
                 description: description, 
-                data: misc.stripEscapeChars(body)
+                data: body,
               };
             })
             .catch(err => {
