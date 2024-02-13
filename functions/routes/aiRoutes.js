@@ -148,6 +148,20 @@ router.get('/serp', (req,res) => {
     "dominos.com",
     "littlecaesars.com",
     "doi.gov", //setup alternate scraper
+    
+    /* FIXME: move these to apiAbleDomains once they can be handled specially */
+    // "amazon.com",
+    // "amazon.ca",
+    // "usatoday.com",
+    // "consumerreports.org",
+
+    "all-clad.com", // store
+    "calphalon.com", // store
+    "cuisinart.com", // store
+    "walmart.com", // store
+    "target.com", // store
+    "walgreens.com", // store
+
     ];
   const apiAbleDomains = [
     "wikipedia.",
@@ -234,8 +248,10 @@ router.get('/serp', (req,res) => {
                 - youtube : eventually do something with video, audio, and transcript
                 - wikipedia : has a *lot* of page formatting that can be skipped by jumping to #mw-content-text
               */
-              let body = misc.stripToText(response.data, el.link);
+              let body = misc.stripToText(response.data);
               const description = misc.stripToText(el.description);
+
+              console.log("type: " + typeof(body));
 
               // TODO: maybe filter these out later
               let type = "scraped";
@@ -244,10 +260,10 @@ router.get('/serp', (req,res) => {
               }
 
               // strip out useless data
-              body = misc.removeImages(body);
-              body = misc.removeKnownGremlins(body);
+              // body = misc.removeImages(body);
+              // body = misc.removeKnownGremlins(body);
+              // body = misc.stripDotDotDotItems(body);
               body = misc.stripEscapeChars(body);
-              body = misc.stripDotDotDotItems(body);
 
               return {
                 status: "good",
@@ -262,6 +278,9 @@ router.get('/serp', (req,res) => {
               console.log("\nscrape error")
               console.log(new Error("err: " + err));
               console.log(new Error("err keys: " + Object.keys(err)) + "\n");
+              if (err.request) {
+                console.log("err.request: " + err.request._header);
+              }
               return { status: "bad", type: "scraped", err: err, headers: err.headers };
             });
         }
@@ -271,7 +290,12 @@ router.get('/serp', (req,res) => {
       return Promise.allSettled(promises);
     })
     .catch(err => {
-      console.log("\nearly err: " + err);
+      /*
+      --- Thus far unexplained errors here ---
+      "domain is undefined"
+      */
+      console.log("\nInitial serp request err: " + err);
+      console.log("\nInitial serp request err keys: " + Object.keys(err));
     })
     .then(trimmedPromises => {
       // "trimmed" because most of the data from axios and brightdata have been discarded
@@ -293,7 +317,28 @@ router.get('/serp', (req,res) => {
     
 });
 
-router.get('/routes', (req, res) => {
+router.get('prettyPrint', (req, res) => {
+  let url;
+  if (process.env.FUNCTIONS_EMULATOR) {
+    url = "http://127.0.0.1:5001/writeeasy-675b2/us-central1/plugin/ai";
+  } else {
+    url = "https://us-central1-writeeasy-675b2.cloudfunctions.net/plugin/ai";
+  }
+  axios.get(url + "/process", { 
+    rejectUnauthorized: false,
+    paramsSerializer: function (params) {
+      // qs does a number of things, stringify just does what we need here by default
+      // https://www.npmjs.com/package/qs
+      return qs.stringify(params, {arrayFormat: 'brackets'})
+    }
+  })
+  .then(axiosResponse => {
+    console.log("------- " + typeof(axiosResponse.data) + " -------");
+    res.status(200).send(axiosResponse.data);
+  })
+});
+
+router.get('/generalTest', (req, res) => {
   // test page for local dev
 
   let url;
@@ -312,7 +357,7 @@ router.get('/routes', (req, res) => {
     </head>
     <body>
       <h1>Route Testing</h1>
-      <form action="${baseURL}/process" method="post">
+      <form action="${baseURL}/prettyPrint" method="post">
         <div>
           <label for="mainKeyword">Main Keyword: </label>
           <input type="text" name="mainKeyword" id="mainKeyword" required />
