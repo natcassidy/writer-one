@@ -26,9 +26,9 @@
     "path": "^0.12.7",
     "pdf-parse": "^1.1.1",
     "pdfjs-dist": "^3.7.107",
+    "qs": "^6.11.2",
     "stripe": "^14.13.0",
-    "uuid": "^9.0.0",
-    "qs": "^6.11.2"
+    "uuid": "^9.0.0"
   },
   "devDependencies": {
     "firebase-functions-test": "^3.1.0"
