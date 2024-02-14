@@ -72,7 +72,7 @@ Here's the body to expect from the client submitting the form
 
 */
 
-router.post('/process', (req, res) => {
+router.post('/process', async (req, res) => {
 
   /*
     - Do whatever processing needs to be done before passing data to LLM
@@ -103,114 +103,106 @@ router.post('/process', (req, res) => {
   } else {
     url = "https://us-central1-writeeasy-675b2.cloudfunctions.net/plugin/ai";
   }
-  const axiosConfig = {
-    baseURL: url,
-    maxRedirects: 5,
-    paramsSerializer: function (params) {
-      // qs does a number of things, stringify just does what we need here by default
-      // https://www.npmjs.com/package/qs
-      return qs.stringify(params, { arrayFormat: 'brackets' });
-    },
-    params: {
-      query: req.body.mainKeyword,
-      countryCode: countryCode
-    }
-  };
 
-  axios.get('/serp', axiosConfig)
-    .then(function (axiosResponse) {
-      res.status(200).send(axiosResponse.data);
-    })
-    .catch( /* 
-    put request in a loop and just set a failed flag of some kind to true in here. 
-    finally() can break out of loop if it worked 
+  const params = {
+    query: req.body.mainKeyword,
+    countryCode: countryCode
+  }
 
-    maybe I could do something sort of clever by increasing the loop limit as a 
-    natural retry counter & method for forcing a retry
-    */ function (err) {
-        res.status(500).send(err);
-
-      })
+  try {
+    const data = await getSerpResuts(params);
+    res.status(200).send(data)
+  }
+  catch (e) {
+    res.status(500).send("Failed")
+  }
 });
 
 // This is required for the scraping to work through the proxy
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
-router.get('/serp', (req, res) => {
 
-  // TODO: label each of these as these doNotScrape or tryBetterProxy or something
-  // TODO: add known stores as discovered
-  // TODO: prevent stores with blogs from getting forbidden...just only scrape the blog
-  const forbiddenDomains = [
-    "youtube.com",
-    "pizzahut.com",
-    "blazepizza.com",
-    "dominos.com",
-    "littlecaesars.com",
-    "doi.gov", //setup alternate scraper
-    
-    /* FIXME: move these to apiAbleDomains once they can be handled specially */
-    // "amazon.com",
-    // "amazon.ca",
-    // "usatoday.com",
-    // "consumerreports.org",
 
-    "all-clad.com", // store
-    "calphalon.com", // store
-    "cuisinart.com", // store
-    "walmart.com", // store
-    "target.com", // store
-    "walgreens.com", // store
+// TODO: label each of these as these doNotScrape or tryBetterProxy or something
+// TODO: add known stores as discovered
+// TODO: prevent stores with blogs from getting forbidden...just only scrape the blog
+const forbiddenDomains = [
+  "youtube.com",
+  "pizzahut.com",
+  "blazepizza.com",
+  "dominos.com",
+  "littlecaesars.com",
+  "doi.gov", //setup alternate scraper
 
-  ];
-  const apiAbleDomains = [
-    "wikipedia.",
-    //"wikimedia.",
-  ];
+  /* FIXME: move these to apiAbleDomains once they can be handled specially */
+  // "amazon.com",
+  // "amazon.ca",
+  // "usatoday.com",
+  // "consumerreports.org",
 
-  const query = req.query.query;
+  "all-clad.com", // store
+  "calphalon.com", // store
+  "cuisinart.com", // store
+  "walmart.com", // store
+  "target.com", // store
+  "walgreens.com", // store
+
+];
+const apiAbleDomains = [
+  "wikipedia.",
+  //"wikimedia.",
+];
+
+const getCountryCode = (query) => query.countryCode || "";
+const createParamsSerializer = () => (params) => qs.stringify(params, { arrayFormat: 'brackets' });
+
+const createSerpConfig = (query, countryCode) => ({
+  rejectUnauthorized: false,
+  paramsSerializer: createParamsSerializer(),
+  params: {
+    q: query.query,
+    brd_json: 1
+  },
+  proxy: {
+    host: 'brd.superproxy.io',
+    port: '22225',
+    auth: {
+      username: `${process.env.BRIGHTDATA_SERP_USERNAME}${countryCode}`,
+      password: process.env.BRIGHTDATA_SERP_PASSWORD
+    }
+  }
+});
+
+const createScrapeConfig = (countryCode) => ({
+  rejectUnauthorized: false,
+  proxy: {
+    host: 'brd.superproxy.io',
+    port: '22225',
+    auth: {
+      username: `${process.env.BRIGHTDATA_DC_USERNAME}${countryCode}`,
+      password: process.env.BRIGHTDATA_DC_PASSWORD
+    }
+  }
+});
+
+
+const getSerpResuts = async (data) => {
+
+
+  const query = data
   let countryCode;
-  if (req.query.countryCode) {
-    countryCode = req.query.countryCode;
+  if (query.countryCode) {
+    countryCode = query.countryCode;
   } else {
     countryCode = ""; // can be blank if no specific country is required
   }
 
-  const serpConfig = {
-    rejectUnauthorized: false,
-    paramsSerializer: function (params) {
-      // qs does a number of things, stringify just does what we need here by default
-      // https://www.npmjs.com/package/qs
-      return qs.stringify(params, { arrayFormat: 'brackets' })
-    },
-    params: {
-      q: query,
-      brd_json: 1
-    },
-    proxy: {
-      host: 'brd.superproxy.io',
-      port: '22225',
-      auth: {
-        username: `${process.env.BRIGHTDATA_SERP_USERNAME}${countryCode}`,
-        password: process.env.BRIGHTDATA_SERP_PASSWORD
-      }
-    }
-  };
+  const serpConfig = createSerpConfig(query, countryCode)
+  const scrapeConfig = createScrapeConfig(countryCode)
 
-  const scrapeConfig = {
-    rejectUnauthorized: false,
-    proxy: {
-      host: 'brd.superproxy.io',
-      port: '22225',
-      auth: {
-        username: `${process.env.BRIGHTDATA_DC_USERNAME}${countryCode}`,
-        password: process.env.BRIGHTDATA_DC_PASSWORD
-      }
-    }
-  };
-
-  axios.get(`http://www.google.com/search`, serpConfig)
+  return await axios.get(`http://www.google.com/search`, serpConfig)
     .then(axiosResponse => {
+      console.log('Inside response')
       // Map each element to a Promise created by the axios call
       // TODO: add some way to check whether we've successfully scraped at least some minimum number of pages
       // and if we haven't continue on page two of the SERP
@@ -230,12 +222,14 @@ router.get('/serp', (req, res) => {
             description: el.description ? el.description : "" // TODO: figure out a way to strip out svg's
           };
         } else if (apiAbleDomains.some(domain => el.link.includes(domain))) { // --- API'able Domain ---
-          switch (domain) {
+          const filteredDomain = apiAbleDomains.find(domain => el.link.includes(domain)); // This returns a single domain or undefined
+
+          switch (filteredDomain) {
             case "wikipedia.":
               return apiFunctions.fetchWikipedia(el);
               break;
             default: // --- Unhandled Domain ---
-              console.log("domain in apiAbleDomains but not handled: " + domain + " - " + el.link);
+              console.log("domain in apiAbleDomains but not handled: " + filteredDomain + " - " + el.link);
               return { status: "API not accessed - unhandled domain", type: "api - unknown", link: el.link, title: el.title, description: el.description ? el.description : "" };
               break;
           }
@@ -251,7 +245,7 @@ router.get('/serp', (req, res) => {
               let body = misc.stripToText(response.data);
               const description = misc.stripToText(el.description);
 
-              console.log("type: " + typeof(body));
+              console.log("type: " + typeof (body));
 
               // TODO: maybe filter these out later
               let type = "scraped";
@@ -290,23 +284,19 @@ router.get('/serp', (req, res) => {
       return Promise.allSettled(promises);
     })
     .catch(err => {
-      /*
-      --- Thus far unexplained errors here ---
-      "domain is undefined"
-      */
       console.log("\nInitial serp request err: " + err);
       console.log("\nInitial serp request err keys: " + Object.keys(err));
     })
     .then(trimmedPromises => {
       // "trimmed" because most of the data from axios and brightdata have been discarded
-      trimmed = trimmedPromises.map(item => {
+      const trimmed = trimmedPromises.map(item => {
         if (item.status === "fulfilled") {
           return item.value;
         } else {
           return item;
         }
       });
-      res.status(200).send(trimmed);
+      return trimmed;
     })
     .catch(err => {
       console.log("\n--- FINAL ERR OUTPUT ---")
@@ -315,27 +305,27 @@ router.get('/serp', (req, res) => {
       console.log("------------------------\n")
     });
 
-});
+}
 
-router.get('prettyPrint', (req, res) => {
+router.post('prettyPrint', (req, res) => {
   let url;
   if (process.env.FUNCTIONS_EMULATOR) {
     url = "http://127.0.0.1:5001/writeeasy-675b2/us-central1/plugin/ai";
   } else {
     url = "https://us-central1-writeeasy-675b2.cloudfunctions.net/plugin/ai";
   }
-  axios.get(url + "/process", { 
+  axios.get(url + "/process", {
     rejectUnauthorized: false,
     paramsSerializer: function (params) {
       // qs does a number of things, stringify just does what we need here by default
       // https://www.npmjs.com/package/qs
-      return qs.stringify(params, {arrayFormat: 'brackets'})
+      return qs.stringify(params, { arrayFormat: 'brackets' })
     }
   })
-  .then(axiosResponse => {
-    console.log("------- " + typeof(axiosResponse.data) + " -------");
-    res.status(200).send(axiosResponse.data);
-  })
+    .then(axiosResponse => {
+      console.log("------- " + typeof (axiosResponse.data) + " -------");
+      res.status(200).send(axiosResponse.data);
+    })
 });
 
 router.get('/generalTest', (req, res) => {
@@ -357,7 +347,7 @@ router.get('/generalTest', (req, res) => {
     </head>
     <body>
       <h1>Route Testing</h1>
-      <form action="${baseURL}/prettyPrint" method="post">
+      <form action="${baseURL}/process" method="post">
         <div>
           <label for="mainKeyword">Main Keyword: </label>
           <input type="text" name="mainKeyword" id="mainKeyword" required />
@@ -439,46 +429,46 @@ router.post("/outline", async (req, res) => {
   let responseMessage;
 
   toolsForNow =
-  [{
-    "type": "function",
-    "function": {
-      "name": "generateOutline",
-      "description": "Generate an outline for the given keyword using the structure provided.",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "title": {
-            "type": "string"
-          },
-          "sections": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "name": {
-                  "type": "string"
-                },
-                "subsections": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "name": {
-                        "type": "string"
-                      }
-                    },
-                    "required": ["name"]
+    [{
+      "type": "function",
+      "function": {
+        "name": "generateOutline",
+        "description": "Generate an outline for the given keyword using the structure provided.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "title": {
+              "type": "string"
+            },
+            "sections": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "subsections": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["name"]
+                    }
                   }
-                }
-              },
-              "required": ["name", "subsections"]
+                },
+                "required": ["name", "subsections"]
+              }
             }
-          }
-        },
-        "required": ["title", "sections"]
+          },
+          "required": ["title", "sections"]
+        }
       }
-    }
-  }]
+    }]
 
   try {
     completion = await openai.chat.completions.create({
@@ -506,6 +496,35 @@ router.get("/testWikipedia", (req, res) => {
     apiFunctions.fetchWikipedia({ link: "https://en.wikipedia.org/wiki/Miss_Meyers", title: "Miss Meyers - Wikipedia" })
   );
 });
+
+router.post("/testSerp", async (req, res) => {
+  const serpConfig = {
+    rejectUnauthorized: false,
+    paramsSerializer: function (params) {
+      // qs does a number of things, stringify just does what we need here by default
+      // https://www.npmjs.com/package/qs
+      return qs.stringify(params, { arrayFormat: 'brackets' })
+    },
+    params: {
+      q: query,
+      brd_json: 1
+    },
+    proxy: {
+      host: 'brd.superproxy.io',
+      port: '22225',
+      auth: {
+        username: `${process.env.BRIGHTDATA_SERP_USERNAME}${countryCode}`,
+        password: process.env.BRIGHTDATA_SERP_PASSWORD
+      }
+    }
+  };
+
+
+  await axios.get(`http://www.google.com/search`, serpConfig)
+    .then(data => {
+      res.status(200).send(data)
+    }).catch(e => res.status(500).send(e))
+})
 
 module.exports = router;
 
