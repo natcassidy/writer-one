@@ -84,10 +84,79 @@ const removeKnownGremlins = (string) => {
     return string;
 }
 
+function flattenJsonToHtmlList(json) {
+    // Initialize the result array and a variable to keep track of ids
+    const resultList = [];
+    let idCounter = 1;
+  
+    // Function to add items to the result list
+    const addItem = (tagName, content) => {
+      resultList.push({ id: idCounter.toString(), tagName, content });
+      idCounter++;
+    };
+  
+    // Add the title as an h1 tag
+    addItem("h1", json.title);
+  
+    // Check if sections exist and is an array before iterating
+    if (Array.isArray(json.sections)) {
+      json.sections.forEach((section) => {
+        // Add each section name as an h2 tag
+        addItem("h2", section.name);
+  
+        // Check if subsections exist and is an array before iterating
+        if (Array.isArray(section.subsections)) {
+          section.subsections.forEach((subsection) => {
+            // Add each subsection name as an h3 tag
+            addItem("h3", subsection.name);
+          });
+        }
+      });
+    }
+  
+    return resultList;
+  }
+  
+  
+  // Example JSON input
+  const jsonInput = {
+    "title": "Best cat breeds",
+    "sections": [
+      {
+        "name": "Top 5 Popular Breeds",
+        "subsections": [
+          {"name": "Siamese"},
+          {"name": "Maine Coon"},
+          {"name": "Persian"},
+          {"name": "Ragdoll"},
+          {"name": "Bengal"}
+        ]
+      },
+      {
+        "name": "Unique and Rare Breeds",
+        "subsections": [
+          {"name": "Sphynx"},
+          {"name": "Scottish Fold"},
+          {"name": "Norwegian Forest Cat"},
+          {"name": "Tonkinese"},
+          {"name": "Burmese"}
+        ]
+      }
+    ]
+  };
+  
+  // Convert the input JSON to the desired flatmap format
+  const flatList = flattenJsonToHtmlList(jsonInput);
+  
+  // Log the result to the console
+  console.log(flatList);
+  
+
 module.exports = {
     stripEscapeChars,
     stripToText,
     checkIfStore,
     removeKnownGremlins,
     stripDotDotDotItems,
+    flattenJsonToHtmlList
 };

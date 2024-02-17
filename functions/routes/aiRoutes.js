@@ -433,7 +433,7 @@ router.post("/outline", async (req, res) => {
       "type": "function",
       "function": {
         "name": "generateOutline",
-        "description": "Generate an outline for the given keyword using the structure provided.",
+        "description": "Generate an outline for the given keyword using the structure provided.  The title section should be the introduction",
         "parameters": {
           "type": "object",
           "properties": {
@@ -484,6 +484,8 @@ router.post("/outline", async (req, res) => {
       response_format: { type: "json_object" },
     });
     responseMessage = completion.choices[0].message.tool_calls[0].function.arguments
+    const jsonObject = JSON.parse(responseMessage);
+    responseMessage = misc.flattenJsonToHtmlList(jsonObject)
   } catch (e) {
     console.log('exception:', e);
     return res.status(500).send(e); // Send error response
