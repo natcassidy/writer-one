@@ -6,10 +6,7 @@ const router = express.Router();
 const axios = require('axios');
 const qs = require('qs');
 require('dotenv').config()
-const OpenAI = require("openai");
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+
 
 // ------ Helper .js Deps ------
 const apiFunctions = require('./apiFunctions');
@@ -72,21 +69,36 @@ Here's the body to expect from the client submitting the form
 
 */
 
-router.post('/process', async (req, res) => {
-
-  /*
-    - Do whatever processing needs to be done before passing data to LLM
-      - stuff like fetching data, scraping, etc.
-        - setup brightdata or whatever we end up using to get SERP results
-    - Identify subset of req.body that the LLM will need then request article outline, 
-      from model based on length provided
-    - Submit each section from the article based on the outline to the model to generate, 
-      along with whatever scraping data will be required
-    - Build article out of components from the outline
-    - Submit article to LLM for final review, along with the initial specification
+/*
+const [formData, setFormData] = useState({
+    keyWord: '',
+    internalUrl: '',
+    articleLength: 0,
+    wordRange: wordRanges[0],
+    tone: tone[0],
+    pointOfView: pointOfView[0],
+    realTimeResearch: false,
+    citeSources: false,
+    includeFAQs: false,
+    generatedImages: false,
+    generateOutline: false,
+    outline: []
+  });
   */
+router.post('/process', async (req, res) => {
+  const { keyWord, internalUrl, articleLength, wordRange, tone,
+    pointOfView, realTimeResearch, citeSources, includeFAQs,
+    generatedImages, generateOutline, outline, currentUser } = req.body
 
-  // console.log(req.body);
+
+  let jobId = -1
+
+  if (outline.size != 0) {
+    jobId = await misc.updateFirebaseJob(currentUser, jobId, "outline", outline)
+  } else {
+
+  }
+
   let countryCode;
   if (req.body.countryCode) {
     countryCode = req.body.countryCode;
@@ -94,18 +106,8 @@ router.post('/process', async (req, res) => {
     countryCode = "";
   }
 
-  // fetch SERP results from /serp endpoint
-  // maybe wrap this into a single function later, but for now it's easier to watch it from here
-
-  let url;
-  if (process.env.FUNCTIONS_EMULATOR) {
-    url = "http://127.0.0.1:5001/writeeasy-675b2/us-central1/plugin/ai";
-  } else {
-    url = "https://us-central1-writeeasy-675b2.cloudfunctions.net/plugin/ai";
-  }
-
   const params = {
-    query: req.body.mainKeyword,
+    query: keyWord,
     countryCode: countryCode
   }
 
@@ -424,73 +426,17 @@ router.get('/generalTest', (req, res) => {
     `);
 });
 
+// Route handler
 router.post("/outline", async (req, res) => {
-  let completion;
-  let responseMessage;
-
-  toolsForNow =
-    [{
-      "type": "function",
-      "function": {
-        "name": "generateOutline",
-        "description": "Generate an outline for the given keyword using the structure provided.  The title section should be the introduction",
-        "parameters": {
-          "type": "object",
-          "properties": {
-            "title": {
-              "type": "string"
-            },
-            "sections": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "name": {
-                    "type": "string"
-                  },
-                  "subsections": {
-                    "type": "array",
-                    "items": {
-                      "type": "object",
-                      "properties": {
-                        "name": {
-                          "type": "string"
-                        }
-                      },
-                      "required": ["name"]
-                    }
-                  }
-                },
-                "required": ["name", "subsections"]
-              }
-            }
-          },
-          "required": ["title", "sections"]
-        }
-      }
-    }]
-
   try {
-    completion = await openai.chat.completions.create({
-      messages: [
-        {
-          role: "system",
-          content: "You are a helpful assistant designed to output JSON. Your job is to provide a json object to call a fuction called generateOutline.  You will provide a JSON object in your response and ONLY a json object based on the fields specified.",
-        },
-        { role: "user", content: `Generate an outline for the keyword: ${req.body.keyWord}` },
-      ],
-      tools: toolsForNow,
-      model: "gpt-3.5-turbo-1106",
-      response_format: { type: "json_object" },
-    });
-    responseMessage = completion.choices[0].message.tool_calls[0].function.arguments
-    const jsonObject = JSON.parse(responseMessage);
-    responseMessage = misc.flattenJsonToHtmlList(jsonObject)
-  } catch (e) {
-    console.log('exception:', e);
-    return res.status(500).send(e); // Send error response
+    const completion = await misc.generateOutlineWithAI(req.body.keyWord);
+    let responseMessage = completion.choices[0].message.tool_calls[0].function.arguments;
+    responseMessage = misc.processAIResponseToHtml(responseMessage);
+    res.status(200).send(responseMessage);
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).send(error.message || 'An error occurred');
   }
-  res.status(200).send(responseMessage)
 });
 
 router.get("/testWikipedia", (req, res) => {

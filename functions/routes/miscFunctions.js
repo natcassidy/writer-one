@@ -1,4 +1,10 @@
 const cheerio = require('cheerio');
+const admin = require('firebase-admin');
+require('dotenv').config()
+const OpenAI = require("openai");
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 const stripEscapeChars = (string) => {
     // return string.replace(/[\x00-\x1F\x7F-\x9F]/g, '');
@@ -9,7 +15,7 @@ const stripEscapeChars = (string) => {
 
 function stripToText(html) {
     if (!html) {
-      return "";
+        return "";
     }
     const $ = cheerio.load(html);
     $('script').remove();
@@ -30,16 +36,16 @@ function stripToText(html) {
     $('embed').remove();
 
     //remove html comments
-    $('*').contents().each(function() {
-      if (this.nodeType === 8) {
-        $(this).remove();
-      }
+    $('*').contents().each(function () {
+        if (this.nodeType === 8) {
+            $(this).remove();
+        }
     });
 
     // return $('body').prop('innerText');
     // return $('body').prop('innerHTML');
     return $('body').prop('textContent');
-  }
+}
 
 const checkIfStore = (string) => {
     lString = string.toLowerCase();
@@ -88,69 +94,146 @@ function flattenJsonToHtmlList(json) {
     // Initialize the result array and a variable to keep track of ids
     const resultList = [];
     let idCounter = 1;
-  
+
     // Function to add items to the result list
     const addItem = (tagName, content) => {
-      resultList.push({ id: idCounter.toString(), tagName, content });
-      idCounter++;
+        resultList.push({ id: idCounter.toString(), tagName, content });
+        idCounter++;
     };
-  
+
     // Add the title as an h1 tag
     addItem("h1", json.title);
-  
+
     // Check if sections exist and is an array before iterating
     if (Array.isArray(json.sections)) {
-      json.sections.forEach((section) => {
-        // Add each section name as an h2 tag
-        addItem("h2", section.name);
-  
-        // Check if subsections exist and is an array before iterating
-        if (Array.isArray(section.subsections)) {
-          section.subsections.forEach((subsection) => {
-            // Add each subsection name as an h3 tag
-            addItem("h3", subsection.name);
-          });
-        }
-      });
+        json.sections.forEach((section) => {
+            // Add each section name as an h2 tag
+            addItem("h2", section.name);
+
+            // Check if subsections exist and is an array before iterating
+            if (Array.isArray(section.subsections)) {
+                section.subsections.forEach((subsection) => {
+                    // Add each subsection name as an h3 tag
+                    addItem("h3", subsection.name);
+                });
+            }
+        });
     }
-  
+
     return resultList;
-  }
-  
-  
-  // Example JSON input
-  const jsonInput = {
-    "title": "Best cat breeds",
-    "sections": [
-      {
-        "name": "Top 5 Popular Breeds",
-        "subsections": [
-          {"name": "Siamese"},
-          {"name": "Maine Coon"},
-          {"name": "Persian"},
-          {"name": "Ragdoll"},
-          {"name": "Bengal"}
-        ]
-      },
-      {
-        "name": "Unique and Rare Breeds",
-        "subsections": [
-          {"name": "Sphynx"},
-          {"name": "Scottish Fold"},
-          {"name": "Norwegian Forest Cat"},
-          {"name": "Tonkinese"},
-          {"name": "Burmese"}
-        ]
-      }
-    ]
-  };
-  
-  // Convert the input JSON to the desired flatmap format
-  const flatList = flattenJsonToHtmlList(jsonInput);
-  
-  // Log the result to the console
-  console.log(flatList);
-  
+}
+
+const updateFirebaseJob = async (currentUser, jobId, fieldName, data) => {
+    const userRef = admin.firestore().collection("users").doc(currentUser.uid);
+
+    try {
+        const doc = await userRef.get();
+
+        if (!doc.exists) {
+            console.log("No such document!");
+            return;
+        }
+
+        // Assuming 'jobs' is an array of job objects.
+        const userData = doc.data();
+        let jobs = userData.jobs || [];
+
+        if (jobId === -1) {
+            // Create a new job
+            // Ensure you generate or define a new jobId if required
+            const newJobId = Date.now(); // Example of generating a new jobId, adjust as necessary
+            const newJob = { jobId: newJobId, [fieldName]: data };
+
+            // Add the new job to the jobs array
+            jobs.push(newJob);
+            console.log("New job created");
+        } else {
+            // Find the index of the job you want to update.
+            const jobIndex = jobs.findIndex(job => job.jobId === jobId);
+            if (jobIndex === -1) {
+                console.log("Job not found");
+                return;
+            }
+
+            // Update the specific field for this job.
+            jobs[jobIndex][fieldName] = data;
+            console.log("Job updated successfully");
+        }
+
+        // Update the user document with the modified jobs array.
+        await userRef.update({ jobs: jobs });
+
+    } catch (error) {
+        console.error("Error updating job:", error);
+    }
+};
+
+
+// Function to process AI response and convert to HTML list
+function processAIResponseToHtml(responseMessage) {
+    try {
+        const jsonObject = JSON.parse(responseMessage);
+        return flattenJsonToHtmlList(jsonObject);
+    } catch (error) {
+        throw new Error('Failed to process AI response');
+    }
+}
+
+// AI tool call function
+async function generateOutlineWithAI(keyword) {
+    const toolsForNow =
+        [{
+            "type": "function",
+            "function": {
+                "name": "generateOutline",
+                "description": "Generate an outline for the given keyword using the structure provided.  The title section should be the introduction",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "title": {
+                            "type": "string"
+                        },
+                        "sections": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "name": {
+                                        "type": "string"
+                                    },
+                                    "subsections": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "name": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": ["name"]
+                                        }
+                                    }
+                                },
+                                "required": ["name", "subsections"]
+                            }
+                        }
+                    },
+                    "required": ["title", "sections"]
+                }
+            }
+        }]
+
+    return await openai.chat.completions.create({
+        messages: [
+            { role: "system", content: "You are a helpful assistant designed to output JSON." },
+            { role: "user", content: `Generate an outline for the keyword: ${keyword}` }
+        ],
+        tools: toolsForNow,
+        model: "gpt-3.5-turbo-1106",
+        response_format: { type: "json_object" }
+    });
+}
+
 
 module.exports = {
     stripEscapeChars,
@@ -158,5 +241,8 @@ module.exports = {
     checkIfStore,
     removeKnownGremlins,
     stripDotDotDotItems,
-    flattenJsonToHtmlList
+    flattenJsonToHtmlList,
+    updateFirebaseJob,
+    processAIResponseToHtml,
+    generateOutlineWithAI
 };
