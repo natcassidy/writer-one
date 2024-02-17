@@ -124,7 +124,10 @@ function flattenJsonToHtmlList(json) {
 }
 
 const updateFirebaseJob = async (currentUser, jobId, fieldName, data) => {
-    const userRef = admin.firestore().collection("users").doc(currentUser.uid);
+    if(!currentUser) {
+        throw new Error('No user defined')
+    }
+    const userRef = admin.firestore().collection("customers").doc(currentUser.uid);
 
     try {
         const doc = await userRef.get();
@@ -234,6 +237,11 @@ async function generateOutlineWithAI(keyword) {
     });
 }
 
+const generateOutline = async (keyWord) => {
+    const completion = await generateOutlineWithAI(keyWord);
+    let responseMessage = completion.choices[0].message.tool_calls[0].function.arguments;
+    return processAIResponseToHtml(responseMessage);
+}
 
 module.exports = {
     stripEscapeChars,
@@ -244,5 +252,6 @@ module.exports = {
     flattenJsonToHtmlList,
     updateFirebaseJob,
     processAIResponseToHtml,
-    generateOutlineWithAI
+    generateOutlineWithAI,
+    generateOutline
 };

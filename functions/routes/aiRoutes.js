@@ -96,28 +96,31 @@ router.post('/process', async (req, res) => {
   if (outline.size != 0) {
     jobId = await misc.updateFirebaseJob(currentUser, jobId, "outline", outline)
   } else {
-
+    const outline = await misc.generateOutline(keyWord)
+    jobId = await misc.updateFirebaseJob(currentUser, jobId, "outline", outline)
   }
 
-  let countryCode;
-  if (req.body.countryCode) {
-    countryCode = req.body.countryCode;
-  } else {
-    countryCode = "";
-  }
+  // let countryCode;
+  // if (req.body.countryCode) {
+  //   countryCode = req.body.countryCode;
+  // } else {
+  //   countryCode = "";
+  // }
 
-  const params = {
-    query: keyWord,
-    countryCode: countryCode
-  }
+  // const params = {
+  //   query: keyWord,
+  //   countryCode: countryCode
+  // }
 
-  try {
-    const data = await getSerpResuts(params);
-    res.status(200).send(data)
-  }
-  catch (e) {
-    res.status(500).send("Failed")
-  }
+  // try {
+  //   const data = await getSerpResuts(params);
+  //   res.status(200).send(data)
+  // }
+  // catch (e) {
+  //   res.status(500).send("Failed")
+  // }
+
+  res.status(200)
 });
 
 // This is required for the scraping to work through the proxy
@@ -429,9 +432,7 @@ router.get('/generalTest', (req, res) => {
 // Route handler
 router.post("/outline", async (req, res) => {
   try {
-    const completion = await misc.generateOutlineWithAI(req.body.keyWord);
-    let responseMessage = completion.choices[0].message.tool_calls[0].function.arguments;
-    responseMessage = misc.processAIResponseToHtml(responseMessage);
+    const responseMessage = await misc.generateOutline(req.body.keyWord)
     res.status(200).send(responseMessage);
   } catch (error) {
     console.error('Error:', error);
