@@ -171,6 +171,35 @@ const updateFirebaseJob = async (currentUser, jobId, fieldName, data) => {
     }
 };
 
+const doesUserHaveEnoughWords = async (currentUser, articleLength) => {
+    if(!currentUser) {
+        throw new Error('No user defined')
+    }
+    const userRef = admin.firestore().collection("customers").doc(currentUser.uid);
+
+    let words = 0
+    try {
+        const doc = await userRef.get();
+
+        if (!doc.exists) {
+            console.log("No such document!");
+            return;
+        }
+
+        // Assuming 'jobs' is an array of job objects.
+        words= doc.data().words;
+
+    } catch (error) {
+        console.error("Error updating job:", error);
+    }
+
+    if (words >= articleLength) {
+        return true
+    } else {
+        return false
+    }
+};
+
 
 // Function to process AI response and convert to HTML list
 function processAIResponseToHtml(responseMessage) {
@@ -253,5 +282,6 @@ module.exports = {
     updateFirebaseJob,
     processAIResponseToHtml,
     generateOutlineWithAI,
-    generateOutline
+    generateOutline,
+    doesUserHaveEnoughWords
 };

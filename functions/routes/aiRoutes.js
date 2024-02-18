@@ -93,6 +93,12 @@ router.post('/process', async (req, res) => {
 
   let jobId = -1
 
+  const isWithinWordCount = await misc.doesUserHaveEnoughWords(currentUser, articleLength)
+
+  if(!isWithinWordCount) {
+    res.status(500).send("Word Count Limit Hit")
+  }
+
   if (outline.size != 0) {
     jobId = await misc.updateFirebaseJob(currentUser, jobId, "outline", outline)
   } else {
