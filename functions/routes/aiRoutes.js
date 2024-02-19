@@ -106,7 +106,13 @@ router.post('/process', async (req, res) => {
     jobId = await misc.updateFirebaseJob(currentUser, jobId, "outline", outline)
   }
 
-  const constructuredArticle = await misc.generateArticle(outline, keyWord);
+  if(realTimeResearch) {
+    const questions = await misc.generateContext(outline, jobId, keyWord)
+    jobId = await misc.updateFirebaseJob(currentUser, jobId, "questions", questions)
+  }
+  
+
+  // await misc.generateArticle(outline, keyWord);
   // const questions = misc.generateReleventQuestions(outline)
 
   // let countryCode;
@@ -129,7 +135,7 @@ router.post('/process', async (req, res) => {
   //   res.status(500).send("Failed")
   // }
 
-  res.status(200).send(constructuredArticle)
+  res.status(200).send(outline)
 });
 
 // This is required for the scraping to work through the proxy

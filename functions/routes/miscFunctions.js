@@ -125,49 +125,32 @@ function flattenJsonToHtmlList(json) {
 
 const updateFirebaseJob = async (currentUser, jobId, fieldName, data) => {
     if (!currentUser) {
-        throw new Error('No user defined')
+        throw new Error('No user defined');
     }
-    const userRef = admin.firestore().collection("customers").doc(currentUser.uid);
+
+    const jobsCollection = admin.firestore().collection("jobs");
 
     try {
-        const doc = await userRef.get();
-
-        if (!doc.exists) {
-            console.log("No such document!");
-            return;
-        }
-
-        // Assuming 'jobs' is an array of job objects.
-        const userData = doc.data();
-        let jobs = userData.jobs || [];
-
         if (jobId === -1) {
-            // Create a new job
-            // Ensure you generate or define a new jobId if required
-            const newJobId = Date.now(); // Example of generating a new jobId, adjust as necessary
-            const newJob = { jobId: newJobId, [fieldName]: data };
+            // Let Firebase generate the jobId
+            const newJobData = { [fieldName]: data };
+            const newDocRef = await jobsCollection.add(newJobData);
 
-            // Add the new job to the jobs array
-            jobs.push(newJob);
-            console.log("New job created");
+            console.log("New job created with ID:", newDocRef.id);
+            return newDocRef.id
         } else {
-            // Find the index of the job you want to update.
-            const jobIndex = jobs.findIndex(job => job.jobId === jobId);
-            if (jobIndex === -1) {
-                console.log("Job not found");
-                return;
-            }
+            // Updates the job if it exists
+            const jobRef = jobsCollection.doc(jobId.toString());
 
-            // Update the specific field for this job.
-            jobs[jobIndex][fieldName] = data;
+            // Set with merge: true updates the field without overwriting the document
+            await jobRef.set({ [fieldName]: data }, { merge: true });
+
             console.log("Job updated successfully");
+            return jobId
         }
-
-        // Update the user document with the modified jobs array.
-        await userRef.update({ jobs: jobs });
-
     } catch (error) {
         console.error("Error updating job:", error);
+        throw error; // Re-throw the error to handle it outside this function if needed
     }
 };
 
@@ -272,32 +255,32 @@ const generateOutline = async (keyWord) => {
     return processAIResponseToHtml(responseMessage);
 }
 
-const generateReleventQuestions = async (outline) => {
-    const toolsForNow =
-        [{
-            "type": "function",
-            "function": {
-                "name": "generateQuestions",
-                "description": "Generate questions that are relevent to the creation of this article that would be useful to know before writing the article.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "questions": {
-                            "type": "array",
-                            "questions": {
-                                "type": "string"
-                            }
+const generateReleventQuestions = async (outline, keyWord) => {
+    const toolsForNow = [{
+        "type": "function",
+        "function": {
+            "name": "provideQuestions",
+            "description": "Provide a list of questions to this endpoint to use for generating articles.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "questions": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
                         }
-                    },
-                    "required": ["questions"]
-                }
+                    }
+                },
+                "required": ["questions"]
             }
-        }]
+        }
+    }];
 
+    const outlineToString = generateOutlineString(outline)
     return await openai.chat.completions.create({
         messages: [
             { role: "system", content: "You are a helpful assistant designed to output JSON." },
-            { role: "user", content: `Generate relevent questions to consider before writing an article with the following outline: ${keyword}` }
+            { role: "user", content: `Generate relevent questions to consider before writing an article on the following topic: ${keyWord} with the following outline: ${outlineToString}` }
         ],
         tools: toolsForNow,
         model: "gpt-3.5-turbo-1106",
@@ -305,6 +288,15 @@ const generateReleventQuestions = async (outline) => {
     });
 }
 
+const generateOutlineString = (outline) => {
+    let outlineString = ""
+
+    outline.forEach(section => {
+        outlineString += ` Section tag:${section.tagName} Section Name: ${section.content} \n`
+    })
+
+    return outlineString
+}
 const generateSection = async (sectionHeader, keyWord, context) => {
     const toolsForNow =
         [{
@@ -342,16 +334,25 @@ const generateArticle = async (outline, keyWord) => {
         if (section.tagName == 'h3') {
             const promise = generateSection(section.content, keyWord, "").then(completion => {
                 let responseMessage = JSON.parse(completion.choices[0].message.tool_calls[0].function.arguments);
-                return responseMessage.paragraph; 
+                section.sectionContent = responseMessage.paragraph; // Correctly assign to each section
             });
             promises.push(promise);
         }
     }
 
-    const completedSections = await Promise.all(promises);
-    return completedSections;
+    return await Promise.all(promises);;
 }
 
+const generateContext = async (outline, keyWord) => {
+    try {
+        const completion = await generateReleventQuestions(outline, keyWord)
+        let responseMessage = JSON.parse(completion.choices[0].message.tool_calls[0].function.arguments);
+        return responseMessage.questions;
+    } catch (e) {
+        console.log('Exception thrown: ', e)
+        throw e
+    }
+}
 
 module.exports = {
     stripEscapeChars,
@@ -366,5 +367,6 @@ module.exports = {
     generateOutline,
     doesUserHaveEnoughWords,
     generateReleventQuestions,
-    generateArticle
+    generateArticle,
+    generateContext
 };
