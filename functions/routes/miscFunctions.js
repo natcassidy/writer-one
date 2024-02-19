@@ -3,7 +3,7 @@ const admin = require('firebase-admin');
 require('dotenv').config()
 const OpenAI = require("openai");
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+    apiKey: process.env.OPENAI_API_KEY,
 });
 
 const stripEscapeChars = (string) => {
@@ -124,7 +124,7 @@ function flattenJsonToHtmlList(json) {
 }
 
 const updateFirebaseJob = async (currentUser, jobId, fieldName, data) => {
-    if(!currentUser) {
+    if (!currentUser) {
         throw new Error('No user defined')
     }
     const userRef = admin.firestore().collection("customers").doc(currentUser.uid);
@@ -172,7 +172,7 @@ const updateFirebaseJob = async (currentUser, jobId, fieldName, data) => {
 };
 
 const doesUserHaveEnoughWords = async (currentUser, articleLength) => {
-    if(!currentUser) {
+    if (!currentUser) {
         throw new Error('No user defined')
     }
     const userRef = admin.firestore().collection("customers").doc(currentUser.uid);
@@ -187,7 +187,7 @@ const doesUserHaveEnoughWords = async (currentUser, articleLength) => {
         }
 
         // Assuming 'jobs' is an array of job objects.
-        words= doc.data().words;
+        words = doc.data().words;
 
     } catch (error) {
         console.error("Error updating job:", error);
@@ -272,6 +272,87 @@ const generateOutline = async (keyWord) => {
     return processAIResponseToHtml(responseMessage);
 }
 
+const generateReleventQuestions = async (outline) => {
+    const toolsForNow =
+        [{
+            "type": "function",
+            "function": {
+                "name": "generateQuestions",
+                "description": "Generate questions that are relevent to the creation of this article that would be useful to know before writing the article.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "questions": {
+                            "type": "array",
+                            "questions": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "required": ["questions"]
+                }
+            }
+        }]
+
+    return await openai.chat.completions.create({
+        messages: [
+            { role: "system", content: "You are a helpful assistant designed to output JSON." },
+            { role: "user", content: `Generate relevent questions to consider before writing an article with the following outline: ${keyword}` }
+        ],
+        tools: toolsForNow,
+        model: "gpt-3.5-turbo-1106",
+        response_format: { type: "json_object" }
+    });
+}
+
+const generateSection = async (sectionHeader, keyWord, context) => {
+    const toolsForNow =
+        [{
+            "type": "function",
+            "function": {
+                "name": "generateSections",
+                "description": "Generate a 300 word paragraph based on the information provided.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "paragraph": {
+                            "type": "string"
+                        }
+                    },
+                    "required": ["paragraph"]
+                }
+            }
+        }]
+
+    return await openai.chat.completions.create({
+        messages: [
+            { role: "system", content: "You are a helpful assistant designed to output JSON." },
+            { role: "user", content: `Generate a 300 word paragragh on this topic: ${keyWord} for a section titled: ${sectionHeader}, DO NOT ADD HEADERS.  Here is relevent context ${context}.  REMEMBER NO MORE THAN 300 WORDS AND DO NOT INCLUDE A HEADER JUST WRITE A PARAGRAPH.` }
+        ],
+        tools: toolsForNow,
+        model: "gpt-3.5-turbo-1106",
+        response_format: { type: "json_object" }
+    });
+}
+
+const generateArticle = async (outline, keyWord) => {
+    const promises = [];
+
+    for (const section of outline) {
+        if (section.tagName == 'h3') {
+            const promise = generateSection(section.content, keyWord, "").then(completion => {
+                let responseMessage = JSON.parse(completion.choices[0].message.tool_calls[0].function.arguments);
+                return responseMessage.paragraph; 
+            });
+            promises.push(promise);
+        }
+    }
+
+    const completedSections = await Promise.all(promises);
+    return completedSections;
+}
+
+
 module.exports = {
     stripEscapeChars,
     stripToText,
@@ -283,5 +364,7 @@ module.exports = {
     processAIResponseToHtml,
     generateOutlineWithAI,
     generateOutline,
-    doesUserHaveEnoughWords
+    doesUserHaveEnoughWords,
+    generateReleventQuestions,
+    generateArticle
 };

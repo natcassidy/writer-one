@@ -106,6 +106,9 @@ router.post('/process', async (req, res) => {
     jobId = await misc.updateFirebaseJob(currentUser, jobId, "outline", outline)
   }
 
+  const constructuredArticle = await misc.generateArticle(outline, keyWord);
+  // const questions = misc.generateReleventQuestions(outline)
+
   // let countryCode;
   // if (req.body.countryCode) {
   //   countryCode = req.body.countryCode;
@@ -126,7 +129,7 @@ router.post('/process', async (req, res) => {
   //   res.status(500).send("Failed")
   // }
 
-  res.status(200)
+  res.status(200).send(constructuredArticle)
 });
 
 // This is required for the scraping to work through the proxy
@@ -198,8 +201,6 @@ const createScrapeConfig = (countryCode) => ({
 
 
 const getSerpResuts = async (data) => {
-
-
   const query = data
   let countryCode;
   if (query.countryCode) {
