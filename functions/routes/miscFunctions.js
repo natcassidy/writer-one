@@ -137,6 +137,8 @@ const updateFirebaseJob = async (currentUser, jobId, fieldName, data) => {
             const newDocRef = await jobsCollection.add(newJobData);
 
             console.log("New job created with ID:", newDocRef.id);
+            await addJobIdToUserFirebase(currentUser, newDocRef.id)
+
             return newDocRef.id
         } else {
             // Updates the job if it exists
@@ -146,13 +148,51 @@ const updateFirebaseJob = async (currentUser, jobId, fieldName, data) => {
             await jobRef.set({ [fieldName]: data }, { merge: true });
 
             console.log("Job updated successfully");
+            await addJobIdToUserFirebase(currentUser, jobId)
+
             return jobId
         }
+
+        
     } catch (error) {
         console.error("Error updating job:", error);
         throw error; // Re-throw the error to handle it outside this function if needed
     }
 };
+
+const addJobIdToUserFirebase = async (currentUser, jobId) => {
+    if (!currentUser) {
+        throw new Error('No user defined')
+    }
+
+    const userRef = admin.firestore().collection("customers").doc(currentUser.uid);
+
+    try {
+        const doc = await userRef.get();
+
+        if (!doc.exists) {
+            console.log("No such document!");
+            return;
+        }
+
+        // Assuming 'jobs' is an array of job objects.
+        const userData = doc.data();
+        let jobs = userData.jobs || [];
+
+        // Find the index of the job you want to update.
+        const jobIndex = jobs.findIndex(job => job === jobId);
+        if (jobIndex === -1) {
+            jobs.push(jobId)
+            await userRef.update({ jobs: jobs });
+        } else {
+            console.log('Job already exists on user object')
+        }
+
+    } catch (error) {
+        console.error("Error updating job:", error);
+        throw error; // Re-throw the error to handle it outside this function if needed
+    }
+}
 
 const doesUserHaveEnoughWords = async (currentUser, articleLength) => {
     if (!currentUser) {
