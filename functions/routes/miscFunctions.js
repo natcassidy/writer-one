@@ -1,4 +1,10 @@
 const cheerio = require('cheerio');
+const admin = require('firebase-admin');
+require('dotenv').config()
+const OpenAI = require("openai");
+const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+});
 
 const stripEscapeChars = (string) => {
     // TODO: Check this regex to make sure it doesn't break anything.
@@ -21,7 +27,7 @@ const stripEscapeChars = (string) => {
 
 function stripToText(html) {
     if (!html) {
-      return "";
+        return "";
     }
     const $ = cheerio.load(html);
     $('script').remove();
@@ -42,16 +48,16 @@ function stripToText(html) {
     $('embed').remove();
 
     //remove html comments
-    $('*').contents().each(function() {
-      if (this.nodeType === 8) {
-        $(this).remove();
-      }
+    $('*').contents().each(function () {
+        if (this.nodeType === 8) {
+            $(this).remove();
+        }
     });
 
     // return $('body').prop('innerText');
     // return $('body').prop('innerHTML');
     return $('body').prop('textContent');
-  }
+}
 
 const checkIfStore = (string) => {
     lString = string.toLowerCase();
@@ -96,10 +102,397 @@ const removeKnownGremlins = (string) => {
     return string;
 }
 
+function flattenJsonToHtmlList(json) {
+    // Initialize the result array and a variable to keep track of ids
+    const resultList = [];
+    let idCounter = 1;
+
+    // Function to add items to the result list
+    const addItem = (tagName, content) => {
+        resultList.push({ id: idCounter.toString(), tagName, content });
+        idCounter++;
+    };
+
+    // Add the title as an h1 tag
+    addItem("h1", json.title);
+
+    // Check if sections exist and is an array before iterating
+    if (Array.isArray(json.sections)) {
+        json.sections.forEach((section) => {
+            // Add each section name as an h2 tag
+            addItem("h2", section.name);
+
+            // Check if subsections exist and is an array before iterating
+            if (Array.isArray(section.subsections)) {
+                section.subsections.forEach((subsection) => {
+                    // Add each subsection name as an h3 tag
+                    addItem("h3", subsection.name);
+                });
+            }
+        });
+    }
+
+    return resultList;
+}
+
+const updateFirebaseJob = async (currentUser, jobId, fieldName, data) => {
+    if (!currentUser) {
+        throw new Error('No user defined');
+    }
+
+    const jobsCollection = admin.firestore().collection("jobs");
+
+    try {
+        if (jobId === -1) {
+            // Let Firebase generate the jobId
+            const newJobData = { [fieldName]: data };
+            const newDocRef = await jobsCollection.add(newJobData);
+
+            console.log("New job created with ID:", newDocRef.id);
+            await addJobIdToUserFirebase(currentUser, newDocRef.id);
+
+            return newDocRef.id;
+        } else {
+            const jobRef = jobsCollection.doc(jobId.toString());
+
+            if (fieldName === "context") {
+                // Fetch the current document to check if it exists and get the current context
+                const doc = await jobRef.get();
+                if (doc.exists && doc.data().context) {
+                    // If the document and context field exist, concatenate the new data
+                    const updatedContext = doc.data().context + data;
+                    await jobRef.update({ [fieldName]: updatedContext });
+                } else {
+                    // If the document or context field does not exist, set it as new
+                    await jobRef.set({ [fieldName]: data }, { merge: true });
+                }
+            } else {
+                // For other fields, just set (or merge) the data normally
+                await jobRef.set({ [fieldName]: data }, { merge: true });
+            }
+
+            console.log("Job updated successfully");
+            await addJobIdToUserFirebase(currentUser, jobId);
+
+            return jobId;
+        }
+    } catch (error) {
+        console.error("Error updating job:", error);
+        throw error; // Re-throw the error to handle it outside this function if needed
+    }
+};
+
+const addJobIdToUserFirebase = async (currentUser, jobId) => {
+    if (!currentUser) {
+        throw new Error('No user defined')
+    }
+
+    const userRef = admin.firestore().collection("customers").doc(currentUser.uid);
+
+    try {
+        const doc = await userRef.get();
+
+        if (!doc.exists) {
+            console.log("No such document!");
+            return;
+        }
+
+        // Assuming 'jobs' is an array of job objects.
+        const userData = doc.data();
+        let jobs = userData.jobs || [];
+
+        // Find the index of the job you want to update.
+        const jobIndex = jobs.findIndex(job => job === jobId);
+        if (jobIndex === -1) {
+            jobs.push(jobId)
+            await userRef.update({ jobs: jobs });
+        } else {
+            console.log('Job already exists on user object')
+        }
+
+    } catch (error) {
+        console.error("Error updating job:", error);
+        throw error; // Re-throw the error to handle it outside this function if needed
+    }
+}
+
+const doesUserHaveEnoughWords = async (currentUser, articleLength) => {
+    if (!currentUser) {
+        throw new Error('No user defined')
+    }
+    const userRef = admin.firestore().collection("customers").doc(currentUser.uid);
+
+    let words = 0
+    try {
+        const doc = await userRef.get();
+
+        if (!doc.exists) {
+            console.log("No such document!");
+            return;
+        }
+
+        // Assuming 'jobs' is an array of job objects.
+        words = doc.data().words;
+
+    } catch (error) {
+        console.error("Error updating job:", error);
+    }
+
+    if (words >= articleLength) {
+        return true
+    } else {
+        return false
+    }
+};
+
+
+// Function to process AI response and convert to HTML list
+function processAIResponseToHtml(responseMessage) {
+    try {
+        const jsonObject = JSON.parse(responseMessage);
+        return flattenJsonToHtmlList(jsonObject);
+    } catch (error) {
+        throw new Error('Failed to process AI response');
+    }
+}
+
+// AI tool call function
+async function generateOutlineWithAI(keyword) {
+    const toolsForNow =
+        [{
+            "type": "function",
+            "function": {
+                "name": "generateOutline",
+                "description": "Generate an outline for the given keyword using the structure provided.  The title section should be the introduction",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "title": {
+                            "type": "string"
+                        },
+                        "sections": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "name": {
+                                        "type": "string"
+                                    },
+                                    "subsections": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "name": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": ["name"]
+                                        }
+                                    }
+                                },
+                                "required": ["name", "subsections"]
+                            }
+                        }
+                    },
+                    "required": ["title", "sections"]
+                }
+            }
+        }]
+
+    return await openai.chat.completions.create({
+        messages: [
+            { role: "system", content: "You are a helpful assistant designed to output JSON." },
+            { role: "user", content: `Generate an outline for the keyword: ${keyword}` }
+        ],
+        tools: toolsForNow,
+        model: "gpt-3.5-turbo-1106",
+        response_format: { type: "json_object" }
+    });
+}
+
+const generateOutline = async (keyWord) => {
+    const completion = await generateOutlineWithAI(keyWord);
+    let responseMessage = completion.choices[0].message.tool_calls[0].function.arguments;
+    return processAIResponseToHtml(responseMessage);
+}
+
+const generateReleventQuestions = async (outline, keyWord) => {
+    const toolsForNow = [{
+        "type": "function",
+        "function": {
+            "name": "provideQuestions",
+            "description": "Provide a list of questions to this function for further analysis on the topic",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "questions": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "required": ["questions"]
+            }
+        }
+    }];
+
+    const outlineToString = generateOutlineString(outline)
+
+    try {
+        return await openai.chat.completions.create({
+            messages: [
+                { role: "system", content: "You are a helpful assistant designed to output JSON." },
+                { role: "user", content: `Generate 5 relevent questions to consider before writing an article on the following topic: ${keyWord} with the following outline: ${outlineToString}.  These 5 questions you generate will be designed to pass into a function called provideQuestions.` }
+            ],
+            tools: toolsForNow,
+            model: "gpt-3.5-turbo-1106",
+            response_format: { type: "json_object" }
+        });
+    } catch (e) {
+        console.log('Exception: ', e)
+    }
+}
+
+const generateOutlineString = (outline) => {
+    let outlineString = ""
+
+    outline.forEach(section => {
+        outlineString += ` Section tag:${section.tagName} Section Name: ${section.content} \n`
+    })
+
+    return outlineString
+}
+
+const generateContextString = (contextArray) => {
+    let contextString = ""
+
+    contextArray.forEach(article => {
+        contextString += ` Article Title:${article.title} \n
+                           Article URL: ${article.link} \n
+                           Article Context: ${article.data} \n`
+    })
+
+    return contextString
+}
+
+const generateSection = async (sectionHeader, keyWord, context) => {
+    const toolsForNow =
+        [{
+            "type": "function",
+            "function": {
+                "name": "generateSections",
+                "description": "Generate a 300 word paragraph based on the information provided.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "paragraph": {
+                            "type": "string"
+                        }
+                    },
+                    "required": ["paragraph"]
+                }
+            }
+        }]
+
+    return await openai.chat.completions.create({
+        messages: [
+            { role: "system", content: "You are a helpful assistant designed to output JSON." },
+            { role: "user", content: `Generate a 300 word paragragh on this topic: ${keyWord} for a section titled: ${sectionHeader}, DO NOT ADD HEADERS.  Here is relevent context ${context}.  REMEMBER NO MORE THAN 300 WORDS AND DO NOT INCLUDE A HEADER JUST WRITE A PARAGRAPH.` }
+        ],
+        tools: toolsForNow,
+        model: "gpt-3.5-turbo-1106",
+        response_format: { type: "json_object" }
+    });
+}
+
+const generateReleventKeyWordForQuestions = async (questions, context, keyWord) => {
+    const toolsForNow =
+        [{
+            "type": "function",
+            "function": {
+                "name": "determineAdditionalInformation",
+                "description": "If all questions are answered by context then isMoreDataNeeded should be true and searchQuery should be an empty string.  Otherwise isMoreDataNeeded is false and provide 1 searchQuery term that should answer other questions",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "isMoreDataNeeded": {
+                            "type": "boolean"
+                        },
+                        "searchQuery": {
+                            "type": "string"
+                        }
+                    },
+                    "required": ["isMoreDataNeeded"]
+                }
+            }
+        }]
+
+    return await openai.chat.completions.create({
+        messages: [
+            { role: "system", content: "You are a helpful assistant designed to output JSON." },
+            { role: "user", content: `Analyze the following content researched for the keyword: ${keyWord} \n.  Here is the content pulled from relevent sites: ${context}\n.  Now determine whether the following questions are adequetly answered by the content provided: ${questions}\n.  If they are not then come up with one searchQuery that can be used to perform further research.` }
+        ],
+        tools: toolsForNow,
+        model: "gpt-3.5-turbo-1106",
+        response_format: { type: "json_object" }
+    });
+}
+
+const generateArticle = async (outline, keyWord, context) => {
+    const promises = [];
+
+    for (const section of outline) {
+        if (section.tagName == 'h3') {
+            const promise = generateSection(section.content, keyWord, context).then(completion => {
+                let responseMessage = JSON.parse(completion.choices[0].message.tool_calls[0].function.arguments);
+                section.sectionContent = responseMessage.paragraph; // Correctly assign to each section
+            });
+            promises.push(promise);
+        }
+    }
+
+    return await Promise.all(promises);;
+}
+
+const generateContextQuestions = async (outline, keyWord) => {
+    try {
+        const completion = await generateReleventQuestions(outline, keyWord)
+        let responseMessage = JSON.parse(completion.choices[0].message.tool_calls[0].function.arguments);
+        return responseMessage.questions;
+    } catch (e) {
+        console.log('Exception thrown: ', e)
+        throw e
+    }
+}
+
+const determineIfMoreDataNeeded = async (questions, context, keyWord) => {
+    try {
+        const completion = await generateReleventKeyWordForQuestions(questions, context, keyWord)
+        let responseMessage = JSON.parse(completion.choices[0].message.tool_calls[0].function.arguments);
+        return responseMessage;
+    } catch (e) {
+        console.log('Exception thrown: ', e)
+        throw e
+    }
+}
+
 module.exports = {
     stripEscapeChars,
     stripToText,
     checkIfStore,
     removeKnownGremlins,
     stripDotDotDotItems,
+    flattenJsonToHtmlList,
+    updateFirebaseJob,
+    processAIResponseToHtml,
+    generateOutlineWithAI,
+    generateOutline,
+    doesUserHaveEnoughWords,
+    generateReleventQuestions,
+    generateArticle,
+    generateContextQuestions,
+    generateContextString,
+    determineIfMoreDataNeeded
 };
