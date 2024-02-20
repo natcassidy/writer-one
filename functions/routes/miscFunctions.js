@@ -137,23 +137,33 @@ const updateFirebaseJob = async (currentUser, jobId, fieldName, data) => {
             const newDocRef = await jobsCollection.add(newJobData);
 
             console.log("New job created with ID:", newDocRef.id);
-            await addJobIdToUserFirebase(currentUser, newDocRef.id)
+            await addJobIdToUserFirebase(currentUser, newDocRef.id);
 
-            return newDocRef.id
+            return newDocRef.id;
         } else {
-            // Updates the job if it exists
             const jobRef = jobsCollection.doc(jobId.toString());
 
-            // Set with merge: true updates the field without overwriting the document
-            await jobRef.set({ [fieldName]: data }, { merge: true });
+            if (fieldName === "context") {
+                // Fetch the current document to check if it exists and get the current context
+                const doc = await jobRef.get();
+                if (doc.exists && doc.data().context) {
+                    // If the document and context field exist, concatenate the new data
+                    const updatedContext = doc.data().context + data;
+                    await jobRef.update({ [fieldName]: updatedContext });
+                } else {
+                    // If the document or context field does not exist, set it as new
+                    await jobRef.set({ [fieldName]: data }, { merge: true });
+                }
+            } else {
+                // For other fields, just set (or merge) the data normally
+                await jobRef.set({ [fieldName]: data }, { merge: true });
+            }
 
             console.log("Job updated successfully");
-            await addJobIdToUserFirebase(currentUser, jobId)
+            await addJobIdToUserFirebase(currentUser, jobId);
 
-            return jobId
+            return jobId;
         }
-
-        
     } catch (error) {
         console.error("Error updating job:", error);
         throw error; // Re-throw the error to handle it outside this function if needed
@@ -300,7 +310,7 @@ const generateReleventQuestions = async (outline, keyWord) => {
         "type": "function",
         "function": {
             "name": "provideQuestions",
-            "description": "Provide a list of questions to this endpoint to use for generating articles.",
+            "description": "Provide a list of questions to this function for further analysis on the topic",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -317,15 +327,20 @@ const generateReleventQuestions = async (outline, keyWord) => {
     }];
 
     const outlineToString = generateOutlineString(outline)
-    return await openai.chat.completions.create({
-        messages: [
-            { role: "system", content: "You are a helpful assistant designed to output JSON." },
-            { role: "user", content: `Generate relevent questions to consider before writing an article on the following topic: ${keyWord} with the following outline: ${outlineToString}` }
-        ],
-        tools: toolsForNow,
-        model: "gpt-3.5-turbo-1106",
-        response_format: { type: "json_object" }
-    });
+
+    try {
+        return await openai.chat.completions.create({
+            messages: [
+                { role: "system", content: "You are a helpful assistant designed to output JSON." },
+                { role: "user", content: `Generate 5 relevent questions to consider before writing an article on the following topic: ${keyWord} with the following outline: ${outlineToString}.  These 5 questions you generate will be designed to pass into a function called provideQuestions.` }
+            ],
+            tools: toolsForNow,
+            model: "gpt-3.5-turbo-1106",
+            response_format: { type: "json_object" }
+        });
+    } catch (e) {
+        console.log('Exception: ', e)
+    }
 }
 
 const generateOutlineString = (outline) => {
@@ -337,6 +352,19 @@ const generateOutlineString = (outline) => {
 
     return outlineString
 }
+
+const generateContextString = (contextArray) => {
+    let contextString = ""
+
+    contextArray.forEach(article => {
+        contextString += ` Article Title:${article.title} \n
+                           Article URL: ${article.link} \n
+                           Article Context: ${article.data} \n`
+    })
+
+    return contextString
+}
+
 const generateSection = async (sectionHeader, keyWord, context) => {
     const toolsForNow =
         [{
@@ -367,12 +395,45 @@ const generateSection = async (sectionHeader, keyWord, context) => {
     });
 }
 
-const generateArticle = async (outline, keyWord) => {
+const generateReleventKeyWordForQuestions = async (questions, context, keyWord) => {
+    const toolsForNow =
+        [{
+            "type": "function",
+            "function": {
+                "name": "determineAdditionalInformation",
+                "description": "If all questions are answered by context then isMoreDataNeeded should be true and searchQuery should be an empty string.  Otherwise isMoreDataNeeded is false and provide 1 searchQuery term that should answer other questions",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "isMoreDataNeeded": {
+                            "type": "boolean"
+                        },
+                        "searchQuery": {
+                            "type": "string"
+                        }
+                    },
+                    "required": ["isMoreDataNeeded"]
+                }
+            }
+        }]
+
+    return await openai.chat.completions.create({
+        messages: [
+            { role: "system", content: "You are a helpful assistant designed to output JSON." },
+            { role: "user", content: `Analyze the following content researched for the keyword: ${keyWord} \n.  Here is the content pulled from relevent sites: ${context}\n.  Now determine whether the following questions are adequetly answered by the content provided: ${questions}\n.  If they are not then come up with one searchQuery that can be used to perform further research.` }
+        ],
+        tools: toolsForNow,
+        model: "gpt-3.5-turbo-1106",
+        response_format: { type: "json_object" }
+    });
+}
+
+const generateArticle = async (outline, keyWord, context) => {
     const promises = [];
 
     for (const section of outline) {
         if (section.tagName == 'h3') {
-            const promise = generateSection(section.content, keyWord, "").then(completion => {
+            const promise = generateSection(section.content, keyWord, context).then(completion => {
                 let responseMessage = JSON.parse(completion.choices[0].message.tool_calls[0].function.arguments);
                 section.sectionContent = responseMessage.paragraph; // Correctly assign to each section
             });
@@ -383,11 +444,22 @@ const generateArticle = async (outline, keyWord) => {
     return await Promise.all(promises);;
 }
 
-const generateContext = async (outline, keyWord) => {
+const generateContextQuestions = async (outline, keyWord) => {
     try {
         const completion = await generateReleventQuestions(outline, keyWord)
         let responseMessage = JSON.parse(completion.choices[0].message.tool_calls[0].function.arguments);
         return responseMessage.questions;
+    } catch (e) {
+        console.log('Exception thrown: ', e)
+        throw e
+    }
+}
+
+const determineIfMoreDataNeeded = async (questions, context, keyWord) => {
+    try {
+        const completion = await generateReleventKeyWordForQuestions(questions, context, keyWord)
+        let responseMessage = JSON.parse(completion.choices[0].message.tool_calls[0].function.arguments);
+        return responseMessage;
     } catch (e) {
         console.log('Exception thrown: ', e)
         throw e
@@ -408,5 +480,7 @@ module.exports = {
     doesUserHaveEnoughWords,
     generateReleventQuestions,
     generateArticle,
-    generateContext
+    generateContextQuestions,
+    generateContextString,
+    determineIfMoreDataNeeded
 };

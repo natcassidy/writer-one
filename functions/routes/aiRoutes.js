@@ -90,15 +90,13 @@ router.post('/process', async (req, res) => {
     pointOfView, realTimeResearch, citeSources, includeFAQs,
     generatedImages, generateOutline, outline, currentUser } = req.body
 
-
-  let jobId = -1
-
   const isWithinWordCount = await misc.doesUserHaveEnoughWords(currentUser, articleLength)
 
-  if(!isWithinWordCount) {
+  if (!isWithinWordCount) {
     res.status(500).send("Word Count Limit Hit")
   }
 
+  let jobId = -1
   if (outline.size != 0) {
     jobId = await misc.updateFirebaseJob(currentUser, jobId, "outline", outline)
   } else {
@@ -106,36 +104,46 @@ router.post('/process', async (req, res) => {
     jobId = await misc.updateFirebaseJob(currentUser, jobId, "outline", outline)
   }
 
-  if(realTimeResearch) {
-    const questions = await misc.generateContext(outline, jobId, keyWord)
+  let context = ""
+  if (realTimeResearch) {
+    const questions = await misc.generateContextQuestions(outline, jobId, keyWord)
     jobId = await misc.updateFirebaseJob(currentUser, jobId, "questions", questions)
+
+    let countryCode;
+    if (req.body.countryCode) {
+      countryCode = req.body.countryCode;
+    } else {
+      countryCode = "";
+    }
+
+    const params = {
+      query: keyWord,
+      countryCode: countryCode
+    }
+
+    try {
+      const data = await getSerpResuts(params);
+      const slicedData = data.slice(0,2)
+      context = misc.generateContextString(slicedData)
+      jobId = await misc.updateFirebaseJob(currentUser, jobId, "context", context)
+      const furtherKeyWordResearch = await misc.determineIfMoreDataNeeded(questions, context, keyWord)
+
+      if(furtherKeyWordResearch.isMoreDataNeeded) {
+        params.query = furtherKeyWordResearch.searchQuery
+        const additionalData = await getSerpResuts(params);
+        context = misc.generateContextString(additionalData)
+        jobId = await misc.updateFirebaseJob(currentUser, jobId, "context", context)
+      }
+    }
+    catch (e) {
+      throw e
+    }    
   }
-  
 
-  // await misc.generateArticle(outline, keyWord);
-  // const questions = misc.generateReleventQuestions(outline)
+  await misc.generateArticle(outline, keyWord, context);
 
-  // let countryCode;
-  // if (req.body.countryCode) {
-  //   countryCode = req.body.countryCode;
-  // } else {
-  //   countryCode = "";
-  // }
-
-  // const params = {
-  //   query: keyWord,
-  //   countryCode: countryCode
-  // }
-
-  // try {
-  //   const data = await getSerpResuts(params);
-  //   res.status(200).send(data)
-  // }
-  // catch (e) {
-  //   res.status(500).send("Failed")
-  // }
-
-  res.status(200).send(outline)
+  //Outline will now contain each section filled in with data
+  res.status(200).send({"article": outline})
 });
 
 // This is required for the scraping to work through the proxy
