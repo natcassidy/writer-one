@@ -317,7 +317,7 @@ router.get('/serp', (req, res) => {
 
 });
 
-router.get('prettyPrint', (req, res) => {
+router.get('prettyPrint', (req, res) => { // FIXME: this in *NOT* done
   let url;
   if (process.env.FUNCTIONS_EMULATOR) {
     url = "http://127.0.0.1:5001/writeeasy-675b2/us-central1/plugin/ai";

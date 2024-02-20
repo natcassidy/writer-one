@@ -1,10 +1,22 @@
 const cheerio = require('cheerio');
 
 const stripEscapeChars = (string) => {
+    // TODO: Check this regex to make sure it doesn't break anything.
+    // I got it from the BrightData scraper and it clearly filters out 
+    // junk but I'm not sure if it'll cause a problem.
+    let junkRegex = /([:\u200F\u200E\f\n\r\t\v]| {2,})/g;
+    string = string.replace(junkRegex, '');
     // return string.replace(/[\x00-\x1F\x7F-\x9F]/g, '');
-    string = string.replace(/[\x00-\x1F\x7F-\x9F]/g, '.');
-    string = string.replace(/\.{4,}/g, '...');
-    return string.replace(/[\.\s]{5,}/g, '... ');
+
+    // why was I dumb enough to replace the dumb stuff with .'s when I 
+    // could have used something I wouldn't have to worry about confusing
+    // with the actual data?
+
+    // TODO: check the use of <?> instead of . later to make sure it fixes the problem
+    // what is something else I could use that would be even less problematic?
+    string = string.replace(/[\x00-\x1F\x7F-\x9F]/g, '<?>');
+    // string = string.replace(/<?>{4,}/g, '<?>'); // FIXME: make sure this works
+    // return string.replace(/[<?>\s]{5,}/g, '<?> '); // FIXME: make sure this works
 }
 
 function stripToText(html) {
