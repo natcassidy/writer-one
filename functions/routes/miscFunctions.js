@@ -401,18 +401,15 @@ const generateReleventKeyWordForQuestions = async (questions, context, keyWord) 
             "type": "function",
             "function": {
                 "name": "determineAdditionalInformation",
-                "description": "If all questions are answered by context then isMoreDataNeeded should be true and searchQuery should be an empty string.  Otherwise isMoreDataNeeded is false and provide 1 searchQuery term that should answer other questions",
+                "description": "Come up with a question for further research based on the outline of the article and the context.",
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "isMoreDataNeeded": {
-                            "type": "boolean"
-                        },
                         "searchQuery": {
                             "type": "string"
                         }
                     },
-                    "required": ["isMoreDataNeeded"]
+                    "required": ["searchQuery"]
                 }
             }
         }]
@@ -420,7 +417,7 @@ const generateReleventKeyWordForQuestions = async (questions, context, keyWord) 
     return await openai.chat.completions.create({
         messages: [
             { role: "system", content: "You are a helpful assistant designed to output JSON." },
-            { role: "user", content: `Analyze the following content researched for the keyword: ${keyWord} \n.  Here is the content pulled from relevent sites: ${context}\n.  Now determine whether the following questions are adequetly answered by the content provided: ${questions}\n.  If they are not then come up with one searchQuery that can be used to perform further research.` }
+            { role: "user", content: `Analyze the following content researched for the keyword: ${keyWord} \n.  Here is the content pulled from relevent sites: ${context}\n.  Now determine whether the following questions are adequetly answered by the content provided: ${questions}\n.  Come up with one searchQuery that will be used to address the most relevent gap in the context.` }
         ],
         tools: toolsForNow,
         model: "gpt-3.5-turbo-1106",

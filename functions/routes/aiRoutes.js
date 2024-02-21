@@ -86,7 +86,7 @@ const [formData, setFormData] = useState({
   });
   */
 router.post('/process', async (req, res) => {
-  const { keyWord, internalUrl, articleLength, wordRange, tone,
+  let { keyWord, internalUrl, articleLength, wordRange, tone,
     pointOfView, realTimeResearch, citeSources, includeFAQs,
     generatedImages, generateOutline, outline, currentUser } = req.body
 
@@ -97,14 +97,15 @@ router.post('/process', async (req, res) => {
   }
 
   let jobId = -1
-  if (outline.size != 0) {
+  if (outline.length != 0) {
     jobId = await misc.updateFirebaseJob(currentUser, jobId, "outline", outline)
   } else {
-    const outline = await misc.generateOutline(keyWord)
+    outline = await misc.generateOutline(keyWord)
     jobId = await misc.updateFirebaseJob(currentUser, jobId, "outline", outline)
   }
 
   let context = ""
+  let newContext = ""
   if (realTimeResearch) {
     const questions = await misc.generateContextQuestions(outline, jobId, keyWord)
     jobId = await misc.updateFirebaseJob(currentUser, jobId, "questions", questions)
@@ -128,12 +129,13 @@ router.post('/process', async (req, res) => {
       jobId = await misc.updateFirebaseJob(currentUser, jobId, "context", context)
       const furtherKeyWordResearch = await misc.determineIfMoreDataNeeded(questions, context, keyWord)
 
-      if(furtherKeyWordResearch.isMoreDataNeeded) {
-        params.query = furtherKeyWordResearch.searchQuery
-        const additionalData = await getSerpResuts(params);
-        context = misc.generateContextString(additionalData)
-        jobId = await misc.updateFirebaseJob(currentUser, jobId, "context", context)
-      }
+      params.query = furtherKeyWordResearch.searchQuery
+      const additionalData = await getSerpResuts(params);
+      const slicedAdditionalData = additionalData.slice(0,2)
+      newContext = misc.generateContextString(slicedAdditionalData)
+      context += newContext
+      jobId = await misc.updateFirebaseJob(currentUser, jobId, "context", newContext)
+
     }
     catch (e) {
       throw e
