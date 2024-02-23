@@ -100,7 +100,7 @@ router.post('/process', async (req, res) => {
   if (outline.length != 0) {
     jobId = await misc.updateFirebaseJob(currentUser, jobId, "outline", outline)
   } else {
-    outline = await misc.generateOutline(keyWord)
+    outline = await misc.generateOutline(keyWord, wordRange)
     jobId = await misc.updateFirebaseJob(currentUser, jobId, "outline", outline)
   }
 
@@ -454,8 +454,12 @@ router.get('/generalTest', (req, res) => {
 
 // Route handler
 router.post("/outline", async (req, res) => {
+  let { keyWord, internalUrl, articleLength, wordRange, tone,
+    pointOfView, realTimeResearch, citeSources, includeFAQs,
+    generatedImages, generateOutline, outline, currentUser } = req.body
+
   try {
-    const responseMessage = await misc.generateOutline(req.body.keyWord)
+    const responseMessage = await misc.generateOutline(keyWord, wordRange)
     res.status(200).send(responseMessage);
   } catch (error) {
     console.error('Error:', error);

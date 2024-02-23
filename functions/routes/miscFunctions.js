@@ -257,7 +257,7 @@ function processAIResponseToHtml(responseMessage) {
 }
 
 // AI tool call function
-async function generateOutlineWithAI(keyword) {
+async function generateOutlineWithAI(keyword, wordRange) {
     const toolsForNow =
         [{
             "type": "function",
@@ -300,21 +300,39 @@ async function generateOutlineWithAI(keyword) {
             }
         }]
 
+    const sectionsCount = determineSectionCount(wordRange)
+
     return await openai.chat.completions.create({
         messages: [
             { role: "system", content: "You are a helpful assistant designed to output JSON." },
-            { role: "user", content: `Generate an outline for the keyword: ${keyword}` }
+            { role: "user", content: `Generate an outline for the keyword: ${keyword}.  Outline should be insightful and make sense to a reader.  Avoid using generic placeholders for headers like Brand 1 or Question 1.  Ensure that there are NO MORE THAN ${sectionsCount} sections total. 1 of the sections MUST be the introduction.  The wordCount for the article is in the range of ${wordRange}.  Each subsection will be roughly 200-300 words worth of content so please ensure that you keep in mind the size of the section when determining how many to create.  DO NOT include the word count in your response or function call, only use it to keep track of yourself. You DO NOT NEED TO HAVE MULTIPLE SUBSECTIONS PER SECTION.` }
         ],
         tools: toolsForNow,
-        model: "gpt-3.5-turbo-1106",
+        model: "gpt-4-0125-preview",
         response_format: { type: "json_object" }
     });
 }
 
-const generateOutline = async (keyWord) => {
-    const completion = await generateOutlineWithAI(keyWord);
+const generateOutline = async (keyWord, wordRange) => {
+    const completion = await generateOutlineWithAI(keyWord, wordRange);
     let responseMessage = completion.choices[0].message.tool_calls[0].function.arguments;
     return processAIResponseToHtml(responseMessage);
+}
+
+const determineSectionCount = (wordRange) => {
+    if(wordRange === '500-800 words') {
+        return 2
+    } else if(wordRange === '800-1200 words') {
+        return 3
+    } else if(wordRange === '1200-1600 words') {
+        return 4
+    } else if(wordRange === '1600-2000 words') {
+        return 5
+    } else if(wordRange === '2000-2500 words') {
+        return 6
+    } else {
+        return 7
+    }
 }
 
 const generateReleventQuestions = async (outline, keyWord) => {
@@ -383,7 +401,7 @@ const generateSection = async (sectionHeader, keyWord, context) => {
             "type": "function",
             "function": {
                 "name": "generateSections",
-                "description": "Generate a 300 word paragraph based on the information provided.",
+                "description": "Generate a 200-300 word paragraph based on the information provided.",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -399,7 +417,7 @@ const generateSection = async (sectionHeader, keyWord, context) => {
     return await openai.chat.completions.create({
         messages: [
             { role: "system", content: "You are a helpful assistant designed to output JSON." },
-            { role: "user", content: `Generate a 300 word paragragh on this topic: ${keyWord} for a section titled: ${sectionHeader}, DO NOT ADD HEADERS.  Here is relevent context ${context}.  REMEMBER NO MORE THAN 300 WORDS AND DO NOT INCLUDE A HEADER JUST WRITE A PARAGRAPH.` }
+            { role: "user", content: `Generate a 200-300 word paragragh on this topic: ${keyWord} for a section titled: ${sectionHeader}, DO NOT ADD HEADERS.  Here is relevent context ${context}.  REMEMBER NO MORE THAN 300 WORDS AND NO LESS THAN 200 WORDS. DO NOT INCLUDE A HEADER JUST WRITE A PARAGRAPH.` }
         ],
         tools: toolsForNow,
         model: "gpt-3.5-turbo-1106",
