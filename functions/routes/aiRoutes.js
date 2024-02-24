@@ -101,11 +101,11 @@ const [formData, setFormData] = useState({
   });
   */
 router.post('/process', async (req, res) => {
-  let { keyWord, internalUrl, articleLength, wordRange, tone,
+  let { keyWord, internalUrl, wordRange, tone,
     pointOfView, realTimeResearch, citeSources, includeFAQs,
     generatedImages, generateOutline, outline, currentUser } = req.body
 
-  const isWithinWordCount = await misc.doesUserHaveEnoughWords(currentUser, articleLength)
+  const isWithinWordCount = await misc.doesUserHaveEnoughWords(currentUser, wordRange)
 
   if (!isWithinWordCount) {
     res.status(500).send("Word Count Limit Hit")
@@ -159,8 +159,10 @@ router.post('/process', async (req, res) => {
 
   await misc.generateArticle(outline, keyWord, context, tone, pointOfView, citeSources);
 
+  const wordCount = misc.countWords(outline)
+  const updatedWordCount = await misc.decrementUserWordCount(currentUser, wordCount)
   //Outline will now contain each section filled in with data
-  res.status(200).send({"article": outline})
+  res.status(200).send({"article": outline, updatedWordCount})
 });
 
 // This is required for the scraping to work through the proxy

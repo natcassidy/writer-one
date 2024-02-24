@@ -218,11 +218,41 @@ const addJobIdToUserFirebase = async (currentUser, jobId) => {
 
 const doesUserHaveEnoughWords = async (currentUser, articleLength) => {
     if (!currentUser) {
-        throw new Error('No user defined')
+        throw new Error('No user defined');
     }
+    
     const userRef = admin.firestore().collection("customers").doc(currentUser.uid);
 
-    let words = 0
+    try {
+        const doc = await userRef.get();
+
+        if (!doc.exists) {
+            console.log("No such document!");
+            return false; // Assuming the function should return false if the document doesn't exist.
+        }
+
+        const userWords = doc.data().words;
+        
+        // Extract the maximum word count requirement from the articleLength string.
+        const maxRequiredWords = parseInt(articleLength.split('-').pop());
+        
+        // Check if the user has enough words.
+        return userWords >= maxRequiredWords;
+
+    } catch (error) {
+        console.error("Error fetching user data:", error);
+        throw error; // Consider handling or rethrowing the error as appropriate for your application.
+    }
+};
+
+const decrementUserWordCount = async (currentUser, amountToDecrement) => {
+    if (!currentUser) {
+        throw new Error('No user defined');
+    }
+
+    const userRef = admin.firestore().collection("customers").doc(currentUser.uid);
+
+    let newWordCount = 0;
     try {
         const doc = await userRef.get();
 
@@ -231,18 +261,24 @@ const doesUserHaveEnoughWords = async (currentUser, articleLength) => {
             return;
         }
 
-        // Assuming 'jobs' is an array of job objects.
-        words = doc.data().words;
+        // Correctly retrieve and decrement the word count
+        const currentWordCount = doc.data().words;
+        newWordCount = currentWordCount - amountToDecrement;
 
+        // Check for negative values
+        if (newWordCount < 0) {
+            console.log("Word count cannot be negative.");
+            newWordCount = 0;
+        }
+
+        // Update the document with the new word count
+        await userRef.update({ words: newWordCount });
     } catch (error) {
-        console.error("Error updating job:", error);
+        console.error("Error updating word count:", error);
+        throw error; // Rethrowing the error is a good practice for error handling
     }
-
-    if (words >= articleLength) {
-        return true
-    } else {
-        return false
-    }
+    
+    return newWordCount;
 };
 
 
@@ -470,6 +506,8 @@ const generateArticle = async (outline, keyWord, context, tone, pointOfView, cit
         if (section.tagName == 'h3') {
             const promise = generateSection(section.content, keyWord, context, tone, pointOfView, citeSources).then(completion => {
                 let responseMessage = JSON.parse(completion.choices[0].message.tool_calls[0].function.arguments);
+                responseMessage.paragraph += '<a href="https://www.openai.com">Visit OpenAI</a>'
+                ''
                 section.sectionContent = responseMessage.paragraph; // Correctly assign to each section
             });
             promises.push(promise);
@@ -479,6 +517,28 @@ const generateArticle = async (outline, keyWord, context, tone, pointOfView, cit
     return await Promise.all(promises);;
 }
 
+function countWords(data) {
+    // Initialize a counter for the words
+    let wordCount = 0;
+  
+    // Iterate through each item in the data
+    data.forEach(item => {
+      // Count words in 'content'
+      if (item.content) {
+        wordCount += item.content.split(/\s+/).filter(Boolean).length;
+      }
+  
+      // Count words in 'sectionContent' if it exists
+      if (item.sectionContent) {
+        wordCount += item.sectionContent.split(/\s+/).filter(Boolean).length;
+      }
+    });
+  
+    // Return the total word count
+    return wordCount;
+  }
+
+  
 const generateContextQuestions = async (outline, keyWord) => {
     try {
         const completion = await generateReleventQuestions(outline, keyWord)
@@ -517,5 +577,7 @@ module.exports = {
     generateArticle,
     generateContextQuestions,
     generateContextString,
-    determineIfMoreDataNeeded
+    determineIfMoreDataNeeded,
+    countWords,
+    decrementUserWordCount
 };
