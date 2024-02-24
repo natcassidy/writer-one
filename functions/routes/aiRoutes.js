@@ -41,6 +41,21 @@ router.get('/health', async (req, res) => {
     res.status(500).send('No completion available');
   }
 });
+
+async function findGoodData(params) {
+  let goodData;
+  const data = await getSerpResuts(params); // Assume this returns an array of objects
+  
+  for (const item of data) {
+    if (item.status === "good") {
+      goodData = item;
+      break; // Stop the loop once a good data is found
+    }
+  }
+
+  return goodData; // This will be undefined if no good data is found
+}
+
 /* ----- Main Notes -----
 
 Here's the body to expect from the client submitting the form
@@ -123,18 +138,18 @@ router.post('/process', async (req, res) => {
     }
 
     try {
-      const data = await getSerpResuts(params);
-      const slicedData = data.slice(0,2)
-      context = misc.generateContextString(slicedData)
-      jobId = await misc.updateFirebaseJob(currentUser, jobId, "context", context)
-      const furtherKeyWordResearch = await misc.determineIfMoreDataNeeded(questions, context, keyWord)
-
-      params.query = furtherKeyWordResearch.searchQuery
-      const additionalData = await getSerpResuts(params);
-      const slicedAdditionalData = additionalData.slice(0,2)
-      newContext = misc.generateContextString(slicedAdditionalData)
-      context += newContext
+      context = await findGoodData(params)
+      
+      newContext = misc.generateContextString(context)
       jobId = await misc.updateFirebaseJob(currentUser, jobId, "context", newContext)
+      // const furtherKeyWordResearch = await misc.determineIfMoreDataNeeded(questions, context, keyWord)
+
+      // params.query = furtherKeyWordResearch.searchQuery
+      // const additionalData = await getSerpResuts(params);
+      // const slicedAdditionalData = additionalData.slice(0,2)
+      // newContext = misc.generateContextString(slicedAdditionalData)
+      // context += newContext
+      // jobId = await misc.updateFirebaseJob(currentUser, jobId, "context", newContext)
 
     }
     catch (e) {
@@ -142,7 +157,7 @@ router.post('/process', async (req, res) => {
     }    
   }
 
-  await misc.generateArticle(outline, keyWord, context);
+  await misc.generateArticle(outline, keyWord, context, tone, pointOfView, citeSources);
 
   //Outline will now contain each section filled in with data
   res.status(200).send({"article": outline})
@@ -285,7 +300,7 @@ const getSerpResuts = async (data) => {
               // body = misc.removeImages(body);
               // body = misc.removeKnownGremlins(body);
               // body = misc.stripDotDotDotItems(body);
-              body = misc.stripEscapeChars(body);
+              // body = misc.stripEscapeChars(body);
 
               return {
                 status: "good",

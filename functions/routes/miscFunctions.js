@@ -320,15 +320,15 @@ const generateOutline = async (keyWord, wordRange) => {
 }
 
 const determineSectionCount = (wordRange) => {
-    if(wordRange === '500-800 words') {
+    if (wordRange === '500-800 words') {
         return 2
-    } else if(wordRange === '800-1200 words') {
+    } else if (wordRange === '800-1200 words') {
         return 3
-    } else if(wordRange === '1200-1600 words') {
+    } else if (wordRange === '1200-1600 words') {
         return 4
-    } else if(wordRange === '1600-2000 words') {
+    } else if (wordRange === '1600-2000 words') {
         return 5
-    } else if(wordRange === '2000-2500 words') {
+    } else if (wordRange === '2000-2500 words') {
         return 6
     } else {
         return 7
@@ -384,18 +384,15 @@ const generateOutlineString = (outline) => {
 }
 
 const generateContextString = (contextArray) => {
-    let contextString = ""
 
-    contextArray.forEach(article => {
-        contextString += ` Article Title:${article.title} \n
-                           Article URL: ${article.link} \n
-                           Article Context: ${article.data} \n`
-    })
+    let contextString = ` Article Title:${contextArray.title} \n
+                           Article URL: ${contextArray.link} \n
+                           Article Context: ${contextArray.data} \n`
 
     return contextString
 }
 
-const generateSection = async (sectionHeader, keyWord, context) => {
+const generateSection = async (sectionHeader, keyWord, context, tone, pointOfView, citeSources) => {
     const toolsForNow =
         [{
             "type": "function",
@@ -413,11 +410,22 @@ const generateSection = async (sectionHeader, keyWord, context) => {
                 }
             }
         }]
+    const includeTone = tone ? `Ensure you write with the following tone: ${tone}\n` : '';
+    const includeCitedSources = citeSources ? `If you choose to use data from the context please include the source in an <a> tag like this example: <a href="https://www.reuters.com/world/us/democratic-candidates-running-us-president-2024-2023-09-18/">Reuters</a>.  Use it naturally in the article if it's appropriate, do not place all of the sources at the end.  Use it to link a specific word or set of words wrapped with the a tag.\n` : '';
+    const includePointOfView = pointOfView ? `Please write this section using the following point of view: ${pointOfView}\n` : '';
+    const prompt = `
+        Generate a 200-300 word paragraph on this topic: ${keyWord} for a section titled: ${sectionHeader}, DO NOT ADD HEADERS.  
+        Here is relevant context ${context}.  
+        REMEMBER NO MORE THAN 300 WORDS AND NO LESS THAN 200 WORDS. DO NOT INCLUDE A HEADER JUST WRITE A PARAGRAPH.
+        ${includeTone}
+        ${includeCitedSources}
+        ${includePointOfView}
+        `;
 
     return await openai.chat.completions.create({
         messages: [
             { role: "system", content: "You are a helpful assistant designed to output JSON." },
-            { role: "user", content: `Generate a 200-300 word paragragh on this topic: ${keyWord} for a section titled: ${sectionHeader}, DO NOT ADD HEADERS.  Here is relevent context ${context}.  REMEMBER NO MORE THAN 300 WORDS AND NO LESS THAN 200 WORDS. DO NOT INCLUDE A HEADER JUST WRITE A PARAGRAPH.` }
+            { role: "user", content: prompt }
         ],
         tools: toolsForNow,
         model: "gpt-3.5-turbo-1106",
@@ -455,12 +463,12 @@ const generateReleventKeyWordForQuestions = async (questions, context, keyWord) 
     });
 }
 
-const generateArticle = async (outline, keyWord, context) => {
+const generateArticle = async (outline, keyWord, context, tone, pointOfView, citeSources) => {
     const promises = [];
 
     for (const section of outline) {
         if (section.tagName == 'h3') {
-            const promise = generateSection(section.content, keyWord, context).then(completion => {
+            const promise = generateSection(section.content, keyWord, context, tone, pointOfView, citeSources).then(completion => {
                 let responseMessage = JSON.parse(completion.choices[0].message.tool_calls[0].function.arguments);
                 section.sectionContent = responseMessage.paragraph; // Correctly assign to each section
             });
