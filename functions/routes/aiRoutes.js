@@ -11,6 +11,7 @@ require('dotenv').config()
 // ------ Helper .js Deps ------
 const apiFunctions = require('./apiFunctions');
 const misc = require('./miscFunctions');
+const vertex = require('./vertexAiFunctions')
 
 // ------ Dev Dep ------
 const fs = require("node:fs");
@@ -44,8 +45,9 @@ router.get('/health', async (req, res) => {
 
 async function findGoodData(params) {
   let goodData;
-  const data = await getSerpResuts(params); // Assume this returns an array of objects
-  
+  const data = await getSerpResults(params); // Assume this returns an array of objects
+  console.log('serp results returned with size: ', data.length)
+
   for (const item of data) {
     if (item.status === "good") {
       goodData = item;
@@ -114,16 +116,18 @@ router.post('/process', async (req, res) => {
   let jobId = -1
   if (outline.length != 0) {
     jobId = await misc.updateFirebaseJob(currentUser, jobId, "outline", outline)
+    console.log('outline generated')
   } else {
     outline = await misc.generateOutline(keyWord, wordRange)
     jobId = await misc.updateFirebaseJob(currentUser, jobId, "outline", outline)
+    console.log('outline generated')
   }
 
   let context = ""
   let newContext = ""
   if (realTimeResearch) {
-    const questions = await misc.generateContextQuestions(outline, jobId, keyWord)
-    jobId = await misc.updateFirebaseJob(currentUser, jobId, "questions", questions)
+    // const questions = await misc.generateContextQuestions(outline, jobId, keyWord)
+    // jobId = await misc.updateFirebaseJob(currentUser, jobId, "questions", questions)
 
     let countryCode;
     if (req.body.countryCode) {
@@ -139,7 +143,7 @@ router.post('/process', async (req, res) => {
 
     try {
       context = await findGoodData(params)
-      
+
       newContext = misc.generateContextString(context)
       jobId = await misc.updateFirebaseJob(currentUser, jobId, "context", newContext)
       // const furtherKeyWordResearch = await misc.determineIfMoreDataNeeded(questions, context, keyWord)
@@ -154,15 +158,21 @@ router.post('/process', async (req, res) => {
     }
     catch (e) {
       throw e
-    }    
+    }
   }
-
+  console.log('generating article')
   await misc.generateArticle(outline, keyWord, context, tone, pointOfView, citeSources);
 
+  console.log('article generated now doing gemini article')
+  const geminiOutline = structuredClone(outline);
+  await vertex.generateArticleGemini(geminiOutline)
+
+  console.log('gemini article generated')
   const wordCount = misc.countWords(outline)
   const updatedWordCount = await misc.decrementUserWordCount(currentUser, wordCount)
+  console.log('word count: ', wordCount)
   //Outline will now contain each section filled in with data
-  res.status(200).send({"article": outline, updatedWordCount})
+  res.status(200).send({ "article": outline, updatedWordCount, "geminiArticle": geminiOutline })
 });
 
 // This is required for the scraping to work through the proxy
@@ -233,123 +243,78 @@ const createScrapeConfig = (countryCode) => ({
 });
 
 
-const getSerpResuts = async (data) => {
-  const query = data
-  let countryCode;
-  if (query.countryCode) {
-    countryCode = query.countryCode;
-  } else {
-    countryCode = ""; // can be blank if no specific country is required
-  }
+const getSerpResults = async (data) => {
+  const query = data;
+  const countryCode = query.countryCode || ""; // Simplify country code determination
 
-  const serpConfig = createSerpConfig(query, countryCode)
-  const scrapeConfig = createScrapeConfig(countryCode)
+  const serpConfig = createSerpConfig(query, countryCode);
+  const scrapeConfig = createScrapeConfig(countryCode);
 
-  return await axios.get(`http://www.google.com/search`, serpConfig)
-    .then(axiosResponse => {
-      console.log('Inside response')
-      // Map each element to a Promise created by the axios call
-      // TODO: add some way to check whether we've successfully scraped at least some minimum number of pages
-      // and if we haven't continue on page two of the SERP
-
-      // TODO: is there some way to figure out whether we're getting business home pages in the search results 
-      // other than to just send the whole thing to the model and see what it thinks?
-
-      // switch statement for different types of pages?
-      let promises = axiosResponse.data.organic.map(el => {
-
-        // --- Forbidden Domain ---
-        if (forbiddenDomains.some(domain => el.link.includes(domain))) {
-          return {
-            status: "not scraped - forbidden",
-            link: el.link,
-            title: el.title,
-            description: el.description ? el.description : "" // TODO: figure out a way to strip out svg's
-          };
-        } else if (apiAbleDomains.some(domain => el.link.includes(domain))) { // --- API'able Domain ---
-          const filteredDomain = apiAbleDomains.find(domain => el.link.includes(domain)); // This returns a single domain or undefined
-
-          switch (filteredDomain) {
-            case "wikipedia.":
-              return apiFunctions.fetchWikipedia(el);
-              break;
-            default: // --- Unhandled Domain ---
-              console.log("domain in apiAbleDomains but not handled: " + filteredDomain + " - " + el.link);
-              return { status: "API not accessed - unhandled domain", type: "api - unknown", link: el.link, title: el.title, description: el.description ? el.description : "" };
-              break;
-          }
-        } else { // --- Regular Domain ---
-          return axios.get(el.link, scrapeConfig)
-            .then(response => {
-              /* 
-              FIXME: FIXME: figure out match/case/switch/whatever setup for handling different sites via API, etc.
-              TODO: decide for sure on how to handle specific, problem sites
-                - youtube : eventually do something with video, audio, and transcript
-                - wikipedia : has a *lot* of page formatting that can be skipped by jumping to #mw-content-text
-              */
-              let body = misc.stripToText(response.data);
-              const description = misc.stripToText(el.description);
-
-              console.log("type: " + typeof (body));
-
-              // TODO: maybe filter these out later
-              let type = "scraped";
-              if (misc.checkIfStore(body)) {
-                type = "scraped - store";
-              }
-
-              // strip out useless data
-              // body = misc.removeImages(body);
-              // body = misc.removeKnownGremlins(body);
-              // body = misc.stripDotDotDotItems(body);
-              // body = misc.stripEscapeChars(body);
-
-              return {
-                status: "good",
-                type: type,
-                link: el.link,
-                title: el.title,
-                description: description,
-                data: body,
-              };
-            })
-            .catch(err => {
-              console.log("\nscrape error")
-              console.log(new Error("err: " + err));
-              console.log(new Error("err keys: " + Object.keys(err)) + "\n");
-              if (err.request) {
-                console.log("err.request: " + err.request._header);
-              }
-              return { status: "bad", type: "scraped", err: err, headers: err.headers };
-            });
-        }
-      });
-
-      // Return a Promise that resolves when all axios calls are complete
-      return Promise.allSettled(promises);
-    })
-    .catch(err => {
-      console.log("\nInitial serp request err: " + err);
-      console.log("\nInitial serp request err keys: " + Object.keys(err));
-    })
-    .then(trimmedPromises => {
-      // "trimmed" because most of the data from axios and brightdata have been discarded
-      const trimmed = trimmedPromises.map(item => {
-        if (item.status === "fulfilled") {
-          return item.value;
-        } else {
-          return item;
-        }
-      });
-      return trimmed;
-    })
-    .catch(err => {
-      console.log("\n--- FINAL ERR OUTPUT ---")
-      console.log(Object.keys(err));
-      console.log("error message: " + err);
-      console.log("------------------------\n")
+  try {
+    const axiosResponse = await axios.get(`https://www.google.com/search`, serpConfig);
+    let promises = axiosResponse.data.organic.map(el => {
+      return processElement(el, scrapeConfig); // Refactor processing into a separate function
     });
 
+    const settledPromises = await Promise.allSettled(promises);
+    const trimmed = settledPromises.map(item => item.status === "fulfilled" ? item.value : item.reason);
+
+    // Improved logging for debugging
+    console.log(`Processed ${trimmed.length} items.`);
+    return trimmed;
+  } catch (err) {
+    console.error("Error in getSerpResults:", err.message);
+    // Log more detailed error information if necessary
+    return []; // Return an empty array or appropriate error response
+  }
+};
+
+async function processElement(el, scrapeConfig) {
+  if (forbiddenDomains.some(domain => el.link.includes(domain))) {
+    return {
+      status: "not scraped - forbidden",
+      link: el.link,
+      title: el.title,
+      description: el.description || "" // Use || operator for defaults
+    };
+  } else if (apiAbleDomains.some(domain => el.link.includes(domain))) {
+    const filteredDomain = apiAbleDomains.find(domain => el.link.includes(domain));
+    switch (filteredDomain) {
+      case "wikipedia.":
+        return apiFunctions.fetchWikipedia(el);
+      default:
+        console.error(`Unhandled domain: ${filteredDomain} - ${el.link}`);
+        return {
+          status: "API not accessed - unhandled domain",
+          link: el.link,
+          title: el.title,
+          description: el.description || ""
+        };
+    }
+  } else {
+    try {
+      const response = await axios.get(el.link, scrapeConfig);
+      let body = misc.stripToText(response.data);
+      const description = misc.stripToText(el.description);
+
+      let type = "scraped";
+      if (misc.checkIfStore(body)) {
+        type = "scraped - store";
+      }
+
+      return {
+        status: "good",
+        type: type,
+        link: el.link,
+        title: el.title,
+        description: description,
+        data: body,
+      };
+    } catch (err) {
+      console.error("Error scraping:", el.link, err.message);
+      return { status: "bad", type: "scraped", link: el.link, error: err.message };
+    }
+  }
 }
 
 router.post('prettyPrint', (req, res) => {
@@ -517,6 +482,11 @@ router.post("/testSerp", async (req, res) => {
     .then(data => {
       res.status(200).send(data)
     }).catch(e => res.status(500).send(e))
+})
+
+router.get("/testGemini", async (req, res) => {
+  const data = await vertex.healthCheckGemini()
+  res.status(200).send(data.candidates[0].content.parts[0].text)
 })
 
 module.exports = router;

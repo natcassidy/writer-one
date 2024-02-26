@@ -506,8 +506,6 @@ const generateArticle = async (outline, keyWord, context, tone, pointOfView, cit
         if (section.tagName == 'h3') {
             const promise = generateSection(section.content, keyWord, context, tone, pointOfView, citeSources).then(completion => {
                 let responseMessage = JSON.parse(completion.choices[0].message.tool_calls[0].function.arguments);
-                responseMessage.paragraph += '<a href="https://www.openai.com">Visit OpenAI</a>'
-                ''
                 section.sectionContent = responseMessage.paragraph; // Correctly assign to each section
             });
             promises.push(promise);
