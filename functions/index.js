@@ -8,7 +8,7 @@ const adminRoutes = require('./routes/adminRoutes');
 require('dotenv').config();
 
 const corsOptions = {
-  origin: ['https://chat.openai.com','http://localhost:3000', 'https://writer-one-frontend.vercel.app', 'https://writer-one-frontend.vercel.app/'],
+  origin: ['https://chat.openai.com','http://localhost:3000', 'https://writer-one-frontend.vercel.app', 'https://writer-one-frontend.vercel.app'],
   optionsSuccessStatus: 200 
 }
 

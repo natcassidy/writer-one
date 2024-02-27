@@ -161,18 +161,18 @@ router.post('/process', async (req, res) => {
     }
   }
   console.log('generating article')
-  await misc.generateArticle(outline, keyWord, context, tone, pointOfView, citeSources);
+  const newArticle = await misc.generateArticle(outline, keyWord, context, tone, pointOfView, citeSources);
 
-  console.log('article generated now doing gemini article')
-  const geminiOutline = structuredClone(outline);
-  await vertex.generateArticleGemini(geminiOutline)
+  // console.log('article generated now doing gemini article')
+  // const geminiOutline = structuredClone(outline);
+  // await vertex.generateArticleGemini(geminiOutline)
 
   console.log('gemini article generated')
-  const wordCount = misc.countWords(outline)
+  const wordCount = misc.countWords(newArticle)
   const updatedWordCount = await misc.decrementUserWordCount(currentUser, wordCount)
   console.log('word count: ', wordCount)
   //Outline will now contain each section filled in with data
-  res.status(200).send({ "article": outline, updatedWordCount, "geminiArticle": geminiOutline })
+  res.status(200).send({ "article": newArticle, updatedWordCount })
 });
 
 // This is required for the scraping to work through the proxy

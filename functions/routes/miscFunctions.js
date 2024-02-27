@@ -220,7 +220,7 @@ const doesUserHaveEnoughWords = async (currentUser, articleLength) => {
     if (!currentUser) {
         throw new Error('No user defined');
     }
-    
+
     const userRef = admin.firestore().collection("customers").doc(currentUser.uid);
 
     try {
@@ -232,10 +232,10 @@ const doesUserHaveEnoughWords = async (currentUser, articleLength) => {
         }
 
         const userWords = doc.data().words;
-        
+
         // Extract the maximum word count requirement from the articleLength string.
         const maxRequiredWords = parseInt(articleLength.split('-').pop());
-        
+
         // Check if the user has enough words.
         return userWords >= maxRequiredWords;
 
@@ -277,7 +277,7 @@ const decrementUserWordCount = async (currentUser, amountToDecrement) => {
         console.error("Error updating word count:", error);
         throw error; // Rethrowing the error is a good practice for error handling
     }
-    
+
     return newWordCount;
 };
 
@@ -428,35 +428,46 @@ const generateContextString = (contextArray) => {
     return contextString
 }
 
-const generateSection = async (sectionHeader, keyWord, context, tone, pointOfView, citeSources) => {
+const generateSection = async (outline, keyWord, context, tone, pointOfView, citeSources) => {
+    let listOfSections = ""
+    outline.forEach(section => {
+        listOfSections += `${section.content}, `
+    })
+    
     const toolsForNow =
         [{
             "type": "function",
             "function": {
                 "name": "generateSections",
-                "description": "Generate a 200-300 word paragraph based on the information provided.",
+                "description": `Generate paragraphs based on the information provided for each subsection.  Ensure to include a paragragh for each section: ${listOfSections}.  When calling this function you MUST provide ${outline.length} number of elements in the array.`,
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "paragraph": {
-                            "type": "string"
+                        "paragraphs": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
                         }
                     },
-                    "required": ["paragraph"]
+                    "required": ["paragraphs"]
                 }
             }
         }]
+
+    
+
     const includeTone = tone ? `Ensure you write with the following tone: ${tone}\n` : '';
     const includeCitedSources = citeSources ? `If you choose to use data from the context please include the source in an <a> tag like this example: <a href="https://www.reuters.com/world/us/democratic-candidates-running-us-president-2024-2023-09-18/">Reuters</a>.  Use it naturally in the article if it's appropriate, do not place all of the sources at the end.  Use it to link a specific word or set of words wrapped with the a tag.\n` : '';
     const includePointOfView = pointOfView ? `Please write this section using the following point of view: ${pointOfView}\n` : '';
     const prompt = `
-        Generate a 200-300 word paragraph on this topic: ${keyWord} for a section titled: ${sectionHeader}, DO NOT ADD HEADERS.  
+        Generate paragraphs for each subsection provided on this topic: ${keyWord} for the following sections: [${listOfSections}]. DO NOT ADD HEADERS.  
         Here is relevant context ${context}.  
-        REMEMBER NO MORE THAN 300 WORDS AND NO LESS THAN 200 WORDS. DO NOT INCLUDE A HEADER JUST WRITE A PARAGRAPH.
+        DO NOT INCLUDE A HEADER JUST WRITE A PARAGRAPH.
         ${includeTone}
         ${includeCitedSources}
         ${includePointOfView}
-        `;
+        \n REMEMBER YOU MUST WRITE ${outline.length} sections. DO NOT INCLUDE THE HEADER ONLY THE PARAGRAGH.  If you do not provide an array of length ${outline.length}, for the sections titled: [${listOfSections}] -- EVERYTHING WILL BREAK.`;
 
     return await openai.chat.completions.create({
         messages: [
@@ -500,43 +511,74 @@ const generateReleventKeyWordForQuestions = async (questions, context, keyWord) 
 }
 
 const generateArticle = async (outline, keyWord, context, tone, pointOfView, citeSources) => {
-    const promises = [];
+    let constructedSections = [];
+    let piecesOfOutline = [];
 
-    for (const section of outline) {
-        if (section.tagName == 'h3') {
-            const promise = generateSection(section.content, keyWord, context, tone, pointOfView, citeSources).then(completion => {
-                let responseMessage = JSON.parse(completion.choices[0].message.tool_calls[0].function.arguments);
-                section.sectionContent = responseMessage.paragraph; // Correctly assign to each section
-            });
-            promises.push(promise);
+    try {
+        for (const section of outline) {
+            if (section.tagName == 'h1' || section.tagName == 'h2') {
+                if (piecesOfOutline.length > 0) {
+                    const sections = await generateSectionsOfArticle(piecesOfOutline, keyWord, context, tone, pointOfView, citeSources);
+                    constructedSections.push(...sections);
+                    piecesOfOutline = []; // Reset for next sections
+                }
+                constructedSections.push(section); // Add the h1 or h2 section itself
+            } else if (section.tagName == 'h3') {
+                piecesOfOutline.push(section); // Collect h3 sections for processing
+            }
         }
+
+        // Handle any remaining pieces after loop
+        if (piecesOfOutline.length > 0) {
+            const sections = await generateSectionsOfArticle(piecesOfOutline, keyWord, context, tone, pointOfView, citeSources);
+            constructedSections.push(...sections);
+        }
+    } catch (error) {
+        console.error('Error generating article:', error);
+        // Handle the error appropriately
     }
 
-    return await Promise.all(promises);;
+    return constructedSections;
 }
+
+const generateSectionsOfArticle = async (piecesOfOutline, keyWord, context, tone, pointOfView, citeSources) => {
+    const outlineCopy = structuredClone(piecesOfOutline);
+    try {
+        const completion = await generateSection(outlineCopy, keyWord, context, tone, pointOfView, citeSources);
+        const response = JSON.parse(completion.choices[0].message.tool_calls[0].function.arguments);
+        for (let i = 0; i < response.paragraphs.length; i++) {
+            outlineCopy[i].sectionContent = response.paragraphs[i];
+        }
+    } catch (error) {
+        console.error('Error generating sections:', error);
+        // Handle the error appropriately
+    }
+    return outlineCopy;
+}
+
 
 function countWords(data) {
     // Initialize a counter for the words
     let wordCount = 0;
-  
+
     // Iterate through each item in the data
     data.forEach(item => {
-      // Count words in 'content'
-      if (item.content) {
-        wordCount += item.content.split(/\s+/).filter(Boolean).length;
-      }
-  
-      // Count words in 'sectionContent' if it exists
-      if (item.sectionContent) {
-        wordCount += item.sectionContent.split(/\s+/).filter(Boolean).length;
-      }
+        // Count words in 'content'
+        if (item.content) {
+            wordCount += item.content.split(/\s+/).filter(Boolean).length;
+        }
+
+        // Count words in 'sectionContent' if it exists
+        if (item.sectionContent) {
+            wordCount += item.sectionContent.split(/\s+/).filter(Boolean).length;
+        }
     });
-  
+
     // Return the total word count
     return wordCount;
-  }
+}
 
-  
+
 const generateContextQuestions = async (outline, keyWord) => {
     try {
         const completion = await generateReleventQuestions(outline, keyWord)
