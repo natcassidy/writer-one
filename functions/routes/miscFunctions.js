@@ -419,11 +419,11 @@ const generateOutlineString = (outline) => {
     return outlineString
 }
 
-const generateContextString = (contextArray) => {
+const generateContextString = (title, link, data) => {
 
-    let contextString = ` Article Title:${contextArray.title} \n
-                           Article URL: ${contextArray.link} \n
-                           Article Context: ${contextArray.data} \n`
+    let contextString = ` Article Title:${title} \n
+                           Article URL: ${link} \n
+                           Article Context: ${data} \n`
 
     return contextString
 }
@@ -492,6 +492,38 @@ const generateReleventKeyWordForQuestions = async (questions, context, keyWord) 
         messages: [
             { role: "system", content: "You are a helpful assistant designed to output JSON." },
             { role: "user", content: `Analyze the following content researched for the keyword: ${keyWord} \n.  Here is the content pulled from relevent sites: ${context}\n.  Now determine whether the following questions are adequetly answered by the content provided: ${questions}\n.  Come up with one searchQuery that will be used to address the most relevent gap in the context.` }
+        ],
+        tools: toolsForNow,
+        model: "gpt-3.5-turbo-1106",
+        response_format: { type: "json_object" }
+    });
+}
+
+
+const summarizeContent = async (content) => {
+
+    const toolsForNow = [{
+        "type": "function",
+        "function": {
+            "name": "provideAnalysis",
+            "description": "Extract the most valuable insights from the content provided, include any relevent or necessary data in the provided content, keep sucinct.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "keyPoints": {
+                        "type": "string"
+                    }
+                },
+                "required": ["keyPoints"]
+            }
+        }
+    }]
+
+
+    return await openai.chat.completions.create({
+        messages: [
+            { role: "system", content: "You are a helpful assistant designed to output JSON." },
+            { role: "user", content: `Extract the most important info and data from the content provided.  Only extract relevent data that might help someone else writing an article on the same topic.  Keep your points concise and include statitics or data where possible.  Do not include unnecssary filler word material, simply list out all the most import parts of the content. Your job is NOT to summarize, only to extract the most important data from the article. Here is the supplied content: ${content}` }
         ],
         tools: toolsForNow,
         model: "gpt-3.5-turbo-1106",
@@ -577,5 +609,6 @@ module.exports = {
     generateContextString,
     determineIfMoreDataNeeded,
     countWords,
-    decrementUserWordCount
+    decrementUserWordCount,
+    summarizeContent
 };

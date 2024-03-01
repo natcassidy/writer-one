@@ -44,19 +44,46 @@ router.get('/health', async (req, res) => {
 });
 
 async function findGoodData(params) {
-  let goodData;
   const data = await getSerpResults(params); // Assume this returns an array of objects
-  console.log('serp results returned with size: ', data.length)
+  console.log('serp results returned with size: ', data.length);
 
-  for (const item of data) {
-    if (item.status === "good") {
-      goodData = item;
-      break; // Stop the loop once a good data is found
-    }
-  }
+  // Use map to transform data items into an array of promises
+  const promises = data.map(item => {
+    // Return a new promise for each item
+    return new Promise(async (resolve) => {
+      if (item.status === "good") {
+        try {
+          const returnedSummary = await misc.summarizeContent(item.data);
+          if (returnedSummary) {
+            let responseMessage = JSON.parse(returnedSummary.choices[0].message.tool_calls[0].function.arguments);
+            let newContext = misc.generateContextString(item.title, item.link, responseMessage.keyPoints)
+            resolve(newContext); // Resolve with the summary if successful
+          } else {
+            resolve(); // Resolve with undefined if no summary returned
+          }
+        } catch (e) {
+          console.log('Error retrieving data summary', e);
+          resolve(); // Resolve with undefined in case of error
+        }
+      } else {
+        resolve(); // Resolve with undefined if the status is not good
+      }
+    });
+  });
 
-  return goodData; // This will be undefined if no good data is found
+  // Wait for all promises to resolve
+  const results = await Promise.all(promises);
+  // Filter out undefined results (if any)
+  const contextArray = results.filter(result => result !== undefined);
+
+  let contextString = ""
+  contextArray.forEach(context => {
+    contextString += context
+  })
+
+  return contextString; // This will be an array of summaries or empty if no good data is found
 }
+
 
 /* ----- Main Notes -----
 
@@ -142,10 +169,9 @@ router.post('/process', async (req, res) => {
     }
 
     try {
-      context = await findGoodData(params)
+      context = await findGoodData(params, currentUser, jobId)
 
-      newContext = misc.generateContextString(context)
-      jobId = await misc.updateFirebaseJob(currentUser, jobId, "context", newContext)
+      jobId = await misc.updateFirebaseJob(currentUser, jobId, "context", context)
       // const furtherKeyWordResearch = await misc.determineIfMoreDataNeeded(questions, context, keyWord)
 
       // params.query = furtherKeyWordResearch.searchQuery
