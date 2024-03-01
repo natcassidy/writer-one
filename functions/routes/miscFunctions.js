@@ -494,6 +494,7 @@ const generateSection = async (sectionHeader, keyWord, context, tone, pointOfVie
         ${includePointOfView}
         Here are some additional notes and guidelines to follow to help you generate this section.
         ${notes}
+        Make sure your opening sentence to the section is unique and doesn't just reiterate the primary keyword.  Avoid using closing statements at the end of the section.
         `;
 
     return await openai.chat.completions.create({
