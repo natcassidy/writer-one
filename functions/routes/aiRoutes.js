@@ -43,47 +43,6 @@ router.get('/health', async (req, res) => {
   }
 });
 
-async function findGoodData(params) {
-  const data = await getSerpResults(params); // Assume this returns an array of objects
-  console.log('serp results returned with size: ', data.length);
-
-  // Use map to transform data items into an array of promises
-  const promises = data.map(item => {
-    // Return a new promise for each item
-    return new Promise(async (resolve) => {
-      if (item.status === "good") {
-        try {
-          const returnedSummary = await misc.summarizeContent(item.data);
-          if (returnedSummary) {
-            let responseMessage = JSON.parse(returnedSummary.choices[0].message.tool_calls[0].function.arguments);
-            let newContext = misc.generateContextString(item.title, item.link, responseMessage.keyPoints)
-            resolve(newContext); // Resolve with the summary if successful
-          } else {
-            resolve(); // Resolve with undefined if no summary returned
-          }
-        } catch (e) {
-          console.log('Error retrieving data summary', e);
-          resolve(); // Resolve with undefined in case of error
-        }
-      } else {
-        resolve(); // Resolve with undefined if the status is not good
-      }
-    });
-  });
-
-  // Wait for all promises to resolve
-  const results = await Promise.all(promises);
-  // Filter out undefined results (if any)
-  const contextArray = results.filter(result => result !== undefined);
-
-  let contextString = ""
-  contextArray.forEach(context => {
-    contextString += context
-  })
-
-  return contextString; // This will be an array of summaries or empty if no good data is found
-}
-
 
 /* ----- Main Notes -----
 
@@ -132,7 +91,7 @@ const [formData, setFormData] = useState({
 router.post('/process', async (req, res) => {
   let { keyWord, internalUrl, wordRange, tone,
     pointOfView, realTimeResearch, citeSources, includeFAQs,
-    generatedImages, generateOutline, outline, currentUser } = req.body
+    generatedImages, generateOutline, outline, currentUser, jobId } = req.body
 
   const isWithinWordCount = await misc.doesUserHaveEnoughWords(currentUser, wordRange)
 
@@ -140,52 +99,46 @@ router.post('/process', async (req, res) => {
     res.status(500).send("Word Count Limit Hit")
   }
 
-  let jobId = -1
+  let context = ""
+  if (!jobId) {
+    jobId = -1
+  }
+
   if (outline.length != 0) {
     jobId = await misc.updateFirebaseJob(currentUser, jobId, "outline", outline)
     console.log('outline generated')
   } else {
-    outline = await misc.generateOutline(keyWord, wordRange)
+    context = await misc.doSerpResearch(keyWord, "")
+    jobId = await misc.updateFirebaseJob(currentUser, jobId, "context", context)
+    outline = await misc.generateOutline(keyWord, wordRange, context)
     jobId = await misc.updateFirebaseJob(currentUser, jobId, "outline", outline)
     console.log('outline generated')
   }
 
-  let context = ""
-  let newContext = ""
-  if (realTimeResearch) {
-    // const questions = await misc.generateContextQuestions(outline, jobId, keyWord)
-    // jobId = await misc.updateFirebaseJob(currentUser, jobId, "questions", questions)
+  context = await misc.getContextFromDb(currentUser, jobId)
+  // let context = ""
+  // let newContext = ""
+  // if (realTimeResearch) {
+  // const questions = await misc.generateContextQuestions(outline, jobId, keyWord)
+  // jobId = await misc.updateFirebaseJob(currentUser, jobId, "questions", questions)
+  // try {
+  //   context = await findGoodData(params, currentUser, jobId)
 
-    let countryCode;
-    if (req.body.countryCode) {
-      countryCode = req.body.countryCode;
-    } else {
-      countryCode = "";
-    }
+  //   jobId = await misc.updateFirebaseJob(currentUser, jobId, "context", context)
+  // const furtherKeyWordResearch = await misc.determineIfMoreDataNeeded(questions, context, keyWord)
 
-    const params = {
-      query: keyWord,
-      countryCode: countryCode
-    }
+  // params.query = furtherKeyWordResearch.searchQuery
+  // const additionalData = await getSerpResuts(params);
+  // const slicedAdditionalData = additionalData.slice(0,2)
+  // newContext = misc.generateContextString(slicedAdditionalData)
+  // context += newContext
+  // jobId = await misc.updateFirebaseJob(currentUser, jobId, "context", newContext)
 
-    try {
-      context = await findGoodData(params, currentUser, jobId)
-
-      jobId = await misc.updateFirebaseJob(currentUser, jobId, "context", context)
-      // const furtherKeyWordResearch = await misc.determineIfMoreDataNeeded(questions, context, keyWord)
-
-      // params.query = furtherKeyWordResearch.searchQuery
-      // const additionalData = await getSerpResuts(params);
-      // const slicedAdditionalData = additionalData.slice(0,2)
-      // newContext = misc.generateContextString(slicedAdditionalData)
-      // context += newContext
-      // jobId = await misc.updateFirebaseJob(currentUser, jobId, "context", newContext)
-
-    }
-    catch (e) {
-      throw e
-    }
-  }
+  // }
+  // catch (e) {
+  //   throw e
+  // }
+  // }
   console.log('generating article')
   await misc.generateArticle(outline, keyWord, context, tone, pointOfView, citeSources);
 
@@ -201,147 +154,6 @@ router.post('/process', async (req, res) => {
   res.status(200).send({ "article": outline, updatedWordCount, "geminiArticle": geminiOutline })
 });
 
-// This is required for the scraping to work through the proxy
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-
-
-
-// TODO: label each of these as these doNotScrape or tryBetterProxy or something
-// TODO: add known stores as discovered
-// TODO: prevent stores with blogs from getting forbidden...just only scrape the blog
-const forbiddenDomains = [
-  "youtube.com",
-  "pizzahut.com",
-  "blazepizza.com",
-  "dominos.com",
-  "littlecaesars.com",
-  "doi.gov", //setup alternate scraper
-
-  /* FIXME: move these to apiAbleDomains once they can be handled specially */
-  // "amazon.com",
-  // "amazon.ca",
-  // "usatoday.com",
-  // "consumerreports.org",
-
-  "all-clad.com", // store
-  "calphalon.com", // store
-  "cuisinart.com", // store
-  "walmart.com", // store
-  "target.com", // store
-  "walgreens.com", // store
-
-];
-const apiAbleDomains = [
-  "wikipedia.",
-  //"wikimedia.",
-];
-
-const getCountryCode = (query) => query.countryCode || "";
-const createParamsSerializer = () => (params) => qs.stringify(params, { arrayFormat: 'brackets' });
-
-const createSerpConfig = (query, countryCode) => ({
-  rejectUnauthorized: false,
-  paramsSerializer: createParamsSerializer(),
-  params: {
-    q: query.query,
-    brd_json: 1
-  },
-  proxy: {
-    host: 'brd.superproxy.io',
-    port: '22225',
-    auth: {
-      username: `${process.env.BRIGHTDATA_SERP_USERNAME}${countryCode}`,
-      password: process.env.BRIGHTDATA_SERP_PASSWORD
-    }
-  }
-});
-
-const createScrapeConfig = (countryCode) => ({
-  rejectUnauthorized: false,
-  proxy: {
-    host: 'brd.superproxy.io',
-    port: '22225',
-    auth: {
-      username: `${process.env.BRIGHTDATA_DC_USERNAME}${countryCode}`,
-      password: process.env.BRIGHTDATA_DC_PASSWORD
-    }
-  }
-});
-
-
-const getSerpResults = async (data) => {
-  const query = data;
-  const countryCode = query.countryCode || ""; // Simplify country code determination
-
-  const serpConfig = createSerpConfig(query, countryCode);
-  const scrapeConfig = createScrapeConfig(countryCode);
-
-  try {
-    const axiosResponse = await axios.get(`https://www.google.com/search`, serpConfig);
-    let promises = axiosResponse.data.organic.map(el => {
-      return processElement(el, scrapeConfig); // Refactor processing into a separate function
-    });
-
-    const settledPromises = await Promise.allSettled(promises);
-    const trimmed = settledPromises.map(item => item.status === "fulfilled" ? item.value : item.reason);
-
-    // Improved logging for debugging
-    console.log(`Processed ${trimmed.length} items.`);
-    return trimmed;
-  } catch (err) {
-    console.error("Error in getSerpResults:", err.message);
-    // Log more detailed error information if necessary
-    return []; // Return an empty array or appropriate error response
-  }
-};
-
-async function processElement(el, scrapeConfig) {
-  if (forbiddenDomains.some(domain => el.link.includes(domain))) {
-    return {
-      status: "not scraped - forbidden",
-      link: el.link,
-      title: el.title,
-      description: el.description || "" // Use || operator for defaults
-    };
-  } else if (apiAbleDomains.some(domain => el.link.includes(domain))) {
-    const filteredDomain = apiAbleDomains.find(domain => el.link.includes(domain));
-    switch (filteredDomain) {
-      case "wikipedia.":
-        return apiFunctions.fetchWikipedia(el);
-      default:
-        console.error(`Unhandled domain: ${filteredDomain} - ${el.link}`);
-        return {
-          status: "API not accessed - unhandled domain",
-          link: el.link,
-          title: el.title,
-          description: el.description || ""
-        };
-    }
-  } else {
-    try {
-      const response = await axios.get(el.link, scrapeConfig);
-      let body = misc.stripToText(response.data);
-      const description = misc.stripToText(el.description);
-
-      let type = "scraped";
-      if (misc.checkIfStore(body)) {
-        type = "scraped - store";
-      }
-
-      return {
-        status: "good",
-        type: type,
-        link: el.link,
-        title: el.title,
-        description: description,
-        data: body,
-      };
-    } catch (err) {
-      console.error("Error scraping:", el.link, err.message);
-      return { status: "bad", type: "scraped", link: el.link, error: err.message };
-    }
-  }
-}
 
 router.post('prettyPrint', (req, res) => {
   let url;
@@ -465,10 +277,15 @@ router.post("/outline", async (req, res) => {
   let { keyWord, internalUrl, articleLength, wordRange, tone,
     pointOfView, realTimeResearch, citeSources, includeFAQs,
     generatedImages, generateOutline, outline, currentUser } = req.body
-
+  
+    let context = ""
+    let jobId = -1
   try {
-    const responseMessage = await misc.generateOutline(keyWord, wordRange)
-    res.status(200).send(responseMessage);
+    context = await misc.doSerpResearch(keyWord, "")
+    jobId = await misc.updateFirebaseJob(currentUser, jobId, "context", context)
+    const responseMessage = await misc.generateOutline(keyWord, wordRange, context)
+    jobId = await misc.updateFirebaseJob(currentUser, jobId, "outline", outline)
+    res.status(200).send({ responseMessage, jobId });
   } catch (error) {
     console.error('Error:', error);
     res.status(500).send(error.message || 'An error occurred');

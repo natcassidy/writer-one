@@ -1,5 +1,7 @@
 const cheerio = require('cheerio');
 const admin = require('firebase-admin');
+const axios = require('axios');
+const qs = require('qs');
 require('dotenv').config()
 const OpenAI = require("openai");
 const openai = new OpenAI({
@@ -107,9 +109,13 @@ function flattenJsonToHtmlList(json) {
     const resultList = [];
     let idCounter = 1;
 
-    // Function to add items to the result list
     const addItem = (tagName, content) => {
         resultList.push({ id: idCounter.toString(), tagName, content });
+        idCounter++;
+    };
+
+    const addItemWithNotes = (tagName, content, notes) => {
+        resultList.push({ id: idCounter.toString(), tagName, content, notes });
         idCounter++;
     };
 
@@ -126,7 +132,7 @@ function flattenJsonToHtmlList(json) {
             if (Array.isArray(section.subsections)) {
                 section.subsections.forEach((subsection) => {
                     // Add each subsection name as an h3 tag
-                    addItem("h3", subsection.name);
+                    addItemWithNotes("h3", subsection.name, subsection.notes);
                 });
             }
         });
@@ -182,6 +188,33 @@ const updateFirebaseJob = async (currentUser, jobId, fieldName, data) => {
     }
 };
 
+const getContextFromDb = async (currentUser, jobId) => {
+    if (!currentUser) {
+        throw new Error('No user defined');
+    }
+
+    const jobsCollection = admin.firestore().collection("jobs");
+
+    let context = ""
+
+    try {
+        const jobRef = jobsCollection.doc(jobId.toString());
+        // Fetch the current document to check if it exists and get the current context
+        const doc = await jobRef.get();
+        if (doc.exists && doc.data().context) {
+            // If the document and context field exist, concatenate the new data
+            context = doc.data().context
+        }
+
+        console.log("Context retrieved successfully");
+
+        return context;
+    } catch (error) {
+        console.error("Error finding data:", error);
+        throw error; // Re-throw the error to handle it outside this function if needed
+    }
+};
+
 const addJobIdToUserFirebase = async (currentUser, jobId) => {
     if (!currentUser) {
         throw new Error('No user defined')
@@ -220,7 +253,7 @@ const doesUserHaveEnoughWords = async (currentUser, articleLength) => {
     if (!currentUser) {
         throw new Error('No user defined');
     }
-    
+
     const userRef = admin.firestore().collection("customers").doc(currentUser.uid);
 
     try {
@@ -232,10 +265,10 @@ const doesUserHaveEnoughWords = async (currentUser, articleLength) => {
         }
 
         const userWords = doc.data().words;
-        
+
         // Extract the maximum word count requirement from the articleLength string.
         const maxRequiredWords = parseInt(articleLength.split('-').pop());
-        
+
         // Check if the user has enough words.
         return userWords >= maxRequiredWords;
 
@@ -277,7 +310,7 @@ const decrementUserWordCount = async (currentUser, amountToDecrement) => {
         console.error("Error updating word count:", error);
         throw error; // Rethrowing the error is a good practice for error handling
     }
-    
+
     return newWordCount;
 };
 
@@ -293,13 +326,13 @@ function processAIResponseToHtml(responseMessage) {
 }
 
 // AI tool call function
-async function generateOutlineWithAI(keyword, wordRange) {
+async function generateOutlineWithAI(keyword, wordRange, context) {
     const toolsForNow =
         [{
             "type": "function",
             "function": {
                 "name": "generateOutline",
-                "description": "Generate an outline for the given keyword using the structure provided.  The title section should be the introduction",
+                "description": "Generate an outline for the given keyword using the structure provided.  The title section should be the introduction.  You provide notes for the subsections to ensure the flow is similar from one section to the next.",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -321,9 +354,12 @@ async function generateOutlineWithAI(keyword, wordRange) {
                                             "properties": {
                                                 "name": {
                                                     "type": "string"
+                                                },
+                                                "notes": {
+                                                    "type": "string"
                                                 }
                                             },
-                                            "required": ["name"]
+                                            "required": ["name", "notes"]
                                         }
                                     }
                                 },
@@ -341,7 +377,7 @@ async function generateOutlineWithAI(keyword, wordRange) {
     return await openai.chat.completions.create({
         messages: [
             { role: "system", content: "You are a helpful assistant designed to output JSON." },
-            { role: "user", content: `Generate an outline for the keyword: ${keyword}.  Outline should be insightful and make sense to a reader.  Avoid using generic placeholders for headers like Brand 1 or Question 1.  Ensure that there are NO MORE THAN ${sectionsCount} sections total. 1 of the sections MUST be the introduction.  The wordCount for the article is in the range of ${wordRange}.  Each subsection will be roughly 200-300 words worth of content so please ensure that you keep in mind the size of the section when determining how many to create.  DO NOT include the word count in your response or function call, only use it to keep track of yourself. You DO NOT NEED TO HAVE MULTIPLE SUBSECTIONS PER SECTION.` }
+            { role: "user", content: `Generate an outline for the keyword: ${keyword}.  Outline should be insightful and make sense to a reader.  Avoid using generic placeholders for headers like Brand 1 or Question 1.  Ensure that there are NO MORE THAN ${sectionsCount} sections total. 1 of the sections MUST be the introduction.  The wordCount for the article is in the range of ${wordRange}.  Each subsection will be roughly 200-300 words worth of content so please ensure that you keep in mind the size of the section when determining how many to create.  DO NOT include the word count in your response or function call, only use it to keep track of yourself. You DO NOT NEED TO HAVE MULTIPLE SUBSECTIONS PER SECTION.  Here are is some relevent research on the topic you can use to construct it.  Please include notes in the subsections as to ensure the article flows smoothly from one section to the next.  Notes should simply be a little more info on what this section needs to cover.` }
         ],
         tools: toolsForNow,
         model: "gpt-4-0125-preview",
@@ -349,8 +385,8 @@ async function generateOutlineWithAI(keyword, wordRange) {
     });
 }
 
-const generateOutline = async (keyWord, wordRange) => {
-    const completion = await generateOutlineWithAI(keyWord, wordRange);
+const generateOutline = async (keyWord, wordRange, context) => {
+    const completion = await generateOutlineWithAI(keyWord, wordRange, context);
     let responseMessage = completion.choices[0].message.tool_calls[0].function.arguments;
     return processAIResponseToHtml(responseMessage);
 }
@@ -428,7 +464,7 @@ const generateContextString = (title, link, data) => {
     return contextString
 }
 
-const generateSection = async (sectionHeader, keyWord, context, tone, pointOfView, citeSources) => {
+const generateSection = async (sectionHeader, keyWord, context, tone, pointOfView, citeSources, notes) => {
     const toolsForNow =
         [{
             "type": "function",
@@ -451,11 +487,13 @@ const generateSection = async (sectionHeader, keyWord, context, tone, pointOfVie
     const includePointOfView = pointOfView ? `Please write this section using the following point of view: ${pointOfView}\n` : '';
     const prompt = `
         Generate a 200-300 word paragraph on this topic: ${keyWord} for a section titled: ${sectionHeader}, DO NOT ADD HEADERS.  
-        Here is relevant context ${context}.  
+        Here is relevant context from researched sites : ${context}.  
         REMEMBER NO MORE THAN 300 WORDS AND NO LESS THAN 200 WORDS. DO NOT INCLUDE A HEADER JUST WRITE A PARAGRAPH.
         ${includeTone}
         ${includeCitedSources}
         ${includePointOfView}
+        Here are some additional notes and guidelines to follow to help you generate this section.
+        ${notes}
         `;
 
     return await openai.chat.completions.create({
@@ -536,7 +574,7 @@ const generateArticle = async (outline, keyWord, context, tone, pointOfView, cit
 
     for (const section of outline) {
         if (section.tagName == 'h3') {
-            const promise = generateSection(section.content, keyWord, context, tone, pointOfView, citeSources).then(completion => {
+            const promise = generateSection(section.content, keyWord, context, tone, pointOfView, citeSources, section.notes).then(completion => {
                 let responseMessage = JSON.parse(completion.choices[0].message.tool_calls[0].function.arguments);
                 section.sectionContent = responseMessage.paragraph; // Correctly assign to each section
             });
@@ -550,25 +588,25 @@ const generateArticle = async (outline, keyWord, context, tone, pointOfView, cit
 function countWords(data) {
     // Initialize a counter for the words
     let wordCount = 0;
-  
+
     // Iterate through each item in the data
     data.forEach(item => {
-      // Count words in 'content'
-      if (item.content) {
-        wordCount += item.content.split(/\s+/).filter(Boolean).length;
-      }
-  
-      // Count words in 'sectionContent' if it exists
-      if (item.sectionContent) {
-        wordCount += item.sectionContent.split(/\s+/).filter(Boolean).length;
-      }
+        // Count words in 'content'
+        if (item.content) {
+            wordCount += item.content.split(/\s+/).filter(Boolean).length;
+        }
+
+        // Count words in 'sectionContent' if it exists
+        if (item.sectionContent) {
+            wordCount += item.sectionContent.split(/\s+/).filter(Boolean).length;
+        }
     });
-  
+
     // Return the total word count
     return wordCount;
-  }
+}
 
-  
+
 const generateContextQuestions = async (outline, keyWord) => {
     try {
         const completion = await generateReleventQuestions(outline, keyWord)
@@ -591,6 +629,212 @@ const determineIfMoreDataNeeded = async (questions, context, keyWord) => {
     }
 }
 
+const doSerpResearch = async (keyWord, countryCode) => {
+    let context = ""
+    const params = {
+        query: keyWord,
+        countryCode: countryCode ? countryCode : ""
+    }
+
+    try {
+        context = await findGoodData(params)
+        // const furtherKeyWordResearch = await misc.determineIfMoreDataNeeded(questions, context, keyWord)
+
+        // params.query = furtherKeyWordResearch.searchQuery
+        // const additionalData = await getSerpResuts(params);
+        // const slicedAdditionalData = additionalData.slice(0,2)
+        // newContext = misc.generateContextString(slicedAdditionalData)
+        // context += newContext
+        // jobId = await misc.updateFirebaseJob(currentUser, jobId, "context", newContext)
+
+    }
+    catch (e) {
+        throw e
+    }
+
+    return context
+}
+
+async function findGoodData(params) {
+    const data = await getSerpResults(params); // Assume this returns an array of objects
+    console.log('serp results returned with size: ', data.length);
+
+    // Use map to transform data items into an array of promises
+    const promises = data.map(item => {
+        // Return a new promise for each item
+        return new Promise(async (resolve) => {
+            if (item.status === "good") {
+                try {
+                    const returnedSummary = await summarizeContent(item.data);
+                    if (returnedSummary) {
+                        let responseMessage = JSON.parse(returnedSummary.choices[0].message.tool_calls[0].function.arguments);
+                        let newContext = generateContextString(item.title, item.link, responseMessage.keyPoints)
+                        resolve(newContext); // Resolve with the summary if successful
+                    } else {
+                        resolve(); // Resolve with undefined if no summary returned
+                    }
+                } catch (e) {
+                    console.log('Error retrieving data summary', e);
+                    resolve(); // Resolve with undefined in case of error
+                }
+            } else {
+                resolve(); // Resolve with undefined if the status is not good
+            }
+        });
+    });
+
+    // Wait for all promises to resolve
+    const results = await Promise.all(promises);
+    // Filter out undefined results (if any)
+    const contextArray = results.filter(result => result !== undefined);
+
+    let contextString = ""
+    contextArray.forEach(context => {
+        contextString += context
+    })
+
+    return contextString; // This will be an array of summaries or empty if no good data is found
+}
+
+// This is required for the scraping to work through the proxy
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
+// TODO: label each of these as these doNotScrape or tryBetterProxy or something
+// TODO: add known stores as discovered
+// TODO: prevent stores with blogs from getting forbidden...just only scrape the blog
+const forbiddenDomains = [
+    "youtube.com",
+    "pizzahut.com",
+    "blazepizza.com",
+    "dominos.com",
+    "littlecaesars.com",
+    "doi.gov", //setup alternate scraper
+
+    /* FIXME: move these to apiAbleDomains once they can be handled specially */
+    // "amazon.com",
+    // "amazon.ca",
+    // "usatoday.com",
+    // "consumerreports.org",
+
+    "all-clad.com", // store
+    "calphalon.com", // store
+    "cuisinart.com", // store
+    "walmart.com", // store
+    "target.com", // store
+    "walgreens.com", // store
+
+];
+const apiAbleDomains = [
+    "wikipedia.",
+    //"wikimedia.",
+];
+
+const getCountryCode = (query) => query.countryCode || "";
+const createParamsSerializer = () => (params) => qs.stringify(params, { arrayFormat: 'brackets' });
+
+const createSerpConfig = (query, countryCode) => ({
+    rejectUnauthorized: false,
+    paramsSerializer: createParamsSerializer(),
+    params: {
+        q: query.query,
+        brd_json: 1
+    },
+    proxy: {
+        host: 'brd.superproxy.io',
+        port: '22225',
+        auth: {
+            username: `${process.env.BRIGHTDATA_SERP_USERNAME}${countryCode}`,
+            password: process.env.BRIGHTDATA_SERP_PASSWORD
+        }
+    }
+});
+
+const createScrapeConfig = (countryCode) => ({
+    rejectUnauthorized: false,
+    proxy: {
+        host: 'brd.superproxy.io',
+        port: '22225',
+        auth: {
+            username: `${process.env.BRIGHTDATA_DC_USERNAME}${countryCode}`,
+            password: process.env.BRIGHTDATA_DC_PASSWORD
+        }
+    }
+});
+
+const getSerpResults = async (data) => {
+    const query = data;
+    const countryCode = query.countryCode || ""; // Simplify country code determination
+
+    const serpConfig = createSerpConfig(query, countryCode);
+    const scrapeConfig = createScrapeConfig(countryCode);
+
+    try {
+        const axiosResponse = await axios.get(`https://www.google.com/search`, serpConfig);
+        let promises = axiosResponse.data.organic.map(el => {
+            return processElement(el, scrapeConfig); // Refactor processing into a separate function
+        });
+
+        const settledPromises = await Promise.allSettled(promises);
+        const trimmed = settledPromises.map(item => item.status === "fulfilled" ? item.value : item.reason);
+
+        // Improved logging for debugging
+        console.log(`Processed ${trimmed.length} items.`);
+        return trimmed;
+    } catch (err) {
+        console.error("Error in getSerpResults:", err.message);
+        // Log more detailed error information if necessary
+        return []; // Return an empty array or appropriate error response
+    }
+};
+
+async function processElement(el, scrapeConfig) {
+    if (forbiddenDomains.some(domain => el.link.includes(domain))) {
+        return {
+            status: "not scraped - forbidden",
+            link: el.link,
+            title: el.title,
+            description: el.description || "" // Use || operator for defaults
+        };
+    } else if (apiAbleDomains.some(domain => el.link.includes(domain))) {
+        const filteredDomain = apiAbleDomains.find(domain => el.link.includes(domain));
+        switch (filteredDomain) {
+            case "wikipedia.":
+                return apiFunctions.fetchWikipedia(el);
+            default:
+                console.error(`Unhandled domain: ${filteredDomain} - ${el.link}`);
+                return {
+                    status: "API not accessed - unhandled domain",
+                    link: el.link,
+                    title: el.title,
+                    description: el.description || ""
+                };
+        }
+    } else {
+        try {
+            const response = await axios.get(el.link, scrapeConfig);
+            let body = stripToText(response.data);
+            const description = stripToText(el.description);
+
+            let type = "scraped";
+            if (checkIfStore(body)) {
+                type = "scraped - store";
+            }
+
+            return {
+                status: "good",
+                type: type,
+                link: el.link,
+                title: el.title,
+                description: description,
+                data: body,
+            };
+        } catch (err) {
+            console.error("Error scraping:", el.link, err.message);
+            return { status: "bad", type: "scraped", link: el.link, error: err.message };
+        }
+    }
+}
+
 module.exports = {
     stripEscapeChars,
     stripToText,
@@ -610,5 +854,7 @@ module.exports = {
     determineIfMoreDataNeeded,
     countWords,
     decrementUserWordCount,
-    summarizeContent
+    summarizeContent,
+    doSerpResearch,
+    getContextFromDb
 };
