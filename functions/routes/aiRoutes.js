@@ -12,6 +12,8 @@ require('dotenv').config()
 const apiFunctions = require('./apiFunctions');
 const misc = require('./miscFunctions');
 const vertex = require('./vertexAiFunctions')
+const amazon = require('./amazonScraperFunctions')
+
 
 // ------ Dev Dep ------
 const fs = require("node:fs");
@@ -320,6 +322,8 @@ router.post("/testSerp", async (req, res) => {
     }
   };
 
+  
+
 
   await axios.get(`http://www.google.com/search`, serpConfig)
     .then(data => {
@@ -330,6 +334,11 @@ router.post("/testSerp", async (req, res) => {
 router.get("/testGemini", async (req, res) => {
   const data = await vertex.healthCheckGemini()
   res.status(200).send(data.candidates[0].content.parts[0].text)
+})
+
+router.get("/testAmazonScraper", async (req, res) => {
+  const data = await amazon.performSearch("Memory Cards", "amazon.com", 1)
+  res.status(200).send(data)
 })
 
 module.exports = router;
