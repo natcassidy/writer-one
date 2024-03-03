@@ -278,6 +278,32 @@ const doesUserHaveEnoughWords = async (currentUser, articleLength) => {
     }
 };
 
+const doesUserHaveEnoughWordsAmazon = async (currentUser, articleLength) => {
+    if (!currentUser) {
+        throw new Error('No user defined');
+    }
+
+    const userRef = admin.firestore().collection("customers").doc(currentUser.uid);
+
+    try {
+        const doc = await userRef.get();
+
+        if (!doc.exists) {
+            console.log("No such document!");
+            return false; // Assuming the function should return false if the document doesn't exist.
+        }
+
+        const userWords = doc.data().words;
+
+        // Check if the user has enough words.
+        return userWords >= articleLength;
+
+    } catch (error) {
+        console.error("Error fetching user data:", error);
+        throw error; // Consider handling or rethrowing the error as appropriate for your application.
+    }
+};
+
 const decrementUserWordCount = async (currentUser, amountToDecrement) => {
     if (!currentUser) {
         throw new Error('No user defined');
@@ -565,7 +591,7 @@ const summarizeContent = async (content) => {
             { role: "user", content: `Extract the most important info and data from the content provided.  Only extract relevent data that might help someone else writing an article on the same topic.  Keep your points concise and include statitics or data where possible.  Do not include unnecssary filler word material, simply list out all the most import parts of the content. Your job is NOT to summarize, only to extract the most important data from the article. Here is the supplied content: ${content}` }
         ],
         tools: toolsForNow,
-        model: "gpt-3.5-turbo-1106",
+        model: "gpt-4-0125-preview",
         response_format: { type: "json_object" }
     });
 }
@@ -583,7 +609,7 @@ const generateArticle = async (outline, keyWord, context, tone, pointOfView, cit
         }
     }
 
-    return await Promise.all(promises);;
+    return await Promise.all(promises);
 }
 
 function countWords(data) {
@@ -857,5 +883,6 @@ module.exports = {
     decrementUserWordCount,
     summarizeContent,
     doSerpResearch,
-    getContextFromDb
+    getContextFromDb,
+    doesUserHaveEnoughWordsAmazon
 };

@@ -156,6 +156,67 @@ router.post('/process', async (req, res) => {
   res.status(200).send({ "article": outline, updatedWordCount, "geminiArticle": geminiOutline })
 });
 
+router.post('/processAmazon', async (req, res) => {
+  let { keyWord, internalUrl, tone, numberOfProducts,
+    pointOfView, includeFAQs,
+    generatedImages, outline, currentUser, jobId, amazonUrl, affiliate } = req.body
+
+  const length = amazon.determineArticleLength(numberOfProducts)
+  const isWithinWordCount = await misc.doesUserHaveEnoughWordsAmazon(currentUser, length)
+
+  if (!isWithinWordCount) {
+    res.status(500).send("Word Count Limit Hit")
+  }
+
+  let context = ""
+  if (!jobId) {
+    jobId = -1
+  }
+
+  context = await amazon.performSearch(keyWord, amazonUrl, numberOfProducts, affiliate)
+  // jobId = await misc.updateFirebaseJob(currentUser, jobId, "context", context)
+  outline = await amazon.generateOutlineAmazon(keyWord, context)
+  // jobId = await misc.updateFirebaseJob(currentUser, jobId, "outline", outline)
+  console.log('outline generated')
+
+  // context = await misc.getContextFromDb(currentUser, jobId)
+  // let context = ""
+  // let newContext = ""
+  // if (realTimeResearch) {
+  // const questions = await misc.generateContextQuestions(outline, jobId, keyWord)
+  // jobId = await misc.updateFirebaseJob(currentUser, jobId, "questions", questions)
+  // try {
+  //   context = await findGoodData(params, currentUser, jobId)
+
+  //   jobId = await misc.updateFirebaseJob(currentUser, jobId, "context", context)
+  // const furtherKeyWordResearch = await misc.determineIfMoreDataNeeded(questions, context, keyWord)
+
+  // params.query = furtherKeyWordResearch.searchQuery
+  // const additionalData = await getSerpResuts(params);
+  // const slicedAdditionalData = additionalData.slice(0,2)
+  // newContext = misc.generateContextString(slicedAdditionalData)
+  // context += newContext
+  // jobId = await misc.updateFirebaseJob(currentUser, jobId, "context", newContext)
+
+  // }
+  // catch (e) {
+  //   throw e
+  // }
+  // }
+  console.log('generating article')
+  await amazon.generateAmazonArticle(outline, keyWord, context, tone, pointOfView);
+
+  // console.log('article generated now doing gemini article')
+  // const geminiOutline = structuredClone(outline);
+  // await vertex.generateArticleGemini(geminiOutline)
+
+  // console.log('gemini article generated')
+  const wordCount = misc.countWords(outline)
+  const updatedWordCount = await misc.decrementUserWordCount(currentUser, wordCount)
+  // console.log('word count: ', wordCount)
+  //Outline will now contain each section filled in with data
+  res.status(200).send({ "article": outline, updatedWordCount})
+});
 
 router.post('prettyPrint', (req, res) => {
   let url;
@@ -279,9 +340,9 @@ router.post("/outline", async (req, res) => {
   let { keyWord, internalUrl, articleLength, wordRange, tone,
     pointOfView, realTimeResearch, citeSources, includeFAQs,
     generatedImages, generateOutline, outline, currentUser } = req.body
-  
-    let context = ""
-    let jobId = -1
+
+  let context = ""
+  let jobId = -1
   try {
     context = await misc.doSerpResearch(keyWord, "")
     jobId = await misc.updateFirebaseJob(currentUser, jobId, "context", context)
@@ -322,7 +383,7 @@ router.post("/testSerp", async (req, res) => {
     }
   };
 
-  
+
 
 
   await axios.get(`http://www.google.com/search`, serpConfig)
