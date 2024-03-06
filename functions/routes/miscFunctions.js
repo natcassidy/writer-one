@@ -146,12 +146,19 @@ const updateFirebaseJob = async (currentUser, jobId, fieldName, data) => {
         throw new Error('No user defined');
     }
 
+    // No need to call firestore.settings({ ignoreUndefinedProperties: true }) here,
+    // as your earlier error message indicates that Firestore initialization and setting adjustments
+    // should be done once and prior to this function being called.
+
     const jobsCollection = admin.firestore().collection("jobs");
+    const cleanedData = cleanData(data);
 
     try {
         if (jobId === -1) {
-            // Let Firebase generate the jobId
-            const newJobData = { [fieldName]: data };
+            const newJobData = {
+                [fieldName]: cleanedData,
+                lastModified: Date.now()// Add last modified timestamp
+            };
             const newDocRef = await jobsCollection.add(newJobData);
 
             console.log("New job created with ID:", newDocRef.id);
@@ -161,20 +168,24 @@ const updateFirebaseJob = async (currentUser, jobId, fieldName, data) => {
         } else {
             const jobRef = jobsCollection.doc(jobId.toString());
 
-            if (fieldName === "context") {
-                // Fetch the current document to check if it exists and get the current context
-                const doc = await jobRef.get();
-                if (doc.exists && doc.data().context) {
-                    // If the document and context field exist, concatenate the new data
-                    const updatedContext = doc.data().context + data;
-                    await jobRef.update({ [fieldName]: updatedContext });
-                } else {
-                    // If the document or context field does not exist, set it as new
-                    await jobRef.set({ [fieldName]: data }, { merge: true });
-                }
+            // Define the data to update including the last modified timestamp
+            const updateData = {
+                [fieldName]: cleanedData,
+                lastModified: Date.now() // Add last modified timestamp
+            };
+
+            // Fetch the current document to check if it exists and get the current context
+            const doc = await jobRef.get();
+            if (fieldName === "context" && doc.exists && doc.data().context) {
+                // If the document and context field exist, concatenate the new data
+                const updatedContext = doc.data().context + cleanedData;
+                updateData[fieldName] = updatedContext;
+            }
+            // Perform the update or set operation with last modified timestamp
+            if (doc.exists) {
+                await jobRef.update(updateData);
             } else {
-                // For other fields, just set (or merge) the data normally
-                await jobRef.set({ [fieldName]: data }, { merge: true });
+                await jobRef.set(updateData, { merge: true });
             }
 
             console.log("Job updated successfully");
@@ -184,9 +195,18 @@ const updateFirebaseJob = async (currentUser, jobId, fieldName, data) => {
         }
     } catch (error) {
         console.error("Error updating job:", error);
-        throw error; // Re-throw the error to handle it outside this function if needed
+        throw error;
     }
 };
+
+function cleanData(data) {
+    if (data === null || data === undefined) return null; // Or some default value
+    if (typeof data !== 'object') return data;
+    for (const key of Object.keys(data)) {
+        data[key] = cleanData(data[key]);
+    }
+    return data;
+}
 
 const getContextFromDb = async (currentUser, jobId) => {
     if (!currentUser) {

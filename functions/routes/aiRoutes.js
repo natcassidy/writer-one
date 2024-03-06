@@ -152,6 +152,7 @@ router.post('/process', async (req, res) => {
   const wordCount = misc.countWords(outline)
   const updatedWordCount = await misc.decrementUserWordCount(currentUser, wordCount)
   console.log('word count: ', wordCount)
+  jobId = await misc.updateFirebaseJob(currentUser, jobId, "outline", outline)
   //Outline will now contain each section filled in with data
   res.status(200).send({ "article": outline, updatedWordCount, "geminiArticle": geminiOutline })
 });
@@ -213,6 +214,7 @@ router.post('/processAmazon', async (req, res) => {
   // console.log('gemini article generated')
   const wordCount = misc.countWords(outline)
   const updatedWordCount = await misc.decrementUserWordCount(currentUser, wordCount)
+  jobId = await misc.updateFirebaseJob(currentUser, jobId, "outline", outline)
   // console.log('word count: ', wordCount)
   //Outline will now contain each section filled in with data
   res.status(200).send({ "article": outline, updatedWordCount})
@@ -400,6 +402,11 @@ router.get("/testGemini", async (req, res) => {
 router.get("/testAmazonScraper", async (req, res) => {
   const data = await amazon.performSearch("Memory Cards", "amazon.com", 1)
   res.status(200).send(data)
+})
+
+router.get("/testClaude", async (req, res) => {
+  const data = await amazon.testClaude()
+  res.status(200).send(data.content[0].text)
 })
 
 module.exports = router;

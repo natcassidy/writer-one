@@ -4,6 +4,7 @@ const OpenAI = require("openai");
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
 });
+const Anthropic = require('@anthropic-ai/sdk');
 
 // const testScraper = async () => {
 //     // set up the request parameters
@@ -199,7 +200,7 @@ const generateAmazonSection = async (sectionHeader, keyWord, context, tone, poin
         ${includeTone}
         ${includePointOfView}
         Make sure your opening sentence to the section is unique and doesn't just reiterate the primary keyword.  Avoid using closing statements at the end of the section.
-        ENSURE YOU INCLUDE A PRO'S AND CON's list.
+        In your review include a description of the product along with some positives and negative points if there are any.  Make it verbose and use up 300 words to review the product.
         `;
 
     return await openai.chat.completions.create({
@@ -214,9 +215,9 @@ const generateAmazonSection = async (sectionHeader, keyWord, context, tone, poin
 }
 
 const generateContextString = (section) => {
-    let contextString = `Product description: ${section.description}\n`
+    let contextString = `Product description: ${section.content}\n`
 
-    for(let i = 0; i < section.reviews.length; i++) {
+    for (let i = 0; i < section.reviews.length; i++) {
         contextString += `Review #${i}: ${section.reviews[i].body}\n`
     }
 
@@ -248,9 +249,30 @@ function countWords(data) {
     return wordCount;
 }
 
+
+const testClaude = async () => {
+    const anthropic = new Anthropic({
+        apiKey: process.env.CLAUDE_API_KEY
+    });
+
+    const message = `
+    Title: The Importance of Living a Healthy Life: A Comprehensive Guide I. Introduction A. Definition of a healthy lifestyle B. Brief overview of the benefits of living a healthy life II. Physical Health A. Benefits of regular exercise 1. Improves cardiovascular health 2. Strengthens muscles and bones 3. Helps maintain a healthy weight 4. Boosts energy levels B. Importance of a balanced diet 1. Provides essential nutrients 2. Helps prevent chronic diseases 3. Supports healthy weight management C. Adequate sleep and rest 1. Promotes physical recovery and repair 2. Enhances cognitive function and mental well-being III. Mental Health A. Stress management techniques 1. Meditation and mindfulness 2. Time management and organization 3. Hobbies and leisure activities B. Importance of social connections 1. Building and maintaining relationships 2. Benefits of social support on mental health C. Seeking professional help when needed 1. Recognizing signs of mental health issues 2. Importance of therapy and counseling IV. Work-Life Balance A. Setting boundaries between work and personal life 1. Importance of disconnecting from work 2. Prioritizing personal time and self-care B. Pursuing personal growth and development 1. Lifelong learning and skill acquisition 2. Setting and achieving personal goals C. Cultivating a positive work environment 1. Building positive relationships with colleagues 2. Advocating for a healthy workplace culture V. Preventive Healthcare A. Regular check-ups and screenings 1. Identifying potential health issues early 2. Monitoring chronic conditions B. Immunizations and vaccinations 1. Protecting against preventable diseases 2. Importance of staying up-to-date with recommended vaccinations C. Dental and vision care 1. Maintaining oral health 2. Protecting eye health and vision VI. Overcoming Obstacles to a Healthy Lifestyle A. Time constraints and busy schedules 1. Prioritizing health and self-care 2. Finding efficient ways to incorporate healthy habits B. Financial limitations 1. Affordable ways to exercise and eat healthily 2. Utilizing community resources and support C. Lack of motivation and consistency 1. Setting realistic goals and expectations 2. Finding accountability partners or support groups VII. Long-Term Benefits of a Healthy Lifestyle A. Reduced risk of chronic diseases 1. Lower risk of heart disease, diabetes, and certain cancers 2. Improved overall quality of life B. Increased longevity and life expectancy 1. Healthy habits contributing to a longer lifespan 2. Maintaining independence and functionality in later years C. Positive impact on personal and professional life 1. Enhanced productivity and performance 2. Improved relationships and social well-being VIII. Conclusion A. Recap of the importance of living a healthy life B. Encouragement to prioritize health and well-being C. Call to action for readers to implement healthy lifestyle changes 
+
+    Use the outline provided above to write a 3000 word article.
+    `
+    return await anthropic.messages.create({
+        model: 'claude-2.1',
+        max_tokens: 4000,
+        messages: [
+            { "role": "user", "content": "What's your name?"}
+        ]
+    });
+}
+
 module.exports = {
     performSearch,
     generateOutlineAmazon,
     generateAmazonArticle,
-    determineArticleLength
+    determineArticleLength,
+    testClaude
 };
