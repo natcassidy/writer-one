@@ -249,6 +249,26 @@ function countWords(data) {
     return wordCount;
 }
 
+function countWordsClaudeBlog(data) {
+    // Initialize a counter for the words
+    let wordCount = 0;
+
+    // Iterate through each item in the data
+    data.forEach(item => {
+        // Count words in 'content'
+        if (item.content) {
+            wordCount += item.content.split(/\s+/).filter(Boolean).length;
+        }
+
+        // Count words in 'sectionContent' if it exists
+        if (item.sectionContent) {
+            wordCount += item.sectionContent.split(/\s+/).filter(Boolean).length;
+        }
+    });
+
+    // Return the total word count
+    return wordCount;
+}
 
 const testClaude = async () => {
     const anthropic = new Anthropic({
@@ -300,7 +320,7 @@ async function generateOutlineWithClaudeAI(keyword, wordRange, context) {
         `
 
     return await anthropic.messages.create({
-        model: 'claude-3-opus-20240229',
+        model: 'claude-3-sonnet-20240229',
         max_tokens: 4000,
         system:"You are a helpful assistant designed to output JSON.",
         messages: [
@@ -361,11 +381,102 @@ function flattenJsonToHtmlList(json) {
     return resultList;
 }
 
+const generateArticleClaude = async (outline, keyWord, context, tone, pointOfView, citeSources) => {
+    let constructedSections = [];
+    let piecesOfOutline = [];
+
+    try {
+        for (const section of outline) {
+            if (section.tagName == 'h1' || section.tagName == 'h2') {
+                if (piecesOfOutline.length > 0) {
+                    const sections = await generateSectionsOfArticle(piecesOfOutline, keyWord, context, tone, pointOfView, citeSources);
+                    constructedSections.push(...sections);
+                    piecesOfOutline = []; // Reset for next sections
+                }
+                constructedSections.push(section); // Add the h1 or h2 section itself
+            } else if (section.tagName == 'h3') {
+                piecesOfOutline.push(section); // Collect h3 sections for processing
+            }
+        }
+
+        // Handle any remaining pieces after loop
+        if (piecesOfOutline.length > 0) {
+            const sections = await generateSectionsOfArticle(piecesOfOutline, keyWord, context, tone, pointOfView, citeSources);
+            constructedSections.push(...sections);
+        }
+    } catch (error) {
+        console.error('Error generating article:', error);
+        // Handle the error appropriately
+    }
+
+    return constructedSections;
+}
+
+const generateSectionsOfArticle = async (piecesOfOutline, keyWord, context, tone, pointOfView, citeSources) => {
+    const outlineCopy = structuredClone(piecesOfOutline);
+    try {
+        const completion = await generateSection(outlineCopy, keyWord, context, tone, pointOfView, citeSources);
+        const response = JSON.parse(completion.content[0].text);
+        for (let i = 0; i < response.paragraphs.length; i++) {
+            outlineCopy[i].sectionContent = response.paragraphs[i];
+        }
+    } catch (error) {
+        console.error('Error generating sections:', error);
+        // Handle the error appropriately
+    }
+    return outlineCopy;
+}
+
+const generateSection = async (outline, keyWord, context, tone, pointOfView, citeSources) => {
+    const anthropic = new Anthropic({
+        apiKey: process.env.CLAUDE_API_KEY
+    });
+    
+    let listOfSections = ""
+    outline.forEach(section => {
+        listOfSections += `${section.content}, `
+    })
+    
+    const toolsForNow =
+    `{
+        "paragraphs": [
+            "string"
+        ]
+    }`
+
+    const includeTone = tone ? `Ensure you write with the following tone: ${tone}\n` : '';
+    const includeCitedSources = citeSources ? `If you choose to use data from the context please include the source in an <a> tag like this example: <a href="https://www.reuters.com/world/us/democratic-candidates-running-us-president-2024-2023-09-18/">Reuters</a>.  Use it naturally in the article if it's appropriate, do not place all of the sources at the end.  Use it to link a specific word or set of words wrapped with the a tag.\n` : '';
+    const includePointOfView = pointOfView ? `Please write this section using the following point of view: ${pointOfView}\n` : '';
+    const prompt = `
+        Generate paragraphs for each subsection provided on this topic: ${keyWord} for the following sections: [${listOfSections}]. DO NOT ADD HEADERS.  
+        Here is relevant context ${context}.  
+        DO NOT INCLUDE A HEADER JUST WRITE A PARAGRAPH.
+        ${includeTone}
+        ${includeCitedSources}
+        ${includePointOfView}
+        \n REMEMBER YOU MUST WRITE ${outline.length} sections. DO NOT INCLUDE THE HEADER ONLY THE PARAGRAGH.  If you do not provide an array of length ${outline.length}, for the sections titled: [${listOfSections}] -- EVERYTHING WILL BREAK.
+        Paragraphs should each be between 200-500 words length each.  The sections should flow together nicely.
+        ENSURE your response is in the following JSON format:\n ${toolsForNow} \n
+        YOUR ENTIRE RESPONSE MUST BE IN THE JSON FORMAT ABOVE.  DO NOT INLUDE ANY TEXT BEFORE OR AFTER THE JSON RESONSE.  IF IT IS NOT IN THE JSON FORMAT ABOVE IT WILL BREAK.`;
+
+    return await anthropic.messages.create({
+        model: 'claude-3-sonnet-20240229',
+        max_tokens: 4000,
+        system:"You are a helpful assistant designed to output JSON.",
+        messages: [
+            { "role": "user", "content": prompt},
+        ]
+    });
+}
+
+
 module.exports = {
     performSearch,
     generateOutlineAmazon,
     generateAmazonArticle,
     determineArticleLength,
     testClaude,
-    generateOutlineClaude
+    generateOutlineClaude,
+    generateArticleClaude,
+    countWordsClaudeBlog
 };
