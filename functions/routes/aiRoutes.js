@@ -409,5 +409,11 @@ router.get("/testClaude", async (req, res) => {
   res.status(200).send(data.content[0].text)
 })
 
+
+router.get("/testClaudeOutline", async (req, res) => {
+  const data = await amazon.generateOutlineClaude("Best ways to lose weight 2024", '2000-2500 words', "")
+  res.status(200).send(data)
+})
+
 module.exports = router;
 

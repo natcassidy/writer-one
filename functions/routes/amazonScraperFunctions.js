@@ -269,10 +269,103 @@ const testClaude = async () => {
     });
 }
 
+
+async function generateOutlineWithClaudeAI(keyword, wordRange, context) {
+
+    const anthropic = new Anthropic({
+        apiKey: process.env.CLAUDE_API_KEY
+    });
+
+
+    const toolsForNow =
+        `
+        {
+            "outline": {
+                "title": "string",
+                "sections": [
+                    {
+                        "name": "string",
+                        "subsections": [
+                            {
+                                "name": "string",
+                                "notes": "string"
+                            }
+                        ]
+                    }
+                ]
+            }
+        }
+
+        Ensure your response is in json in the json format above.  You can have multiple sections and multiple subsections within sections.  Include notes to help structure what content should be touched on in the subsections.
+        `
+
+    return await anthropic.messages.create({
+        model: 'claude-3-opus-20240229',
+        max_tokens: 4000,
+        system:"You are a helpful assistant designed to output JSON.",
+        messages: [
+            { "role": "user", "content": `Generate an outline for the keyword: ${keyword}.  Ensure you response in the json format below: ${toolsForNow}. \n The wordCount for the article is in the range of ${wordRange}.  Each subsection will be roughly 200-400 words worth of content so please ensure that you keep in mind the size of the section when determining how many to create.  DO NOT include the word count in your response or function call, only use it to keep track of yourself. You DO NOT NEED TO HAVE MULTIPLE SUBSECTIONS PER SECTION.  Here are is some relevent research on the topic you can use to construct it.  Please include notes in the subsections as to ensure the article flows smoothly from one section to the next.  Notes should simply be a little more info on what this section needs to cover.`},
+        ]
+    });
+}
+
+const generateOutlineClaude = async (keyWord, wordRange, context) => {
+    const completion = await generateOutlineWithClaudeAI(keyWord, wordRange, context);
+    let responseMessage = completion.content[0].text;
+    return processAIResponseToHtml(responseMessage);
+}
+
+function processAIResponseToHtml(responseMessage) {
+    try {
+        const jsonObject = JSON.parse(responseMessage);
+        return flattenJsonToHtmlList(jsonObject);
+    } catch (error) {
+        throw new Error('Failed to process AI response');
+    }
+}
+
+function flattenJsonToHtmlList(json) {
+    // Initialize the result array and a variable to keep track of ids
+    const resultList = [];
+    let idCounter = 1;
+
+    const addItem = (tagName, content) => {
+        resultList.push({ id: idCounter.toString(), tagName, content });
+        idCounter++;
+    };
+
+    const addItemWithNotes = (tagName, content, notes) => {
+        resultList.push({ id: idCounter.toString(), tagName, content, notes });
+        idCounter++;
+    };
+
+    // Add the title as an h1 tag
+    addItem("h1", json.title);
+
+    // Check if sections exist and is an array before iterating
+    if (Array.isArray(json.outline.sections)) {
+        json.outline.sections.forEach((section) => {
+            // Add each section name as an h2 tag
+            addItem("h2", section.name);
+
+            // Check if subsections exist and is an array before iterating
+            if (Array.isArray(section.subsections)) {
+                section.subsections.forEach((subsection) => {
+                    // Add each subsection name as an h3 tag
+                    addItemWithNotes("h3", subsection.name, subsection.notes);
+                });
+            }
+        });
+    }
+
+    return resultList;
+}
+
 module.exports = {
     performSearch,
     generateOutlineAmazon,
     generateAmazonArticle,
     determineArticleLength,
-    testClaude
+    testClaude,
+    generateOutlineClaude
 };
