@@ -169,6 +169,7 @@ router.post('/processAmazon', async (req, res) => {
   // jobId = await misc.updateFirebaseJob(currentUser, jobId, "outline", outline)
   // console.log('word count: ', wordCount)
   //Outline will now contain each section filled in with data
+  console.log('outline:\n', outline)
   res.status(200).send({ "article": outline, wordCount})
 });
 

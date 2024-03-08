@@ -162,7 +162,7 @@ const generateAmazonArticle = async (outline, keyWord, context, tone, pointOfVie
             const contextString = generateContextString(section)
             const promise = generateAmazonSectionClaude(section.content, keyWord, contextString, tone, pointOfView).then(completion => {
                 let responseMessage = JSON.parse(completion.content[0].text);
-                section.overviewOfProduct = responseMessage.bottomLine
+                section.overviewOfProduct = responseMessage.overviewOfProduct
                 section.pros = responseMessage.pros
                 section.cons = responseMessage.cons
                 section.bottomLine = responseMessage.bottomLine; // Correctly assign to each section
@@ -198,14 +198,18 @@ const generateAmazonSectionClaude = async (sectionHeader, keyWord, context, tone
     const includeTone = tone ? `Ensure you write with the following tone: ${tone}\n` : '';
     const includePointOfView = pointOfView ? `Please write this section using the following point of view: ${pointOfView}\n` : '';
     const prompt = `
-        Generate a 500 word overview of this product: ${keyWord} for a section titled: ${sectionHeader}, DO NOT ADD HEADERS.  
+        Generate an word overview of this product: ${keyWord} for a section titled: ${sectionHeader}, DO NOT ADD HEADERS.  
         Here is relevant context from the amazon product page: ${context}.  
         DO NOT INCLUDE A HEADER JUST WRITE A PARAGRAPH.
         ${includeTone}
         ${includePointOfView}
         Make sure your opening sentence to the section is unique and doesn't just reiterate the primary keyword.  Avoid using closing statements at the end of the section.
         ENSURE your response is in the following JSON format:\n ${toolsForNow} \n
-        YOUR ENTIRE RESPONSE MUST BE IN THE JSON FORMAT ABOVE.  DO NOT INLUDE ANY TEXT BEFORE OR AFTER THE JSON RESONSE.  IF IT IS NOT IN THE JSON FORMAT ABOVE IT WILL BREAK.  REMEMBER MUST BE 500 WORDS.
+        YOUR ENTIRE RESPONSE MUST BE IN THE JSON FORMAT ABOVE.  DO NOT INLUDE ANY TEXT BEFORE OR AFTER THE JSON RESONSE.  IF IT IS NOT IN THE JSON FORMAT ABOVE IT WILL BREAK.
+        overviewOfProduct: should be 150 words and offer a preview/intro of the product.
+        pros: should be 4 items
+        cons: should be 4 items
+        bottomLine: should be minumum 300 words and provide the user with an summary of the information regarding the product.
         `;
 
     return await anthropic.messages.create({
