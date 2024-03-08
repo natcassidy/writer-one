@@ -127,13 +127,13 @@ async function generateOutlineWithAI(keyWord) {
 
 
 const generateOutlineAmazon = async (keyWord, context) => {
-    const completion = await generateOutlineWithAI(keyWord);
-    const fetchedTitle = JSON.parse(completion.choices[0].message.tool_calls[0].function.arguments)
-    const title = fetchedTitle.title
+    // const completion = await generateOutlineWithAI(keyWord);
+    // const fetchedTitle = JSON.parse(completion.choices[0].message.tool_calls[0].function.arguments)
+    // const title = fetchedTitle.title
     const reviewOutline = [{
         id: '1',
         tagName: 'h1',
-        content: title
+        content: keyWord
     }]
 
     for (let i = 0; i < context.length; i++) {
@@ -160,9 +160,12 @@ const generateAmazonArticle = async (outline, keyWord, context, tone, pointOfVie
     for (const section of outline) {
         if (section.tagName == 'h2') {
             const contextString = generateContextString(section)
-            const promise = generateAmazonSection(section.content, keyWord, contextString, tone, pointOfView).then(completion => {
-                let responseMessage = JSON.parse(completion.choices[0].message.tool_calls[0].function.arguments);
-                section.sectionContent = responseMessage.paragraph; // Correctly assign to each section
+            const promise = generateAmazonSectionClaude(section.content, keyWord, contextString, tone, pointOfView).then(completion => {
+                let responseMessage = JSON.parse(completion.content[0].text);
+                section.overviewOfProduct = responseMessage.bottomLine
+                section.pros = responseMessage.pros
+                section.cons = responseMessage.cons
+                section.bottomLine = responseMessage.bottomLine; // Correctly assign to each section
             });
             promises.push(promise);
         }
@@ -170,47 +173,48 @@ const generateAmazonArticle = async (outline, keyWord, context, tone, pointOfVie
 
     return await Promise.all(promises);
 }
+
 //Next steps are to figure out how to pass the right info into the section generation and have the right info come
-const generateAmazonSection = async (sectionHeader, keyWord, context, tone, pointOfView) => {
+const generateAmazonSectionClaude = async (sectionHeader, keyWord, context, tone, pointOfView) => {
+    const anthropic = new Anthropic({
+        apiKey: process.env.CLAUDE_API_KEY
+    });
+
     const toolsForNow =
-        [{
-            "type": "function",
-            "function": {
-                "name": "generateSections",
-                "description": "Generate a 300 word paragraph based on the information provided for the amazon product.  Include a pro's and con's list.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "paragraph": {
-                            "type": "string"
-                        }
-                    },
-                    "required": ["paragraph"]
-                }
-            }
-        }]
+    `
+    {
+        "overviewOfProduct": "string",
+        "pros": [
+            {"point": "string"}
+        ],
+        "cons": [
+            {"point": "string"}
+        ],
+        "bottomLine": "string"
+    }
+    `
 
 
     const includeTone = tone ? `Ensure you write with the following tone: ${tone}\n` : '';
     const includePointOfView = pointOfView ? `Please write this section using the following point of view: ${pointOfView}\n` : '';
     const prompt = `
-        Generate a 300 word paragraph on this topic: ${keyWord} for a section titled: ${sectionHeader}, DO NOT ADD HEADERS.  
+        Generate a 500 word overview of this product: ${keyWord} for a section titled: ${sectionHeader}, DO NOT ADD HEADERS.  
         Here is relevant context from the amazon product page: ${context}.  
         DO NOT INCLUDE A HEADER JUST WRITE A PARAGRAPH.
         ${includeTone}
         ${includePointOfView}
         Make sure your opening sentence to the section is unique and doesn't just reiterate the primary keyword.  Avoid using closing statements at the end of the section.
-        In your review include a description of the product along with some positives and negative points if there are any.  Make it verbose and use up 300 words to review the product.
+        ENSURE your response is in the following JSON format:\n ${toolsForNow} \n
+        YOUR ENTIRE RESPONSE MUST BE IN THE JSON FORMAT ABOVE.  DO NOT INLUDE ANY TEXT BEFORE OR AFTER THE JSON RESONSE.  IF IT IS NOT IN THE JSON FORMAT ABOVE IT WILL BREAK.  REMEMBER MUST BE 500 WORDS.
         `;
 
-    return await openai.chat.completions.create({
+    return await anthropic.messages.create({
+        model: 'claude-3-sonnet-20240229',
+        max_tokens: 4000,
+        system:"You are a helpful assistant designed to output JSON.",
         messages: [
-            { role: "system", content: "You are a helpful assistant designed to output JSON." },
-            { role: "user", content: prompt }
-        ],
-        tools: toolsForNow,
-        model: "gpt-3.5-turbo-1106",
-        response_format: { type: "json_object" }
+            { "role": "user", "content": prompt},
+        ]
     });
 }
 
@@ -478,5 +482,6 @@ module.exports = {
     testClaude,
     generateOutlineClaude,
     generateArticleClaude,
-    countWordsClaudeBlog
+    countWordsClaudeBlog,
+    generateAmazonSectionClaude
 };

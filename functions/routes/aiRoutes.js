@@ -123,8 +123,6 @@ router.post('/process', async (req, res) => {
   const updatedOutline = await amazon.generateArticleClaude(outline, keyWord, context, tone, pointOfView, citeSources);
 
   console.log('article generated now doing gemini article')
-  const geminiOutline = structuredClone(updatedOutline);
-  await vertex.generateArticleGemini(geminiOutline)
 
   console.log('gemini article generated')
   const wordCount = misc.countWords(updatedOutline)
@@ -132,7 +130,7 @@ router.post('/process', async (req, res) => {
   console.log('word count: ', wordCount)
   // jobId = await misc.updateFirebaseJob(currentUser, jobId, "outline", outline)
   //Outline will now contain each section filled in with data
-  res.status(200).send({ "article": updatedOutline, updatedWordCount, "geminiArticle": geminiOutline })
+  res.status(200).send({ "article": updatedOutline, updatedWordCount})
 });
 
 router.post('/processAmazon', async (req, res) => {
@@ -158,44 +156,20 @@ router.post('/processAmazon', async (req, res) => {
   // jobId = await misc.updateFirebaseJob(currentUser, jobId, "outline", outline)
   console.log('outline generated')
 
-  // context = await misc.getContextFromDb(currentUser, jobId)
-  // let context = ""
-  // let newContext = ""
-  // if (realTimeResearch) {
-  // const questions = await misc.generateContextQuestions(outline, jobId, keyWord)
-  // jobId = await misc.updateFirebaseJob(currentUser, jobId, "questions", questions)
-  // try {
-  //   context = await findGoodData(params, currentUser, jobId)
-
-  //   jobId = await misc.updateFirebaseJob(currentUser, jobId, "context", context)
-  // const furtherKeyWordResearch = await misc.determineIfMoreDataNeeded(questions, context, keyWord)
-
-  // params.query = furtherKeyWordResearch.searchQuery
-  // const additionalData = await getSerpResuts(params);
-  // const slicedAdditionalData = additionalData.slice(0,2)
-  // newContext = misc.generateContextString(slicedAdditionalData)
-  // context += newContext
-  // jobId = await misc.updateFirebaseJob(currentUser, jobId, "context", newContext)
-
-  // }
-  // catch (e) {
-  //   throw e
-  // }
-  // }
   console.log('generating article')
   await amazon.generateAmazonArticle(outline, keyWord, context, tone, pointOfView);
 
   // console.log('article generated now doing gemini article')
-  const geminiOutline = structuredClone(outline);
-  await vertex.generateArticleGemini(geminiOutline)
+  // const geminiOutline = structuredClone(outline);
+  // await vertex.generateArticleGemini(geminiOutline)
 
   // console.log('gemini article generated')
   const wordCount = amazon.countWordsClaudeBlog(outline)
   // const updatedWordCount = await misc.decrementUserWordCount(currentUser, wordCount)
-  jobId = await misc.updateFirebaseJob(currentUser, jobId, "outline", outline)
+  // jobId = await misc.updateFirebaseJob(currentUser, jobId, "outline", outline)
   // console.log('word count: ', wordCount)
   //Outline will now contain each section filled in with data
-  res.status(200).send({ "article": outline, wordCount, "geminiArticle": geminiOutline})
+  res.status(200).send({ "article": outline, wordCount})
 });
 
 router.post('prettyPrint', (req, res) => {
