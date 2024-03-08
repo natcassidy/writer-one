@@ -297,6 +297,41 @@ const testClaude = async () => {
     });
 }
 
+const summarizeContent = async (content, keyWord) => {
+    const anthropic = new Anthropic({
+        apiKey: process.env.CLAUDE_API_KEY
+    });
+
+    const toolsForNow = 
+    `{
+        "keyPoints": "string"
+    }`
+
+    return await anthropic.messages.create({
+        model: 'claude-3-sonnet-20240229',
+        max_tokens: 4000,
+        system:"You are a helpful assistant designed to output JSON.",
+        messages: [
+            { "role": "user", "content": `Extract the most important info and data from the content provided.  Only extract relevent data that might help someone else writing an article on the same topic.  Keep your points concise and include statitics or data where possible.  Do not include unnecssary filler word material, simply list out all the most import parts of the content. Your job is NOT to summarize, only to extract the most important data from the article, like hard stats, and data. Here is the supplied content: ${content}.\n  Ensure your format your response in json and only in json.  Make sure to adheres ot this format. ${toolsForNow}.\n Try to keep your notes relevent to this topic: ${keyWord}.  Get as much relevent data as possible in your extraction.`},
+        ]
+    });
+}
+
+const determineSectionCount = (wordRange) => {
+    if (wordRange === '500-800 words') {
+        return 2
+    } else if (wordRange === '800-1200 words') {
+        return 3
+    } else if (wordRange === '1200-1600 words') {
+        return 4
+    } else if (wordRange === '1600-2000 words') {
+        return 5
+    } else if (wordRange === '2000-2500 words') {
+        return 6
+    } else {
+        return 7
+    }
+}
 
 async function generateOutlineWithClaudeAI(keyword, wordRange, context) {
 
@@ -304,6 +339,7 @@ async function generateOutlineWithClaudeAI(keyword, wordRange, context) {
         apiKey: process.env.CLAUDE_API_KEY
     });
 
+    const sectionsCount = determineSectionCount(wordRange)
 
     const toolsForNow =
         `
@@ -325,6 +361,7 @@ async function generateOutlineWithClaudeAI(keyword, wordRange, context) {
         }
 
         Ensure your response is in json in the json format above.  You can have multiple sections and multiple subsections within sections.  Include notes to help structure what content should be touched on in the subsections.
+        Ensure that there are no more than ${sectionsCount}, h2's in your outline.  
         `
 
     return await anthropic.messages.create({
@@ -368,7 +405,7 @@ function flattenJsonToHtmlList(json) {
     };
 
     // Add the title as an h1 tag
-    addItem("h1", json.title);
+    addItem("h1", json.outline.title);
 
     // Check if sections exist and is an array before iterating
     if (Array.isArray(json.outline.sections)) {
@@ -463,9 +500,9 @@ const generateSection = async (outline, keyWord, context, tone, pointOfView, cit
         ${includeCitedSources}
         ${includePointOfView}
         \n REMEMBER YOU MUST WRITE ${outline.length} sections. DO NOT INCLUDE THE HEADER ONLY THE PARAGRAGH.  If you do not provide an array of length ${outline.length}, for the sections titled: [${listOfSections}] -- EVERYTHING WILL BREAK.
-        Paragraphs should each be between 200-500 words length each.  The sections should flow together nicely.
+        Paragraphs should each be between 300-500 words length each.  The sections should flow together nicely.
         ENSURE your response is in the following JSON format:\n ${toolsForNow} \n
-        YOUR ENTIRE RESPONSE MUST BE IN THE JSON FORMAT ABOVE.  DO NOT INLUDE ANY TEXT BEFORE OR AFTER THE JSON RESONSE.  IF IT IS NOT IN THE JSON FORMAT ABOVE IT WILL BREAK.`;
+        YOUR ENTIRE RESPONSE MUST BE IN THE JSON FORMAT ABOVE.  DO NOT INLUDE ANY TEXT BEFORE OR AFTER THE JSON RESONSE.  IF IT IS NOT IN THE JSON FORMAT ABOVE IT WILL BREAK.  REMEMBER IT IS CRITICAL THAT EACH PARAGRAGH SHOULD BE OVER 300 WORDS IN LENGTH.`;
 
     return await anthropic.messages.create({
         model: 'claude-3-sonnet-20240229',
@@ -487,5 +524,6 @@ module.exports = {
     generateOutlineClaude,
     generateArticleClaude,
     countWordsClaudeBlog,
-    generateAmazonSectionClaude
+    generateAmazonSectionClaude,
+    summarizeContent
 };

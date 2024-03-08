@@ -7,6 +7,7 @@ const OpenAI = require("openai");
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
 });
+const amazon = require('./amazonScraperFunctions')
 
 const stripEscapeChars = (string) => {
     // TODO: Check this regex to make sure it doesn't break anything.
@@ -141,7 +142,7 @@ function flattenJsonToHtmlList(json) {
     return resultList;
 }
 
-const updateFirebaseJob = async (currentUser, jobId, fieldName, data) => {
+const updateFirebaseJob = async (currentUser, jobId, fieldName, data, articleType) => {
     if (!currentUser) {
         throw new Error('No user defined');
     }
@@ -157,7 +158,8 @@ const updateFirebaseJob = async (currentUser, jobId, fieldName, data) => {
         if (jobId === -1) {
             const newJobData = {
                 [fieldName]: cleanedData,
-                lastModified: Date.now()// Add last modified timestamp
+                lastModified: Date.now(),
+                type: articleType
             };
             const newDocRef = await jobsCollection.add(newJobData);
 
@@ -702,7 +704,7 @@ const doSerpResearch = async (keyWord, countryCode) => {
     return context
 }
 
-async function findGoodData(params) {
+async function findGoodData(params, keyWord) {
     const data = await getSerpResults(params); // Assume this returns an array of objects
     console.log('serp results returned with size: ', data.length);
 
@@ -712,9 +714,9 @@ async function findGoodData(params) {
         return new Promise(async (resolve) => {
             if (item.status === "good") {
                 try {
-                    const returnedSummary = await summarizeContent(item.data);
+                    const returnedSummary = await amazon.summarizeContent(item.data, params.query);
                     if (returnedSummary) {
-                        let responseMessage = JSON.parse(returnedSummary.choices[0].message.tool_calls[0].function.arguments);
+                        let responseMessage = JSON.parse(returnedSummary.content[0].text);
                         let newContext = generateContextString(item.title, item.link, responseMessage.keyPoints)
                         resolve(newContext); // Resolve with the summary if successful
                     } else {
