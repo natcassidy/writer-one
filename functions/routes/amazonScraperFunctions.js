@@ -6,27 +6,8 @@ const openai = new OpenAI({
 });
 const Anthropic = require('@anthropic-ai/sdk');
 
-// const testScraper = async () => {
-//     // set up the request parameters
-//     const params = {
-//         api_key: process.env.ASIN_API_KEY,
-//         type: "search",
-//         amazon_domain: "amazon.com",
-//         search_term: "memory cards"
-//     }
-
-//     // make the http GET request to ASIN Data API
-//     axios.get('https://api.asindataapi.com/request', { params })
-//         .then(response => {
-
-//             // print the JSON response from ASIN Data API
-//             console.log(JSON.stringify(response.data, 0, 2));
-
-//         }).catch(error => {
-//             // catch and print the error
-//             console.log(error);
-//         })
-// }
+const claude = require('./claudeFunctions')
+const misc = require('./miscFunctions');
 
 const getReview = async (asin, associateId) => {
     const params = {
@@ -96,36 +77,6 @@ const performSearch = async (searchTerm, domain = "amazon.com", resultCount = 5,
     }
 };
 
-async function generateOutlineWithAI(keyWord) {
-    const toolsForNow = [{
-        "type": "function",
-        "function": {
-            "name": "createTitle",
-            "description": "Provide a title to this function for the creation of an Amazon products review Article",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "title": {
-                        "type": "string"
-                    }
-                },
-                "required": ["title"]
-            }
-        }
-    }];
-
-    return await openai.chat.completions.create({
-        messages: [
-            { role: "system", content: "You are a helpful assistant designed to output JSON." },
-            { role: "user", content: `Generate a title for an amazon products reviews article on the topic of: ${keyWord}` }
-        ],
-        tools: toolsForNow,
-        model: "gpt-4-0125-preview",
-        response_format: { type: "json_object" }
-    });
-}
-
-
 const generateOutlineAmazon = async (keyWord, context) => {
     // const completion = await generateOutlineWithAI(keyWord);
     // const fetchedTitle = JSON.parse(completion.choices[0].message.tool_calls[0].function.arguments)
@@ -159,9 +110,11 @@ const generateAmazonArticle = async (outline, keyWord, context, tone, pointOfVie
 
     for (const section of outline) {
         if (section.tagName == 'h2') {
-            const contextString = generateContextString(section)
-            const promise = generateAmazonSectionClaude(section.content, keyWord, contextString, tone, pointOfView).then(completion => {
-                let responseMessage = JSON.parse(completion.content[0].text);
+            const contextString = misc.generateContextStringAmazon(section)
+            const promise = claude.generateAmazonSectionClaude(section.content, keyWord, contextString, tone, pointOfView).then(completion => {
+                const extractedJSON = extractJsonFromString(completion.content[0].text)
+                const sanitizedJSON = sanitizeJSON(extractedJSON)
+                let responseMessage = JSON.parse(sanitizedJSON);
                 section.overviewOfProduct = responseMessage.overviewOfProduct
                 section.pros = responseMessage.pros
                 section.cons = responseMessage.cons
@@ -172,64 +125,6 @@ const generateAmazonArticle = async (outline, keyWord, context, tone, pointOfVie
     }
 
     return await Promise.all(promises);
-}
-
-//Next steps are to figure out how to pass the right info into the section generation and have the right info come
-const generateAmazonSectionClaude = async (sectionHeader, keyWord, context, tone, pointOfView) => {
-    const anthropic = new Anthropic({
-        apiKey: process.env.CLAUDE_API_KEY
-    });
-
-    const toolsForNow =
-    `
-    {
-        "overviewOfProduct": "string",
-        "pros": [
-            {"point": "string"}
-        ],
-        "cons": [
-            {"point": "string"}
-        ],
-        "bottomLine": "string"
-    }
-    `
-
-
-    const includeTone = tone ? `Ensure you write with the following tone: ${tone}\n` : '';
-    const includePointOfView = pointOfView ? `Please write this section using the following point of view: ${pointOfView}\n` : '';
-    const prompt = `
-        Generate an word overview of this product: ${keyWord} for a section titled: ${sectionHeader}, DO NOT ADD HEADERS.  
-        Here is relevant context from the amazon product page: ${context}.  
-        DO NOT INCLUDE A HEADER JUST WRITE A PARAGRAPH.
-        ${includeTone}
-        ${includePointOfView}
-        Make sure your opening sentence to the section is unique and doesn't just reiterate the primary keyword.  Avoid using closing statements at the end of the section.
-        ENSURE your response is in the following JSON format:\n ${toolsForNow} \n
-        YOUR ENTIRE RESPONSE MUST BE IN THE JSON FORMAT ABOVE.  DO NOT INLUDE ANY TEXT BEFORE OR AFTER THE JSON RESONSE.  IF IT IS NOT IN THE JSON FORMAT ABOVE IT WILL BREAK.
-        overviewOfProduct: should be 150 words and offer a preview/intro of the product.
-        pros: should be 4 items
-        cons: should be 4 items
-        bottomLine: should be minumum 300 words and provide the user with an summary of the information regarding the product.
-        `;
-
-    return await anthropic.messages.create({
-        model: 'claude-3-sonnet-20240229',
-        max_tokens: 4000,
-        system:"You are a helpful assistant designed to output JSON.",
-        messages: [
-            { "role": "user", "content": prompt},
-        ]
-    });
-}
-
-const generateContextString = (section) => {
-    let contextString = `Product description: ${section.content}\n`
-
-    for (let i = 0; i < section.reviews.length; i++) {
-        contextString += `Review #${i}: ${section.reviews[i].body}\n`
-    }
-
-    return contextString
 }
 
 const determineArticleLength = (numProducts) => {
@@ -292,92 +187,16 @@ const testClaude = async () => {
         model: 'claude-2.1',
         max_tokens: 4000,
         messages: [
-            { "role": "user", "content": "What's your name?"}
-        ]
-    });
-}
-
-const summarizeContent = async (content, keyWord) => {
-    const anthropic = new Anthropic({
-        apiKey: process.env.CLAUDE_API_KEY
-    });
-
-    const toolsForNow = 
-    `{
-        "keyPoints": "string"
-    }`
-
-    return await anthropic.messages.create({
-        model: 'claude-3-sonnet-20240229',
-        max_tokens: 4000,
-        system:"You are a helpful assistant designed to output JSON.",
-        messages: [
-            { "role": "user", "content": `Extract the most important info and data from the content provided.  Only extract relevent data that might help someone else writing an article on the same topic.  Keep your points concise and include statitics or data where possible.  Do not include unnecssary filler word material, simply list out all the most import parts of the content. Your job is NOT to summarize, only to extract the most important data from the article, like hard stats, and data. Here is the supplied content: ${content}.\n  Ensure your format your response in json and only in json.  Make sure to adheres ot this format. ${toolsForNow}.\n Try to keep your notes relevent to this topic: ${keyWord}.  Get as much relevent data as possible in your extraction.`},
-        ]
-    });
-}
-
-const determineSectionCount = (wordRange) => {
-    if (wordRange === '500-800 words') {
-        return 2
-    } else if (wordRange === '800-1200 words') {
-        return 3
-    } else if (wordRange === '1200-1600 words') {
-        return 4
-    } else if (wordRange === '1600-2000 words') {
-        return 5
-    } else if (wordRange === '2000-2500 words') {
-        return 6
-    } else {
-        return 7
-    }
-}
-
-async function generateOutlineWithClaudeAI(keyword, wordRange, context) {
-
-    const anthropic = new Anthropic({
-        apiKey: process.env.CLAUDE_API_KEY
-    });
-
-    const sectionsCount = determineSectionCount(wordRange)
-
-    const toolsForNow =
-        `
-        {
-            "outline": {
-                "title": "string",
-                "sections": [
-                    {
-                        "name": "string",
-                        "subsections": [
-                            {
-                                "name": "string",
-                                "notes": "string"
-                            }
-                        ]
-                    }
-                ]
-            }
-        }
-
-        Ensure your response is in json in the json format above.  You can have multiple sections and multiple subsections within sections.  Include notes to help structure what content should be touched on in the subsections.
-        Ensure that there are no more than ${sectionsCount}, h2's in your outline.  
-        `
-
-    return await anthropic.messages.create({
-        model: 'claude-3-sonnet-20240229',
-        max_tokens: 4000,
-        system:"You are a helpful assistant designed to output JSON.",
-        messages: [
-            { "role": "user", "content": `Generate an outline for the keyword: ${keyword}.  Ensure you response in the json format below: ${toolsForNow}. \n The wordCount for the article is in the range of ${wordRange}.  Each subsection will be roughly 200-400 words worth of content so please ensure that you keep in mind the size of the section when determining how many to create.  DO NOT include the word count in your response or function call, only use it to keep track of yourself. You DO NOT NEED TO HAVE MULTIPLE SUBSECTIONS PER SECTION.  Here are is some relevent research on the topic you can use to construct it.  Please include notes in the subsections as to ensure the article flows smoothly from one section to the next.  Notes should simply be a little more info on what this section needs to cover.`},
+            { "role": "user", "content": "What's your name?" }
         ]
     });
 }
 
 const generateOutlineClaude = async (keyWord, wordRange, context) => {
-    const completion = await generateOutlineWithClaudeAI(keyWord, wordRange, context);
-    let responseMessage = completion.content[0].text;
-    return processAIResponseToHtml(responseMessage);
+    const completion = await claude.generateOutlineClaude(keyWord, wordRange, context);
+    const extractedJSON = extractJsonFromString(completion.content[0].text)
+    const sanitizedJSON = sanitizeJSON(extractedJSON)
+    return processAIResponseToHtml(sanitizedJSON);
 }
 
 function processAIResponseToHtml(responseMessage) {
@@ -385,7 +204,8 @@ function processAIResponseToHtml(responseMessage) {
         const jsonObject = JSON.parse(responseMessage);
         return flattenJsonToHtmlList(jsonObject);
     } catch (error) {
-        throw new Error('Failed to process AI response');
+        console.log('error: ', error)
+        throw new Error('Failed to process AI response, ', error);
     }
 }
 
@@ -460,8 +280,10 @@ const generateArticleClaude = async (outline, keyWord, context, tone, pointOfVie
 const generateSectionsOfArticle = async (piecesOfOutline, keyWord, context, tone, pointOfView, citeSources) => {
     const outlineCopy = structuredClone(piecesOfOutline);
     try {
-        const completion = await generateSection(outlineCopy, keyWord, context, tone, pointOfView, citeSources);
-        const response = JSON.parse(completion.content[0].text);
+        const completion = await claude.generateSectionClaude(outlineCopy, keyWord, context, tone, pointOfView, citeSources);
+        const extractedJSON = extractJsonFromString(completion.content[0].text)
+        const sanitizedJSON = sanitizeJSON(extractedJSON)
+        const response = JSON.parse(sanitizedJSON);
         for (let i = 0; i < response.paragraphs.length; i++) {
             outlineCopy[i].sectionContent = response.paragraphs[i];
         }
@@ -472,48 +294,25 @@ const generateSectionsOfArticle = async (piecesOfOutline, keyWord, context, tone
     return outlineCopy;
 }
 
-const generateSection = async (outline, keyWord, context, tone, pointOfView, citeSources) => {
-    const anthropic = new Anthropic({
-        apiKey: process.env.CLAUDE_API_KEY
-    });
-    
-    let listOfSections = ""
-    outline.forEach(section => {
-        listOfSections += `${section.content}, `
-    })
-    
-    const toolsForNow =
-    `{
-        "paragraphs": [
-            "string"
-        ]
-    }`
-
-    const includeTone = tone ? `Ensure you write with the following tone: ${tone}\n` : '';
-    const includeCitedSources = citeSources ? `If you choose to use data from the context please include the source in an <a> tag like this example: <a href="https://www.reuters.com/world/us/democratic-candidates-running-us-president-2024-2023-09-18/">Reuters</a>.  Use it naturally in the article if it's appropriate, do not place all of the sources at the end.  Use it to link a specific word or set of words wrapped with the a tag.\n` : '';
-    const includePointOfView = pointOfView ? `Please write this section using the following point of view: ${pointOfView}\n` : '';
-    const prompt = `
-        Generate paragraphs for each subsection provided on this topic: ${keyWord} for the following sections: [${listOfSections}]. DO NOT ADD HEADERS.  
-        Here is relevant context ${context}.  
-        DO NOT INCLUDE A HEADER JUST WRITE A PARAGRAPH.
-        ${includeTone}
-        ${includeCitedSources}
-        ${includePointOfView}
-        \n REMEMBER YOU MUST WRITE ${outline.length} sections. DO NOT INCLUDE THE HEADER ONLY THE PARAGRAGH.  If you do not provide an array of length ${outline.length}, for the sections titled: [${listOfSections}] -- EVERYTHING WILL BREAK.
-        Paragraphs should each be between 300-500 words length each.  The sections should flow together nicely.
-        ENSURE your response is in the following JSON format:\n ${toolsForNow} \n
-        YOUR ENTIRE RESPONSE MUST BE IN THE JSON FORMAT ABOVE.  DO NOT INLUDE ANY TEXT BEFORE OR AFTER THE JSON RESONSE.  IF IT IS NOT IN THE JSON FORMAT ABOVE IT WILL BREAK.  REMEMBER IT IS CRITICAL THAT EACH PARAGRAGH SHOULD BE OVER 300 WORDS IN LENGTH.`;
-
-    return await anthropic.messages.create({
-        model: 'claude-3-sonnet-20240229',
-        max_tokens: 4000,
-        system:"You are a helpful assistant designed to output JSON.",
-        messages: [
-            { "role": "user", "content": prompt},
-        ]
-    });
+function sanitizeJSON(jsonString) {
+    return jsonString.replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
 }
 
+function extractJsonFromString(str) {
+    const regex = /{.*}/s;
+    const match = str.match(regex);
+
+    if (match && match.length > 0) {
+        try {
+            return match[0];
+        } catch (error) {
+            console.error('Error parsing JSON:', error);
+            return null;
+        }
+    }
+
+    return null;
+}
 
 module.exports = {
     performSearch,
@@ -523,7 +322,5 @@ module.exports = {
     testClaude,
     generateOutlineClaude,
     generateArticleClaude,
-    countWordsClaudeBlog,
-    generateAmazonSectionClaude,
-    summarizeContent
+    countWordsClaudeBlog
 };

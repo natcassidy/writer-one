@@ -1,13 +1,9 @@
 const cheerio = require('cheerio');
-const admin = require('firebase-admin');
 const axios = require('axios');
 const qs = require('qs');
 require('dotenv').config()
-const OpenAI = require("openai");
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-});
-const amazon = require('./amazonScraperFunctions')
+
+const claude = require('./claudeFunctions')
 
 const stripEscapeChars = (string) => {
     // TODO: Check this regex to make sure it doesn't break anything.
@@ -142,135 +138,6 @@ function flattenJsonToHtmlList(json) {
     return resultList;
 }
 
-const updateFirebaseJob = async (currentUser, jobId, fieldName, data, articleType) => {
-    if (!currentUser) {
-        throw new Error('No user defined');
-    }
-
-    // No need to call firestore.settings({ ignoreUndefinedProperties: true }) here,
-    // as your earlier error message indicates that Firestore initialization and setting adjustments
-    // should be done once and prior to this function being called.
-
-    const jobsCollection = admin.firestore().collection("jobs");
-    const cleanedData = cleanData(data);
-
-    try {
-        if (jobId === -1) {
-            const newJobData = {
-                [fieldName]: cleanedData,
-                lastModified: Date.now(),
-                type: articleType
-            };
-            const newDocRef = await jobsCollection.add(newJobData);
-
-            console.log("New job created with ID:", newDocRef.id);
-            await addJobIdToUserFirebase(currentUser, newDocRef.id);
-
-            return newDocRef.id;
-        } else {
-            const jobRef = jobsCollection.doc(jobId.toString());
-
-            // Define the data to update including the last modified timestamp
-            const updateData = {
-                [fieldName]: cleanedData,
-                lastModified: Date.now() // Add last modified timestamp
-            };
-
-            // Fetch the current document to check if it exists and get the current context
-            const doc = await jobRef.get();
-            if (fieldName === "context" && doc.exists && doc.data().context) {
-                // If the document and context field exist, concatenate the new data
-                const updatedContext = doc.data().context + cleanedData;
-                updateData[fieldName] = updatedContext;
-            }
-            // Perform the update or set operation with last modified timestamp
-            if (doc.exists) {
-                await jobRef.update(updateData);
-            } else {
-                await jobRef.set(updateData, { merge: true });
-            }
-
-            console.log("Job updated successfully");
-            await addJobIdToUserFirebase(currentUser, jobId);
-
-            return jobId;
-        }
-    } catch (error) {
-        console.error("Error updating job:", error);
-        throw error;
-    }
-};
-
-function cleanData(data) {
-    if (data === null || data === undefined) return null; // Or some default value
-    if (typeof data !== 'object') return data;
-    for (const key of Object.keys(data)) {
-        data[key] = cleanData(data[key]);
-    }
-    return data;
-}
-
-const getContextFromDb = async (currentUser, jobId) => {
-    if (!currentUser) {
-        throw new Error('No user defined');
-    }
-
-    const jobsCollection = admin.firestore().collection("jobs");
-
-    let context = ""
-
-    try {
-        const jobRef = jobsCollection.doc(jobId.toString());
-        // Fetch the current document to check if it exists and get the current context
-        const doc = await jobRef.get();
-        if (doc.exists && doc.data().context) {
-            // If the document and context field exist, concatenate the new data
-            context = doc.data().context
-        }
-
-        console.log("Context retrieved successfully");
-
-        return context;
-    } catch (error) {
-        console.error("Error finding data:", error);
-        throw error; // Re-throw the error to handle it outside this function if needed
-    }
-};
-
-const addJobIdToUserFirebase = async (currentUser, jobId) => {
-    if (!currentUser) {
-        throw new Error('No user defined')
-    }
-
-    const userRef = admin.firestore().collection("customers").doc(currentUser.uid);
-
-    try {
-        const doc = await userRef.get();
-
-        if (!doc.exists) {
-            console.log("No such document!");
-            return;
-        }
-
-        // Assuming 'jobs' is an array of job objects.
-        const userData = doc.data();
-        let jobs = userData.jobs || [];
-
-        // Find the index of the job you want to update.
-        const jobIndex = jobs.findIndex(job => job === jobId);
-        if (jobIndex === -1) {
-            jobs.push(jobId)
-            await userRef.update({ jobs: jobs });
-        } else {
-            console.log('Job already exists on user object')
-        }
-
-    } catch (error) {
-        console.error("Error updating job:", error);
-        throw error; // Re-throw the error to handle it outside this function if needed
-    }
-}
-
 const doesUserHaveEnoughWords = async (currentUser, articleLength) => {
     if (!currentUser) {
         throw new Error('No user defined');
@@ -326,43 +193,6 @@ const doesUserHaveEnoughWordsAmazon = async (currentUser, articleLength) => {
     }
 };
 
-const decrementUserWordCount = async (currentUser, amountToDecrement) => {
-    if (!currentUser) {
-        throw new Error('No user defined');
-    }
-
-    const userRef = admin.firestore().collection("customers").doc(currentUser.uid);
-
-    let newWordCount = 0;
-    try {
-        const doc = await userRef.get();
-
-        if (!doc.exists) {
-            console.log("No such document!");
-            return;
-        }
-
-        // Correctly retrieve and decrement the word count
-        const currentWordCount = doc.data().words;
-        newWordCount = currentWordCount - amountToDecrement;
-
-        // Check for negative values
-        if (newWordCount < 0) {
-            console.log("Word count cannot be negative.");
-            newWordCount = 0;
-        }
-
-        // Update the document with the new word count
-        await userRef.update({ words: newWordCount });
-    } catch (error) {
-        console.error("Error updating word count:", error);
-        throw error; // Rethrowing the error is a good practice for error handling
-    }
-
-    return newWordCount;
-};
-
-
 // Function to process AI response and convert to HTML list
 function processAIResponseToHtml(responseMessage) {
     try {
@@ -371,267 +201,6 @@ function processAIResponseToHtml(responseMessage) {
     } catch (error) {
         throw new Error('Failed to process AI response');
     }
-}
-
-// AI tool call function
-async function generateOutlineWithAI(keyword, wordRange, context) {
-    const toolsForNow =
-        [{
-            "type": "function",
-            "function": {
-                "name": "generateOutline",
-                "description": "Generate an outline for the given keyword using the structure provided.  The title section should be the introduction.  You provide notes for the subsections to ensure the flow is similar from one section to the next.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "title": {
-                            "type": "string"
-                        },
-                        "sections": {
-                            "type": "array",
-                            "items": {
-                                "type": "object",
-                                "properties": {
-                                    "name": {
-                                        "type": "string"
-                                    },
-                                    "subsections": {
-                                        "type": "array",
-                                        "items": {
-                                            "type": "object",
-                                            "properties": {
-                                                "name": {
-                                                    "type": "string"
-                                                },
-                                                "notes": {
-                                                    "type": "string"
-                                                }
-                                            },
-                                            "required": ["name", "notes"]
-                                        }
-                                    }
-                                },
-                                "required": ["name", "subsections"]
-                            }
-                        }
-                    },
-                    "required": ["title", "sections"]
-                }
-            }
-        }]
-
-    const sectionsCount = determineSectionCount(wordRange)
-
-    return await openai.chat.completions.create({
-        messages: [
-            { role: "system", content: "You are a helpful assistant designed to output JSON." },
-            { role: "user", content: `Generate an outline for the keyword: ${keyword}.  Outline should be insightful and make sense to a reader.  Avoid using generic placeholders for headers like Brand 1 or Question 1.  Ensure that there are NO MORE THAN ${sectionsCount} sections total. 1 of the sections MUST be the introduction.  The wordCount for the article is in the range of ${wordRange}.  Each subsection will be roughly 200-300 words worth of content so please ensure that you keep in mind the size of the section when determining how many to create.  DO NOT include the word count in your response or function call, only use it to keep track of yourself. You DO NOT NEED TO HAVE MULTIPLE SUBSECTIONS PER SECTION.  Here are is some relevent research on the topic you can use to construct it.  Please include notes in the subsections as to ensure the article flows smoothly from one section to the next.  Notes should simply be a little more info on what this section needs to cover.` }
-        ],
-        tools: toolsForNow,
-        model: "gpt-4-0125-preview",
-        response_format: { type: "json_object" }
-    });
-}
-
-const generateOutline = async (keyWord, wordRange, context) => {
-    const completion = await generateOutlineWithAI(keyWord, wordRange, context);
-    let responseMessage = completion.choices[0].message.tool_calls[0].function.arguments;
-    return processAIResponseToHtml(responseMessage);
-}
-
-const determineSectionCount = (wordRange) => {
-    if (wordRange === '500-800 words') {
-        return 2
-    } else if (wordRange === '800-1200 words') {
-        return 3
-    } else if (wordRange === '1200-1600 words') {
-        return 4
-    } else if (wordRange === '1600-2000 words') {
-        return 5
-    } else if (wordRange === '2000-2500 words') {
-        return 6
-    } else {
-        return 7
-    }
-}
-
-const generateReleventQuestions = async (outline, keyWord) => {
-    const toolsForNow = [{
-        "type": "function",
-        "function": {
-            "name": "provideQuestions",
-            "description": "Provide a list of questions to this function for further analysis on the topic",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "questions": {
-                        "type": "array",
-                        "items": {
-                            "type": "string"
-                        }
-                    }
-                },
-                "required": ["questions"]
-            }
-        }
-    }];
-
-    const outlineToString = generateOutlineString(outline)
-
-    try {
-        return await openai.chat.completions.create({
-            messages: [
-                { role: "system", content: "You are a helpful assistant designed to output JSON." },
-                { role: "user", content: `Generate 5 relevent questions to consider before writing an article on the following topic: ${keyWord} with the following outline: ${outlineToString}.  These 5 questions you generate will be designed to pass into a function called provideQuestions.` }
-            ],
-            tools: toolsForNow,
-            model: "gpt-3.5-turbo-1106",
-            response_format: { type: "json_object" }
-        });
-    } catch (e) {
-        console.log('Exception: ', e)
-    }
-}
-
-const generateOutlineString = (outline) => {
-    let outlineString = ""
-
-    outline.forEach(section => {
-        outlineString += ` Section tag:${section.tagName} Section Name: ${section.content} \n`
-    })
-
-    return outlineString
-}
-
-const generateContextString = (title, link, data) => {
-
-    let contextString = ` Article Title:${title} \n
-                           Article URL: ${link} \n
-                           Article Context: ${data} \n`
-
-    return contextString
-}
-
-const generateSection = async (sectionHeader, keyWord, context, tone, pointOfView, citeSources, notes) => {
-    const toolsForNow =
-        [{
-            "type": "function",
-            "function": {
-                "name": "generateSections",
-                "description": "Generate a 200-300 word paragraph based on the information provided.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "paragraph": {
-                            "type": "string"
-                        }
-                    },
-                    "required": ["paragraph"]
-                }
-            }
-        }]
-    const includeTone = tone ? `Ensure you write with the following tone: ${tone}\n` : '';
-    const includeCitedSources = citeSources ? `If you choose to use data from the context please include the source in an <a> tag like this example: <a href="https://www.reuters.com/world/us/democratic-candidates-running-us-president-2024-2023-09-18/">Reuters</a>.  Use it naturally in the article if it's appropriate, do not place all of the sources at the end.  Use it to link a specific word or set of words wrapped with the a tag.\n` : '';
-    const includePointOfView = pointOfView ? `Please write this section using the following point of view: ${pointOfView}\n` : '';
-    const prompt = `
-        Generate a 200-300 word paragraph on this topic: ${keyWord} for a section titled: ${sectionHeader}, DO NOT ADD HEADERS.  
-        Here is relevant context from researched sites : ${context}.  
-        REMEMBER NO MORE THAN 300 WORDS AND NO LESS THAN 200 WORDS. DO NOT INCLUDE A HEADER JUST WRITE A PARAGRAPH.
-        ${includeTone}
-        ${includeCitedSources}
-        ${includePointOfView}
-        Here are some additional notes and guidelines to follow to help you generate this section.
-        ${notes}
-        Make sure your opening sentence to the section is unique and doesn't just reiterate the primary keyword.  Avoid using closing statements at the end of the section.
-        `;
-
-    return await openai.chat.completions.create({
-        messages: [
-            { role: "system", content: "You are a helpful assistant designed to output JSON." },
-            { role: "user", content: prompt }
-        ],
-        tools: toolsForNow,
-        model: "gpt-3.5-turbo-1106",
-        response_format: { type: "json_object" }
-    });
-}
-
-const generateReleventKeyWordForQuestions = async (questions, context, keyWord) => {
-    const toolsForNow =
-        [{
-            "type": "function",
-            "function": {
-                "name": "determineAdditionalInformation",
-                "description": "Come up with a question for further research based on the outline of the article and the context.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "searchQuery": {
-                            "type": "string"
-                        }
-                    },
-                    "required": ["searchQuery"]
-                }
-            }
-        }]
-
-    return await openai.chat.completions.create({
-        messages: [
-            { role: "system", content: "You are a helpful assistant designed to output JSON." },
-            { role: "user", content: `Analyze the following content researched for the keyword: ${keyWord} \n.  Here is the content pulled from relevent sites: ${context}\n.  Now determine whether the following questions are adequetly answered by the content provided: ${questions}\n.  Come up with one searchQuery that will be used to address the most relevent gap in the context.` }
-        ],
-        tools: toolsForNow,
-        model: "gpt-3.5-turbo-1106",
-        response_format: { type: "json_object" }
-    });
-}
-
-
-const summarizeContent = async (content) => {
-
-    const toolsForNow = [{
-        "type": "function",
-        "function": {
-            "name": "provideAnalysis",
-            "description": "Extract the most valuable insights from the content provided, include any relevent or necessary data in the provided content, keep sucinct.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "keyPoints": {
-                        "type": "string"
-                    }
-                },
-                "required": ["keyPoints"]
-            }
-        }
-    }]
-
-
-    return await openai.chat.completions.create({
-        messages: [
-            { role: "system", content: "You are a helpful assistant designed to output JSON." },
-            { role: "user", content: `Extract the most important info and data from the content provided.  Only extract relevent data that might help someone else writing an article on the same topic.  Keep your points concise and include statitics or data where possible.  Do not include unnecssary filler word material, simply list out all the most import parts of the content. Your job is NOT to summarize, only to extract the most important data from the article. Here is the supplied content: ${content}` }
-        ],
-        tools: toolsForNow,
-        model: "gpt-4-0125-preview",
-        response_format: { type: "json_object" }
-    });
-}
-
-const generateArticle = async (outline, keyWord, context, tone, pointOfView, citeSources) => {
-    const promises = [];
-
-    for (const section of outline) {
-        if (section.tagName == 'h3') {
-            const promise = generateSection(section.content, keyWord, context, tone, pointOfView, citeSources, section.notes).then(completion => {
-                let responseMessage = JSON.parse(completion.choices[0].message.tool_calls[0].function.arguments);
-                section.sectionContent = responseMessage.paragraph; // Correctly assign to each section
-            });
-            promises.push(promise);
-        }
-    }
-
-    return await Promise.all(promises);
 }
 
 function countWords(data) {
@@ -653,29 +222,6 @@ function countWords(data) {
 
     // Return the total word count
     return wordCount;
-}
-
-
-const generateContextQuestions = async (outline, keyWord) => {
-    try {
-        const completion = await generateReleventQuestions(outline, keyWord)
-        let responseMessage = JSON.parse(completion.choices[0].message.tool_calls[0].function.arguments);
-        return responseMessage.questions;
-    } catch (e) {
-        console.log('Exception thrown: ', e)
-        throw e
-    }
-}
-
-const determineIfMoreDataNeeded = async (questions, context, keyWord) => {
-    try {
-        const completion = await generateReleventKeyWordForQuestions(questions, context, keyWord)
-        let responseMessage = JSON.parse(completion.choices[0].message.tool_calls[0].function.arguments);
-        return responseMessage;
-    } catch (e) {
-        console.log('Exception thrown: ', e)
-        throw e
-    }
 }
 
 const doSerpResearch = async (keyWord, countryCode) => {
@@ -705,44 +251,73 @@ const doSerpResearch = async (keyWord, countryCode) => {
 }
 
 async function findGoodData(params, keyWord) {
-    const data = await getSerpResults(params); // Assume this returns an array of objects
+    const data = await getSerpResults(params);
     console.log('serp results returned with size: ', data.length);
-
-    // Use map to transform data items into an array of promises
-    const promises = data.map(item => {
-        // Return a new promise for each item
-        return new Promise(async (resolve) => {
+    const results = [];
+    const chunkSize = 3;
+    for (let i = 0; i < data.length; i += chunkSize) {
+        const chunk = data.slice(i, i + chunkSize);
+        const promises = chunk.map(async item => {
             if (item.status === "good") {
                 try {
-                    const returnedSummary = await amazon.summarizeContent(item.data, params.query);
+                    const returnedSummary = await claude.summarizeContentClaude(item.data, params.query);
                     if (returnedSummary) {
-                        let responseMessage = JSON.parse(returnedSummary.content[0].text);
-                        let newContext = generateContextString(item.title, item.link, responseMessage.keyPoints)
-                        resolve(newContext); // Resolve with the summary if successful
-                    } else {
-                        resolve(); // Resolve with undefined if no summary returned
+                        const extractedJSON = extractJsonFromString(returnedSummary.content[0].text)
+                        const sanitizedJSON = sanitizeJSON(extractedJSON)
+                        const responseMessage = JSON.parse(sanitizedJSON)
+                        let newContext = generateContextStringBlog(item.title, item.link, responseMessage.keyPoints);
+                        return newContext;
                     }
                 } catch (e) {
                     console.log('Error retrieving data summary', e);
-                    resolve(); // Resolve with undefined in case of error
                 }
-            } else {
-                resolve(); // Resolve with undefined if the status is not good
             }
+            return null;
         });
-    });
+        const chunkResults = await Promise.all(promises);
+        results.push(...chunkResults.filter(result => result !== null));
+       
+        // Check if the results array has reached 5 items
+        if (results.length >= 6) {
+            break; // Exit the loop early
+        }
+    }
+    return results.join('\n\n'); // Join the results array into a single string with newline separators
+}
 
-    // Wait for all promises to resolve
-    const results = await Promise.all(promises);
-    // Filter out undefined results (if any)
-    const contextArray = results.filter(result => result !== undefined);
+const generateContextStringAmazon = (section) => {
+    let contextString = `Product description: ${section.content}\n`
 
-    let contextString = ""
-    contextArray.forEach(context => {
-        contextString += context
-    })
+    for (let i = 0; i < section.reviews.length; i++) {
+        contextString += `Review #${i}: ${section.reviews[i].body}\n`
+    }
 
-    return contextString; // This will be an array of summaries or empty if no good data is found
+    return contextString
+}
+
+const generateContextStringBlog = (title, link, keyPoints) => {
+
+    let contextString = ` Article Title:${title} \n
+                           Article URL: ${link} \n
+                           Article Context: ${keyPoints} \n`
+
+    return contextString
+}
+
+const determineSectionCount = (wordRange) => {
+    if (wordRange === '500-800 words') {
+        return 2
+    } else if (wordRange === '800-1200 words') {
+        return 3
+    } else if (wordRange === '1200-1600 words') {
+        return 4
+    } else if (wordRange === '1600-2000 words') {
+        return 5
+    } else if (wordRange === '2000-2500 words') {
+        return 6
+    } else {
+        return 7
+    }
 }
 
 // This is required for the scraping to work through the proxy
@@ -862,6 +437,11 @@ async function processElement(el, scrapeConfig) {
         try {
             const response = await axios.get(el.link, scrapeConfig);
             let body = stripToText(response.data);
+            body = body.replace(/\s+/g, ' '); // Assign the result back to body
+            if (body.length > 10000) {
+                // Truncate the text to 10,000 characters
+                body = body.substring(0, 10000);
+            }
             const description = stripToText(el.description);
 
             let type = "scraped";
@@ -884,6 +464,26 @@ async function processElement(el, scrapeConfig) {
     }
 }
 
+function sanitizeJSON(jsonString) {
+    return jsonString.replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
+}
+
+function extractJsonFromString(str) {
+    const regex = /{.*}/s;
+    const match = str.match(regex);
+
+    if (match && match.length > 0) {
+        try {
+            return match[0];
+        } catch (error) {
+            console.error('Error parsing JSON:', error);
+            return null;
+        }
+    }
+
+    return null;
+}
+
 module.exports = {
     stripEscapeChars,
     stripToText,
@@ -891,20 +491,11 @@ module.exports = {
     removeKnownGremlins,
     stripDotDotDotItems,
     flattenJsonToHtmlList,
-    updateFirebaseJob,
     processAIResponseToHtml,
-    generateOutlineWithAI,
-    generateOutline,
     doesUserHaveEnoughWords,
-    generateReleventQuestions,
-    generateArticle,
-    generateContextQuestions,
-    generateContextString,
-    determineIfMoreDataNeeded,
     countWords,
-    decrementUserWordCount,
-    summarizeContent,
     doSerpResearch,
-    getContextFromDb,
-    doesUserHaveEnoughWordsAmazon
+    doesUserHaveEnoughWordsAmazon,
+    determineSectionCount,
+    generateContextStringAmazon
 };
