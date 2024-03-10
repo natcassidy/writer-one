@@ -51,11 +51,13 @@ router.post('/process', async (req, res) => {
 
   let finetune = ""
   //Finetuning requested on the article is true
-  if(finetuneChosen && finetuneChosen.title && finetuneChosen.urls.length > 0) {
-    finetune = await firebaseFunctions.findFinetuneInFirebase(currentUser, finetuneChosen.urls, finetuneChosen.title)
-    if(!finetune || !finetune.length > 100) {
+  if(finetuneChosen && finetuneChosen.urls.length > 0) {
+    if(finetuneChosen.name != "None") {
+      finetune = await firebaseFunctions.findFinetuneInFirebase(currentUser, finetuneChosen.urls, finetuneChosen.name)
+    }
+    if(finetune === null || finetune === undefined || finetune == "") {
       try {
-        finetune = await claude.generateFinetune(req.body.currentUser, req.body.urls, req.body.title)
+        finetune = await claude.generateFinetune(currentUser, finetuneChosen.urls, "")
       } catch (error) {
         console.log('Error generating finetune ', error)
         finetune = ""

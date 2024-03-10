@@ -277,10 +277,10 @@ const generateArticleClaude = async (outline, keyWord, context, tone, pointOfVie
     return constructedSections;
 }
 
-const generateSectionsOfArticle = async (piecesOfOutline, keyWord, context, tone, pointOfView, citeSources) => {
+const generateSectionsOfArticle = async (piecesOfOutline, keyWord, context, tone, pointOfView, citeSources, finetune) => {
     const outlineCopy = structuredClone(piecesOfOutline);
     try {
-        const completion = await claude.generateSectionClaude(outlineCopy, keyWord, context, tone, pointOfView, citeSources);
+        const completion = await claude.generateSectionClaude(outlineCopy, keyWord, context, tone, pointOfView, citeSources, finetune);
         const extractedJSON = extractJsonFromString(completion.content[0].text)
         const sanitizedJSON = sanitizeJSON(extractedJSON)
         const response = JSON.parse(sanitizedJSON);

@@ -164,7 +164,7 @@ const addFinetunetoFirebaseUser = async (currentUser, urls, title, content) => {
     }
 }
 
-const findFinetuneInFirebase = async (currentUser, urls, title) => {
+const findFinetuneInFirebase = async (currentUser, urls, name) => {
     if (!currentUser) {
         throw new Error('No user defined');
     }
@@ -184,7 +184,7 @@ const findFinetuneInFirebase = async (currentUser, urls, title) => {
 
         // Find a finetune that matches both title and urls
         const matchingFinetune = finetunes.find(finetune => {
-            return finetune.title === title && arraysMatch(finetune.urls, urls);
+            return finetune.name === name && arraysMatch(finetune.urls, urls);
         });
 
         // If a matching finetune is found, return its content

@@ -116,7 +116,7 @@ const generateFinetune = async (currentUser, urls, title) => {
     const combinedArticles = scrapedArticles.map(article => `${article.data} \n`).join('');
 
     try {
-        if(title && urls && combinedArticles) {
+        if(title != "" && urls && urls.length > 0 && combinedArticles) {
             await firebaseFunctions.addFinetunetoFirebaseUser(currentUser, urls, title, combinedArticles)
         }
     } catch (error) {
