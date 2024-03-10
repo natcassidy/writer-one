@@ -124,6 +124,95 @@ const addJobIdToUserFirebase = async (currentUser, jobId) => {
     }
 }
 
+const addFinetunetoFirebaseUser = async (currentUser, urls, title, content) => {
+    if (!currentUser) {
+        throw new Error('No user defined')
+    }
+
+    let newFinetune = {
+        name: title, 
+        urls: urls,
+        content: content
+    }
+
+    const userRef = admin.firestore().collection("customers").doc(currentUser.uid);
+
+    try {
+        const doc = await userRef.get();
+
+        if (!doc.exists) {
+            console.log("No such document!");
+            return;
+        }
+
+        // Assuming 'jobs' is an array of job objects.
+        const userData = doc.data();
+        let finetunes = userData.finetunes || [];
+
+        // Find the index of the job you want to update.
+        const finetuneIndex = finetunes.findIndex(finetune => finetune.title === title);
+        if (finetuneIndex === -1) {
+            finetunes.push(newFinetune)
+            await userRef.update({ finetunes: finetunes });
+        } else {
+            console.log('Finetune already exists on user object')
+        }
+
+    } catch (error) {
+        console.error("Error updating finetunes:", error);
+        throw error; // Re-throw the error to handle it outside this function if needed
+    }
+}
+
+const findFinetuneInFirebase = async (currentUser, urls, title) => {
+    if (!currentUser) {
+        throw new Error('No user defined');
+    }
+
+    const userRef = admin.firestore().collection("customers").doc(currentUser.uid);
+
+    try {
+        const doc = await userRef.get();
+
+        if (!doc.exists) {
+            console.log("No such document!");
+            return null; // Explicitly return null to indicate no document was found
+        }
+
+        const userData = doc.data();
+        let finetunes = userData.finetunes || [];
+
+        // Find a finetune that matches both title and urls
+        const matchingFinetune = finetunes.find(finetune => {
+            return finetune.title === title && arraysMatch(finetune.urls, urls);
+        });
+
+        // If a matching finetune is found, return its content
+        if (matchingFinetune) {
+            return matchingFinetune.content;
+        } else {
+            console.log("No matching finetune found.");
+            return null; // Explicitly return null to indicate no matching finetune was found
+        }
+    } catch (error) {
+        console.error("Error finding finetune:", error);
+        throw error; // Re-throw the error to handle it outside this function if needed
+    }
+};
+
+// Helper function to check if two arrays contain the same elements in any order
+const arraysMatch = (arr1, arr2) => {
+    if (arr1.length !== arr2.length) return false;
+    const sortedArr1 = arr1.slice().sort();
+    const sortedArr2 = arr2.slice().sort();
+    for (let i = 0; i < sortedArr1.length; i++) {
+        if (sortedArr1[i] !== sortedArr2[i]) {
+            return false;
+        }
+    }
+    return true;
+};
+
 const decrementUserWordCount = async (currentUser, amountToDecrement) => {
     if (!currentUser) {
         throw new Error('No user defined');
@@ -164,5 +253,7 @@ const decrementUserWordCount = async (currentUser, amountToDecrement) => {
 module.exports = {
     updateFirebaseJob,
     getContextFromDb,
-    decrementUserWordCount
+    decrementUserWordCount,
+    addFinetunetoFirebaseUser,
+    findFinetuneInFirebase
 };

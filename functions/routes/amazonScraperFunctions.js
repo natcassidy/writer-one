@@ -246,7 +246,7 @@ function flattenJsonToHtmlList(json) {
     return resultList;
 }
 
-const generateArticleClaude = async (outline, keyWord, context, tone, pointOfView, citeSources) => {
+const generateArticleClaude = async (outline, keyWord, context, tone, pointOfView, citeSources, finetune) => {
     let constructedSections = [];
     let piecesOfOutline = [];
 
@@ -254,7 +254,7 @@ const generateArticleClaude = async (outline, keyWord, context, tone, pointOfVie
         for (const section of outline) {
             if (section.tagName == 'h1' || section.tagName == 'h2') {
                 if (piecesOfOutline.length > 0) {
-                    const sections = await generateSectionsOfArticle(piecesOfOutline, keyWord, context, tone, pointOfView, citeSources);
+                    const sections = await generateSectionsOfArticle(piecesOfOutline, keyWord, context, tone, pointOfView, citeSources, finetune);
                     constructedSections.push(...sections);
                     piecesOfOutline = []; // Reset for next sections
                 }
@@ -266,7 +266,7 @@ const generateArticleClaude = async (outline, keyWord, context, tone, pointOfVie
 
         // Handle any remaining pieces after loop
         if (piecesOfOutline.length > 0) {
-            const sections = await generateSectionsOfArticle(piecesOfOutline, keyWord, context, tone, pointOfView, citeSources);
+            const sections = await generateSectionsOfArticle(piecesOfOutline, keyWord, context, tone, pointOfView, citeSources, finetune);
             constructedSections.push(...sections);
         }
     } catch (error) {

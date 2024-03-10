@@ -4,6 +4,8 @@ require('dotenv').config()
 const Anthropic = require('@anthropic-ai/sdk');
 const { UnprocessableEntityError } = require('@anthropic-ai/sdk/error');
 
+const firebaseFunctions = require('./firebaseFunctions')
+
 //Next steps are to figure out how to pass the right info into the section generation and have the right info come
 const generateAmazonSectionClaude = async (sectionHeader, keyWord, context, tone, pointOfView) => {
     const anthropic = new Anthropic({
@@ -51,27 +53,7 @@ const generateAmazonSectionClaude = async (sectionHeader, keyWord, context, tone
     });
 }
 
-const generateFinetineClaude = async (articles) => {
-    const anthropic = new Anthropic({
-        apiKey: process.env.CLAUDE_API_KEY
-    });
-
-    const toolsForNow =
-        `{
-        "summaryOfStyle": "string"
-    }`
-
-    return await anthropic.messages.create({
-        model: 'claude-3-sonnet-20240229',
-        max_tokens: 4000,
-        system: "You are a helpful assistant designed to output JSON.",
-        messages: [
-            { "role": "user", "content": `Analyse the articles provided and come up with a comprehensive, thorough and descriptive description of the writing style. Here are the articles:${articles}\n Imagine you have to describe the writing style to someone so that they can imitate it and include all details in your response that would help someone do this. Make sure your response is over 500 words. Include phrases or notes that help capture the uniqueness of the style.  Remember the goal is to be able to describe the charistics and style of the writing so that someone else could imitate it extremely well based on your notes.  You must make it thorough!. YOU MUST RESPOND IN JSON IN THE FOLLOWING FORMAT: ${toolsForNow}. EVERYTHING IN YOUR RESPONSE MUST BE IN THAT JSON FORMAT.` },
-        ]
-    });
-}
-
-const generateSectionClaude = async (outline, keyWord, context, tone, pointOfView, citeSources) => {
+const generateSectionClaude = async (outline, keyWord, context, tone, pointOfView, citeSources, finetune) => {
     const anthropic = new Anthropic({
         apiKey: process.env.CLAUDE_API_KEY
     });
@@ -88,48 +70,24 @@ const generateSectionClaude = async (outline, keyWord, context, tone, pointOfVie
         ]
     }`
 
-    const fineTune = `
-    The writing style in the provided articles can be characterized as analytical, engaging, and detailed. To imitate this style, consider the following key elements:
-
-  1. Contextual and Background Details:
- The articles provide extensive context and background information to set the stage for the central topic. Relevant historical facts, statistics, and anecdotes are woven throughout to give readers a comprehensive understanding of the subject matter.
- Example phrases: "In 1975, author James Clavell published Shogun, a historical fiction novel set in feudal Japan.", "To say that the bestselling novel was a hit would be an understatement.", "In 1980, Shogun became an Emmy-winning TV miniseries that drew more viewers than any other miniseries to that point except for Roots."
-
-  2. Quotations and Expert Insights:
-  The writing style incorporates multiple perspectives and insights from relevant experts, creators, and industry professionals. Direct quotations are used extensively to support key points and provide authoritative voices.
-
- Example phrases: "'There's a silhouette [on the cover of] this book,' Marks says. 'And the silhouette is a guy who looks a lot like me wearing clothes that don't belong to his culture, and it's a problematic silhouette.'", "'One of our writer-producers, Caillin Puente, had to pull together a bible about 840 pages long that was like stereo instructions for how to make this show, and how not to make the show, as we began to learn from past mistakes,' Marks says."
-  3. Descriptive and Engaging Language:
-  The writing style employs vivid and descriptive language to paint a clear picture for the reader. Engaging metaphors, analogies, and turns of phrase are used to maintain the reader's interest and provide a more immersive experience.
-  Example phrases: "As Blackthorne adapts to his new life in a foreign land, his fate becomes entangled with Toranaga's, as well as that of Toda Mariko (Anna Sawai), a Catholic noblewoman who is assigned to be his interpreter.", "Sanada's imposing performance as the regal Toranaga stands on its own."
-
-  4. Analytical and Insightful Commentary:
-  The articles offer in-depth analysis and insightful commentary on the subject matter. The writing style delves into the nuances, implications, and broader significance of the topics discussed.
-
-  Example phrases: "While there's always going to be a limit to how much one can learn about Japan's real history from any work of fiction, this story became an entry point for many Americans who suddenly wanted to study the rise of the first shogun, Tokugawa Ieyasu, or learn more about the first Englishman to reach Japan and the ways of the samurai.", "It seems that with each iteration of Shogun, beginning with Clavell's novel in 1975, a step has been taken toward introducing Japanese culture and history to an American audience."
-
-  5. Balanced and Objective Tone:
- While the writing style is engaging and descriptive, it maintains a balanced and objective tone. Multiple perspectives are presented, and criticisms or praise are supported with evidence and context.
-
-  Example phrases: "Shogun is now being reborn into a world that has seen nearly half a century of change since the last TV version, including globalization and the advent of the internet, and the standards for authenticity are higher than ever.", "As Marks explains it, within the space of production and television, there are typically three meetings that precede every episode's production: tone, concept, and production. But during the creation of Shogun, a fourth meeting was added in between—the 'Shosa Meeting'—where the series creators got together with the directors, assistant directors, and Japanese keys from every department to go over all of the period elements that would help imbue that desired level of realism and authenticity."
-
-  To effectively imitate this writing style, one should aim to incorporate extensive background information, expert insights through direct quotations, descriptive and engaging language, insightful analysis, and a balanced and objective tone throughout their writing.
-    `
-
+    const includeFinetune = finetune != "" ? `
+        ---------------------------
+        Here are some articles you should use to take inpsiration from in reagards to the style
+        ${finetune}
+        ---------------------------
+        ` : ''
     const includeTone = tone ? `Ensure you write with the following tone: ${tone}\n` : '';
     const includeCitedSources = citeSources ? `If you choose to use data from the context please include the source in an <a> tag like this example: <a href="https://www.reuters.com/world/us/democratic-candidates-running-us-president-2024-2023-09-18/">Reuters</a>.  Use it naturally in the article if it's appropriate, do not place all of the sources at the end.  Use it to link a specific word or set of words wrapped with the a tag.\n` : '';
     const includePointOfView = pointOfView ? `Please write this section using the following point of view: ${pointOfView}\n` : '';
     const prompt = `
+        Your job is to Generate paragraphs for each subsection provided on this topic: ${keyWord} for the following sections: [${listOfSections}]. DO NOT ADD HEADERS.
+        ${includeFinetune}
         Generate paragraphs for each subsection provided on this topic: ${keyWord} for the following sections: [${listOfSections}]. DO NOT ADD HEADERS.  
         Here is relevant context ${context}.  
         DO NOT INCLUDE A HEADER JUST WRITE A PARAGRAPH.
         ${includeTone}
         ${includeCitedSources}
         ${includePointOfView}
-        ---------------------------
-        Here are some notes now on the style to imitate:
-        ${fineTune}
-        ---------------------------
         \n REMEMBER YOU MUST WRITE ${outline.length} sections. DO NOT INCLUDE THE HEADER ONLY THE PARAGRAGH.  If you do not provide an array of length ${outline.length}, for the sections titled: [${listOfSections}] -- EVERYTHING WILL BREAK.
         Paragraphs should each be between 300-500 words length each.  The sections should flow together nicely.
         ENSURE your response is in the following JSON format:\n ${toolsForNow} \n
@@ -145,7 +103,7 @@ const generateSectionClaude = async (outline, keyWord, context, tone, pointOfVie
     });
 }
 
-const generateFinetune = async (urls) => {
+const generateFinetune = async (currentUser, urls, title) => {
     const scrapeConfig = createScrapeConfig("");
 
     // Map each URL to a promise created by processUrlForFinetune
@@ -157,11 +115,15 @@ const generateFinetune = async (urls) => {
     // Once all promises resolve, concatenate their results
     const combinedArticles = scrapedArticles.map(article => `${article.data} \n`).join('');
 
-    // Once combinedArticles is obtained, you can use it as needed.
-    const completion = await generateFinetineClaude(combinedArticles);
-    const extractedJSON = extractJsonFromString(completion.content[0].text)
-    const sanitizedJSON = sanitizeJSON(extractedJSON)
-    return JSON.parse(sanitizedJSON);
+    try {
+        if(title && urls && combinedArticles) {
+            await firebaseFunctions.addFinetunetoFirebaseUser(currentUser, urls, title, combinedArticles)
+        }
+    } catch (error) {
+        throw new Error(error)
+    }
+    
+    return combinedArticles
 };
 
 

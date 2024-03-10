@@ -23,7 +23,7 @@ const fs = require("node:fs");
 router.post('/process', async (req, res) => {
   let { keyWord, internalUrl, wordRange, tone,
     pointOfView, realTimeResearch, citeSources, includeFAQs,
-    generatedImages, generateOutline, outline, currentUser, jobId } = req.body
+    generatedImages, generateOutline, outline, currentUser, jobId, finetuneChosen } = req.body
 
   // const isWithinWordCount = await misc.doesUserHaveEnoughWords(currentUser, wordRange)
 
@@ -49,10 +49,24 @@ router.post('/process', async (req, res) => {
     console.log('outline: \n', outline)
   }
 
+  let finetune = ""
+  //Finetuning requested on the article is true
+  if(finetuneChosen) {
+    finetune = await firebaseFunctions.findFinetuneInFirebase(currentUser, finetuneChosen.urls, finetuneChosen.title)
+    if(!finetune || !finetune.length > 100) {
+      try {
+        finetune = await claude.generateFinetune(req.body.currentUser, req.body.urls, req.body.title)
+      } catch (error) {
+        console.log('Error generating finetune ', error)
+        finetune = ""
+      }
+    }
+  }
+
   // context = await misc.getContextFromDb(currentUser, jobId)
 
   console.log('generating article')
-  const updatedOutline = await amazon.generateArticleClaude(outline, keyWord, context, tone, pointOfView, citeSources);
+  const updatedOutline = await amazon.generateArticleClaude(outline, keyWord, context, tone, pointOfView, citeSources, finetune);
 
   console.log('article generated now doing gemini article')
 
@@ -131,11 +145,14 @@ router.post("/outline", async (req, res) => {
 });
 
 router.post("/finetune", async (req, res) => {
-  const data = await claude.generateFinetune(req.body.urls)
-  console.log('NOTES FROM AI:\n\n ', data.summaryOfStyle)
-  res.status(200).send(data.summaryOfStyle)
+  try {
+    await claude.generateFinetune(req.body.currentUser, req.body.urls, req.body.title)
+  } catch (error) {
+    res.status(500).send("Error: ", error)
+  }
+  
+  res.status(200).send("Successfully added finetune to db")
 })
-
 
 router.get("/testGemini", async (req, res) => {
   const data = await vertex.healthCheckGemini()
