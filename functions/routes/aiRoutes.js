@@ -51,7 +51,7 @@ router.post('/process', async (req, res) => {
 
   let finetune = ""
   //Finetuning requested on the article is true
-  if(finetuneChosen) {
+  if(finetuneChosen && finetuneChosen.title && finetuneChosen.urls.length > 0) {
     finetune = await firebaseFunctions.findFinetuneInFirebase(currentUser, finetuneChosen.urls, finetuneChosen.title)
     if(!finetune || !finetune.length > 100) {
       try {
