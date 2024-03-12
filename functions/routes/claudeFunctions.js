@@ -103,7 +103,7 @@ const generateSectionClaude = async (outline, keyWord, context, tone, pointOfVie
     });
 }
 
-const generateFinetune = async (currentUser, urls, title) => {
+const generateFinetune = async (currentUser, urls, textInputs, title) => {
     const scrapeConfig = createScrapeConfig("");
 
     // Map each URL to a promise created by processUrlForFinetune
@@ -116,8 +116,8 @@ const generateFinetune = async (currentUser, urls, title) => {
     const combinedArticles = scrapedArticles.map(article => `${article.data} \n`).join('');
 
     try {
-        if(title != "" && urls && urls.length > 0 && combinedArticles) {
-            await firebaseFunctions.addFinetunetoFirebaseUser(currentUser, urls, title, combinedArticles)
+        if(title != "" && (urls || textInputs)  && (urls.length > 0 || textInputs.length > 0)&& combinedArticles) {
+            await firebaseFunctions.addFinetunetoFirebaseUser(currentUser, urls, title, combinedArticles, textInputs)
         }
     } catch (error) {
         throw new Error(error)

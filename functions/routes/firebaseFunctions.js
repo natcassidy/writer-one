@@ -124,7 +124,7 @@ const addJobIdToUserFirebase = async (currentUser, jobId) => {
     }
 }
 
-const addFinetunetoFirebaseUser = async (currentUser, urls, title, content) => {
+const addFinetunetoFirebaseUser = async (currentUser, urls, title, content, textInputs) => {
     if (!currentUser) {
         throw new Error('No user defined')
     }
@@ -132,6 +132,7 @@ const addFinetunetoFirebaseUser = async (currentUser, urls, title, content) => {
     let newFinetune = {
         name: title, 
         urls: urls,
+        textInputs: textInputs,
         content: content
     }
 

@@ -148,7 +148,7 @@ router.post("/outline", async (req, res) => {
 
 router.post("/finetune", async (req, res) => {
   try {
-    await claude.generateFinetune(req.body.currentUser, req.body.urls, req.body.title)
+    await claude.generateFinetune(req.body.currentUser, req.body.urls, req.body.textInputs, req.body.title)
   } catch (error) {
     res.status(500).send("Error: ", error)
   }
