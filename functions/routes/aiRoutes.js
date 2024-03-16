@@ -50,40 +50,35 @@ router.post('/process', async (req, res) => {
   }
 
   let finetune = ""
-  //Finetuning requested on the article is true
-  if(finetuneChosen && finetuneChosen.urls.length > 0) {
-    if(finetuneChosen.name != "None") {
-      finetune = await firebaseFunctions.findFinetuneInFirebase(currentUser, finetuneChosen.urls, finetuneChosen.name)
-    }
-    if(finetune === null || finetune === undefined || finetune == "") {
-      try {
-        finetune = await claude.generateFinetune(currentUser, finetuneChosen.urls, "")
-      } catch (error) {
-        console.log('Error generating finetune ', error)
-        finetune = ""
-      }
-    }
-  }
 
+  finetuneChosen.textInputs.forEach(input => {
+    finetune += input.body
+  })
+
+  try {
+    finetune += await claude.generateFinetune(finetuneChosen.urls)
+  } catch (error) {
+    console.log('Error generating finetune ', error)
+  }
   // context = await misc.getContextFromDb(currentUser, jobId)
 
   console.log('generating article')
   let updatedOutline
   try {
-    updatedOutline = await amazon.generateArticleClaude(outline, keyWord, context, tone, pointOfView, citeSources, finetune);
-  } catch (error) {
-    res.status(500).send("Error generating article: ", error)
-  }
-  
-  console.log('article generated now doing gemini article')
+  updatedOutline = await amazon.generateArticleClaude(outline, keyWord, context, tone, pointOfView, citeSources, finetune);
+} catch (error) {
+  res.status(500).send("Error generating article: ", error)
+}
 
-  console.log('gemini article generated')
-  const wordCount = misc.countWords(updatedOutline)
-  const updatedWordCount = await firebaseFunctions.decrementUserWordCount(currentUser, wordCount)
-  console.log('word count: ', wordCount)
-  jobId = await firebaseFunctions.updateFirebaseJob(currentUser, jobId, "outline", updatedOutline)
-  //Outline will now contain each section filled in with data
-  res.status(200).send({ "article": updatedOutline, updatedWordCount})
+console.log('article generated now doing gemini article')
+
+console.log('gemini article generated')
+const wordCount = misc.countWords(updatedOutline)
+const updatedWordCount = await firebaseFunctions.decrementUserWordCount(currentUser, wordCount)
+console.log('word count: ', wordCount)
+jobId = await firebaseFunctions.updateFirebaseJob(currentUser, jobId, "outline", updatedOutline)
+//Outline will now contain each section filled in with data
+res.status(200).send({ "article": updatedOutline, updatedWordCount })
 });
 
 router.post('/processAmazon', async (req, res) => {
@@ -125,7 +120,7 @@ router.post('/processAmazon', async (req, res) => {
   console.log('word count: ', wordCount)
   //Outline will now contain each section filled in with data
   console.log('outline:\n', outline)
-  res.status(200).send({ "article": outline, wordCount})
+  res.status(200).send({ "article": outline, wordCount })
 });
 
 // Route handler
@@ -153,11 +148,11 @@ router.post("/outline", async (req, res) => {
 
 router.post("/finetune", async (req, res) => {
   try {
-    await claude.generateFinetune(req.body.currentUser, req.body.urls, req.body.textInputs, req.body.title)
+    await claude.saveFinetuneConfig(req.body.currentUser, req.body.urls, req.body.textInputs, req.body.title)
   } catch (error) {
     res.status(500).send("Error: ", error)
   }
-  
+
   res.status(200).send("Successfully added finetune to db")
 })
 

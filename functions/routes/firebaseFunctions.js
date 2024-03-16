@@ -124,17 +124,16 @@ const addJobIdToUserFirebase = async (currentUser, jobId) => {
     }
 }
 
-const addFinetunetoFirebaseUser = async (currentUser, urls, title, content, textInputs) => {
+const addFinetunetoFirebaseUser = async (currentUser, urls, name, textInputs) => {
     if (!currentUser) {
-        throw new Error('No user defined')
+        throw new Error('No user defined');
     }
 
     let newFinetune = {
-        name: title, 
+        name: name,
         urls: urls,
         textInputs: textInputs,
-        content: content
-    }
+    };
 
     const userRef = admin.firestore().collection("customers").doc(currentUser.uid);
 
@@ -146,24 +145,25 @@ const addFinetunetoFirebaseUser = async (currentUser, urls, title, content, text
             return;
         }
 
-        // Assuming 'jobs' is an array of job objects.
         const userData = doc.data();
         let finetunes = userData.finetunes || [];
 
-        // Find the index of the job you want to update.
-        const finetuneIndex = finetunes.findIndex(finetune => finetune.title === title);
+        const finetuneIndex = finetunes.findIndex(finetune => finetune.name === name);
         if (finetuneIndex === -1) {
-            finetunes.push(newFinetune)
-            await userRef.update({ finetunes: finetunes });
+            // If the finetune does not exist, push the new one
+            finetunes.push(newFinetune);
         } else {
-            console.log('Finetune already exists on user object')
+            // Replace the existing finetune with the new one
+            finetunes[finetuneIndex] = newFinetune;
         }
+        // Update the document with the new list of finetunes
+        await userRef.update({ finetunes: finetunes });
 
     } catch (error) {
         console.error("Error updating finetunes:", error);
         throw error; // Re-throw the error to handle it outside this function if needed
     }
-}
+};
 
 const findFinetuneInFirebase = async (currentUser, urls, name) => {
     if (!currentUser) {
