@@ -68,8 +68,13 @@ router.post('/process', async (req, res) => {
   // context = await misc.getContextFromDb(currentUser, jobId)
 
   console.log('generating article')
-  const updatedOutline = await amazon.generateArticleClaude(outline, keyWord, context, tone, pointOfView, citeSources, finetune);
-
+  let updatedOutline
+  try {
+    updatedOutline = await amazon.generateArticleClaude(outline, keyWord, context, tone, pointOfView, citeSources, finetune);
+  } catch (error) {
+    res.status(500).send("Error generating article: ", error)
+  }
+  
   console.log('article generated now doing gemini article')
 
   console.log('gemini article generated')

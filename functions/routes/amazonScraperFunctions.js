@@ -250,32 +250,57 @@ const generateArticleClaude = async (outline, keyWord, context, tone, pointOfVie
     let constructedSections = [];
     let piecesOfOutline = [];
 
-    try {
-        for (const section of outline) {
-            if (section.tagName == 'h1' || section.tagName == 'h2') {
-                if (piecesOfOutline.length > 0) {
-                    const sections = await generateSectionsOfArticle(piecesOfOutline, keyWord, context, tone, pointOfView, citeSources, finetune);
-                    constructedSections.push(...sections);
-                    piecesOfOutline = []; // Reset for next sections
+    for (const section of outline) {
+        if (section.tagName === 'h1' || section.tagName === 'h2') {
+            if (piecesOfOutline.length > 0) {
+                let attempt = 0;
+                let success = false;
+
+                while (attempt < 3 && !success) { // Attempt to call the method up to 3 times
+                    try {
+                        const sections = await generateSectionsOfArticle(piecesOfOutline, keyWord, context, tone, pointOfView, citeSources, finetune);
+                        constructedSections.push(...sections);
+                        piecesOfOutline = []; // Reset for next sections
+                        success = true; // Mark success to exit loop
+                    } catch (error) {
+                        attempt++; // Increment attempt count
+                        if (attempt >= 3) {
+                            // Log error or handle maximum attempt reach here
+                            console.error("Failed to generate sections after 3 attempts:", error);
+                            throw new Error("Failed to generate article correctly")
+                        }
+                    }
                 }
-                constructedSections.push(section); // Add the h1 or h2 section itself
-            } else if (section.tagName == 'h3') {
-                piecesOfOutline.push(section); // Collect h3 sections for processing
+            }
+            constructedSections.push(section); // Add the h1 or h2 section itself
+        } else if (section.tagName === 'h3') {
+            piecesOfOutline.push(section); // Collect h3 sections for processing
+        }
+    }
+
+    // Handle any remaining pieces after loop
+    if (piecesOfOutline.length > 0) {
+        let attempt = 0;
+        let success = false;
+
+        while (attempt < 3 && !success) {
+            try {
+                const sections = await generateSectionsOfArticle(piecesOfOutline, keyWord, context, tone, pointOfView, citeSources, finetune);
+                constructedSections.push(...sections);
+                success = true;
+            } catch (error) {
+                attempt++;
+                if (attempt >= 3) {
+                    // Log error or handle maximum attempt reach here
+                    console.error("Failed to generate sections after 3 attempts:", error);
+                    throw new Error("Failed to generate article correctly")
+                }
             }
         }
-
-        // Handle any remaining pieces after loop
-        if (piecesOfOutline.length > 0) {
-            const sections = await generateSectionsOfArticle(piecesOfOutline, keyWord, context, tone, pointOfView, citeSources, finetune);
-            constructedSections.push(...sections);
-        }
-    } catch (error) {
-        console.error('Error generating article:', error);
-        // Handle the error appropriately
     }
 
     return constructedSections;
-}
+};
 
 const generateSectionsOfArticle = async (piecesOfOutline, keyWord, context, tone, pointOfView, citeSources, finetune) => {
     const outlineCopy = structuredClone(piecesOfOutline);
@@ -283,7 +308,14 @@ const generateSectionsOfArticle = async (piecesOfOutline, keyWord, context, tone
         const completion = await claude.generateSectionClaude(outlineCopy, keyWord, context, tone, pointOfView, citeSources, finetune);
         const extractedJSON = extractJsonFromString(completion.content[0].text)
         const sanitizedJSON = sanitizeJSON(extractedJSON)
-        const response = JSON.parse(sanitizedJSON);
+        let response = ""
+        try {
+            response = JSON.parse(sanitizedJSON);
+        } catch (e) {
+            console.log('Exception: ', e)
+            console.log('With Sanitized Json of : \n', sanitizedJSON)
+        }
+
         for (let i = 0; i < response.paragraphs.length; i++) {
             outlineCopy[i].sectionContent = response.paragraphs[i];
         }
