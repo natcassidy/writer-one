@@ -103,12 +103,13 @@ const generateSectionClaude = async (outline, keyWord, context, tone, pointOfVie
     });
 }
 
-const saveFinetuneConfig = async (currentUser, urls, textInputs, title) => {
+const saveFinetuneConfig = async (currentUser, urls, textInputs, name) => {
     try {
-        if(title != "" && (urls || textInputs)  && (urls.length > 0 || textInputs.length > 0)) {
-            await firebaseFunctions.addFinetunetoFirebaseUser(currentUser, urls, title, textInputs)
+        if(name != "" && (urls || textInputs)  && (urls.length > 0 || textInputs.length > 0)) {
+            await firebaseFunctions.addFinetunetoFirebaseUser(currentUser, urls, name, textInputs)
         }
     } catch (error) {
+        console.log('Error: ', error)
         throw new Error(error)
     }
 }

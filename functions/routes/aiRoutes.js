@@ -148,13 +148,12 @@ router.post("/outline", async (req, res) => {
 
 router.post("/finetune", async (req, res) => {
   try {
-    await claude.saveFinetuneConfig(req.body.currentUser, req.body.urls, req.body.textInputs, req.body.title)
+    await claude.saveFinetuneConfig(req.body.currentUser, req.body.urls, req.body.textInputs, req.body.name);
+    res.status(200).send("Successfully added finetune to db");
   } catch (error) {
-    res.status(500).send("Error: ", error)
+    res.status(500).send(`Error: ${error}`);
   }
-
-  res.status(200).send("Successfully added finetune to db")
-})
+});
 
 router.get("/testGemini", async (req, res) => {
   const data = await vertex.healthCheckGemini()
