@@ -137,8 +137,8 @@ router.post("/outline", async (req, res) => {
   try {
     context = await misc.doSerpResearch(keyWord, "")
     jobId = await firebaseFunctions.updateFirebaseJob(currentUser, jobId, "context", context, articleType)
-    const responseMessage = await misc.generateOutline(keyWord, wordRange, context)
-    jobId = await firebaseFunctions.updateFirebaseJob(currentUser, jobId, "outline", outline, articleType)
+    const responseMessage = await amazon.generateOutlineClaude(keyWord, wordRange, context)
+    jobId = await firebaseFunctions.updateFirebaseJob(currentUser, jobId, "outline", responseMessage, articleType)
     res.status(200).send({ responseMessage, jobId });
   } catch (error) {
     console.error('Error:', error);

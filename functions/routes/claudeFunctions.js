@@ -91,7 +91,7 @@ const generateSectionClaude = async (outline, keyWord, context, tone, pointOfVie
         \n REMEMBER YOU MUST WRITE ${outline.length} sections. DO NOT INCLUDE THE HEADER ONLY THE PARAGRAGH.  If you do not provide an array of length ${outline.length}, for the sections titled: [${listOfSections}] -- EVERYTHING WILL BREAK.
         Paragraphs should each be between 300-500 words length each.  The sections should flow together nicely.
         ENSURE your response is in the following JSON format:\n ${toolsForNow} \n
-        YOUR ENTIRE RESPONSE MUST BE IN THE JSON FORMAT ABOVE.  DO NOT INLUDE ANY TEXT BEFORE OR AFTER THE JSON RESONSE.  IF IT IS NOT IN THE JSON FORMAT ABOVE IT WILL BREAK.  REMEMBER IT IS CRITICAL THAT EACH PARAGRAGH SHOULD BE OVER 300 WORDS IN LENGTH.`;
+        YOUR ENTIRE RESPONSE MUST BE IN THE JSON FORMAT ABOVE.  DO NOT INLUDE ANY TEXT BEFORE OR AFTER THE JSON RESONSE.  IF IT IS NOT IN THE JSON FORMAT ABOVE IT WILL BREAK.  REMEMBER IT IS CRITICAL THAT EACH PARAGRAGH SHOULD BE OVER 300 WORDS IN LENGTH.  AND CLOSER TO 500 WORDS FOR EACH PARAGRAPH.`;
 
     return await anthropic.messages.create({
         model: 'claude-3-sonnet-20240229',
@@ -237,17 +237,17 @@ async function generateOutlineClaude(keyword, wordRange, context) {
 
 const determineSectionCount = (wordRange) => {
     if (wordRange === '500-800 words') {
-        return 2
+        return 1
     } else if (wordRange === '800-1200 words') {
-        return 3
+        return 2
     } else if (wordRange === '1200-1600 words') {
-        return 4
+        return 3
     } else if (wordRange === '1600-2000 words') {
-        return 5
+        return 4
     } else if (wordRange === '2000-2500 words') {
-        return 6
+        return 5
     } else {
-        return 7
+        return 6
     }
 }
 
