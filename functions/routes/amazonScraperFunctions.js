@@ -105,13 +105,13 @@ const generateOutlineAmazon = async (keyWord, context) => {
     return reviewOutline
 }
 
-const generateAmazonArticle = async (outline, keyWord, context, tone, pointOfView) => {
+const generateAmazonArticle = async (outline, keyWord, context, tone, pointOfView, finetune) => {
     const promises = [];
 
     for (const section of outline) {
         if (section.tagName == 'h2') {
             const contextString = misc.generateContextStringAmazon(section)
-            const promise = claude.generateAmazonSectionClaude(section.content, keyWord, contextString, tone, pointOfView).then(completion => {
+            const promise = claude.generateAmazonSectionClaude(section.content, keyWord, contextString, tone, pointOfView, finetune).then(completion => {
                 const extractedJSON = extractJsonFromString(completion.content[0].text)
                 const sanitizedJSON = sanitizeJSON(extractedJSON)
                 let responseMessage = JSON.parse(sanitizedJSON);

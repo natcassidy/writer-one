@@ -7,7 +7,7 @@ const { UnprocessableEntityError } = require('@anthropic-ai/sdk/error');
 const firebaseFunctions = require('./firebaseFunctions')
 
 //Next steps are to figure out how to pass the right info into the section generation and have the right info come
-const generateAmazonSectionClaude = async (sectionHeader, keyWord, context, tone, pointOfView) => {
+const generateAmazonSectionClaude = async (sectionHeader, keyWord, context, tone, pointOfView, finetune) => {
     const anthropic = new Anthropic({
         apiKey: process.env.CLAUDE_API_KEY
     });
@@ -26,10 +26,18 @@ const generateAmazonSectionClaude = async (sectionHeader, keyWord, context, tone
     }
     `
 
+    const includeFinetune = finetune != "" ? `
+        ---------------------------
+        Here are some articles you should strive to immitate the writing style of below:
+        ${finetune}
+        ---------------------------
+        ` : ''
+
     const includeTone = tone ? `Ensure you write with the following tone: ${tone}\n` : '';
     const includePointOfView = pointOfView ? `Please write this section using the following point of view: ${pointOfView}\n` : '';
     const prompt = `
         Generate an word overview of this product: ${keyWord} for a section titled: ${sectionHeader}, DO NOT ADD HEADERS.  
+        ${includeFinetune}
         Here is relevant context from the amazon product page: ${context}.  
         DO NOT INCLUDE A HEADER JUST WRITE A PARAGRAPH.
         ${includeTone}

@@ -65,26 +65,26 @@ router.post('/process', async (req, res) => {
   console.log('generating article')
   let updatedOutline
   try {
-  updatedOutline = await amazon.generateArticleClaude(outline, keyWord, context, tone, pointOfView, citeSources, finetune);
-} catch (error) {
-  res.status(500).send("Error generating article: ", error)
-}
+    updatedOutline = await amazon.generateArticleClaude(outline, keyWord, context, tone, pointOfView, citeSources, finetune);
+  } catch (error) {
+    res.status(500).send("Error generating article: ", error)
+  }
 
-console.log('article generated now doing gemini article')
+  console.log('article generated now doing gemini article')
 
-console.log('gemini article generated')
-const wordCount = misc.countWords(updatedOutline)
-const updatedWordCount = await firebaseFunctions.decrementUserWordCount(currentUser, wordCount)
-console.log('word count: ', wordCount)
-jobId = await firebaseFunctions.updateFirebaseJob(currentUser, jobId, "outline", updatedOutline)
-//Outline will now contain each section filled in with data
-res.status(200).send({ "article": updatedOutline, updatedWordCount })
+  console.log('gemini article generated')
+  const wordCount = misc.countWords(updatedOutline)
+  const updatedWordCount = await firebaseFunctions.decrementUserWordCount(currentUser, wordCount)
+  console.log('word count: ', wordCount)
+  jobId = await firebaseFunctions.updateFirebaseJob(currentUser, jobId, "outline", updatedOutline)
+  //Outline will now contain each section filled in with data
+  res.status(200).send({ "article": updatedOutline, updatedWordCount })
 });
 
 router.post('/processAmazon', async (req, res) => {
   let { keyWord, internalUrl, tone, numberOfProducts,
     pointOfView, includeFAQs,
-    generatedImages, outline, currentUser, jobId, amazonUrl, affiliate } = req.body
+    generatedImages, outline, currentUser, jobId, amazonUrl, affiliate, finetuneChosen } = req.body
 
   const length = amazon.determineArticleLength(numberOfProducts)
   const isWithinWordCount = await misc.doesUserHaveEnoughWordsAmazon(currentUser, length)
@@ -106,8 +106,20 @@ router.post('/processAmazon', async (req, res) => {
   // jobId = await firebaseFunctions.updateFirebaseJob(currentUser, jobId, "outline", outline, articleType)
   console.log('outline generated')
 
+  let finetune = ""
+
+  finetuneChosen.textInputs.forEach(input => {
+    finetune += input.body
+  })
+
+  try {
+    finetune += await claude.generateFinetune(finetuneChosen.urls)
+  } catch (error) {
+    console.log('Error generating finetune ', error)
+  }
+
   console.log('generating article')
-  await amazon.generateAmazonArticle(outline, keyWord, context, tone, pointOfView);
+  await amazon.generateAmazonArticle(outline, keyWord, context, tone, pointOfView, finetune);
 
   // console.log('article generated now doing gemini article')
   // const geminiOutline = structuredClone(outline);
