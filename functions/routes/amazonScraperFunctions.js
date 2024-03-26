@@ -302,6 +302,7 @@ const generateArticleClaude = async (outline, keyWord, context, tone, pointOfVie
     return constructedSections;
 };
 
+//NEED TO HANDLE ERRORS HERE
 const generateSectionsOfArticle = async (piecesOfOutline, keyWord, context, tone, pointOfView, citeSources, finetune) => {
     const outlineCopy = structuredClone(piecesOfOutline);
     try {
@@ -314,6 +315,7 @@ const generateSectionsOfArticle = async (piecesOfOutline, keyWord, context, tone
         } catch (e) {
             console.log('Exception: ', e)
             console.log('With Sanitized Json of : \n', sanitizedJSON)
+            throw new Error(e)
         }
 
         for (let i = 0; i < response.paragraphs.length; i++) {
@@ -321,7 +323,7 @@ const generateSectionsOfArticle = async (piecesOfOutline, keyWord, context, tone
         }
     } catch (error) {
         console.error('Error generating sections:', error);
-        // Handle the error appropriately
+        throw new Error(e)
     }
     return outlineCopy;
 }

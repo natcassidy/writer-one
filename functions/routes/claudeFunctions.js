@@ -78,6 +78,8 @@ const generateSectionClaude = async (outline, keyWord, context, tone, pointOfVie
         ]
     }`
 
+    const notesForArticle = generateNotesForArticle(outline)
+
     const includeFinetune = finetune != "" ? `
         ---------------------------
         Here are some articles you should strive to immitate the writing style of below:
@@ -96,6 +98,7 @@ const generateSectionClaude = async (outline, keyWord, context, tone, pointOfVie
         ${includeTone}
         ${includeCitedSources}
         ${includePointOfView}
+        ${notesForArticle}
         \n REMEMBER YOU MUST WRITE ${outline.length} sections. DO NOT INCLUDE THE HEADER ONLY THE PARAGRAGH.  If you do not provide an array of length ${outline.length}, for the sections titled: [${listOfSections}] -- EVERYTHING WILL BREAK.
         Paragraphs should each be between 300-500 words length each.  The sections should flow together nicely.
         ENSURE your response is in the following JSON format:\n ${toolsForNow} \n
@@ -111,9 +114,25 @@ const generateSectionClaude = async (outline, keyWord, context, tone, pointOfVie
     });
 }
 
+const generateNotesForArticle = (outline) => {
+    let notes = ""
+
+    for (let i = 0; i < outline.length; i++) {
+        if (outline[i].notes) {
+            notes += `For section #${i + 1}, here are some general notes to keep in mind when writing this section.\n ${outline[i].notes} \n`
+        }
+
+        if (outline[i].clientNotes) {
+            notes += `Here are some additional notes to keep in mind when writing this section.\n${outline[i].clientNotes}\n`
+        }
+    }
+
+    return notes
+}
+
 const saveFinetuneConfig = async (currentUser, urls, textInputs, name) => {
     try {
-        if(name != "" && (urls || textInputs)  && (urls.length > 0 || textInputs.length > 0)) {
+        if (name != "" && (urls || textInputs) && (urls.length > 0 || textInputs.length > 0)) {
             await firebaseFunctions.addFinetunetoFirebaseUser(currentUser, urls, name, textInputs)
         }
     } catch (error) {
@@ -229,31 +248,27 @@ async function generateOutlineClaude(keyword, wordRange, context) {
             }
         }
 
-        Ensure your response is in json in the json format above.  You can have multiple sections and multiple subsections within sections.  Include notes to help structure what content should be touched on in the subsections.
-        Ensure that there are no more than ${sectionsCount}, h2's in your outline.  
+        Ensure your response is in json in the json format above.  You can have multiple subsections within sections.  Include notes to help structure what content should be touched on in the subsections.
+        Ensure that there are no more than ${sectionsCount} h2's in your outline if you include more than ${sectionsCount} h2's, everything will break.  
         `
 
+    const message = `Generate an outline for the keyword: ${keyword}.  Here is some context and info on the topic: ${context}.\n Ensure you response in the json format below: ${toolsForNow}. \n The wordCount for the article is in the range of ${wordRange}.  Each subsection will be roughly 200-400 words worth of content so please ensure that you keep in mind the size of the section when determining how many to create.  DO NOT include the word count in your response or function call, only use it to keep track of yourself. You DO NOT NEED TO HAVE MULTIPLE SUBSECTIONS PER SECTION.  Here are is some relevent research on the topic you can use to construct it.  Please include notes in the subsections as to ensure the article flows smoothly from one section to the next.  Notes should simply be a little more info on what this section needs to cover.  Do not include generate placeholders like Brand A, Team A etc in your headers.  Remember no more than ${sectionsCount} h2's are allowed to be included in your outline.  You can have multiple subsections (tagName: h3) per tagName: h2.  You don't need to include an introduction or conclusion.`
+    
     return await anthropic.messages.create({
         model: 'claude-3-sonnet-20240229',
         max_tokens: 4000,
         system: "You are a helpful assistant designed to output JSON.",
         messages: [
-            { "role": "user", "content": `Generate an outline for the keyword: ${keyword}.  Here is some context and info on the topic: ${context}.\n Ensure you response in the json format below: ${toolsForNow}. \n The wordCount for the article is in the range of ${wordRange}.  Each subsection will be roughly 200-400 words worth of content so please ensure that you keep in mind the size of the section when determining how many to create.  DO NOT include the word count in your response or function call, only use it to keep track of yourself. You DO NOT NEED TO HAVE MULTIPLE SUBSECTIONS PER SECTION.  Here are is some relevent research on the topic you can use to construct it.  Please include notes in the subsections as to ensure the article flows smoothly from one section to the next.  Notes should simply be a little more info on what this section needs to cover.  Do not include generate placeholders like Brand A, Team A etc in your headers.` },
+            { "role": "user", "content": message },
         ]
     });
 }
 
 const determineSectionCount = (wordRange) => {
-    if (wordRange === '500-800 words') {
-        return 1
-    } else if (wordRange === '800-1200 words') {
+    if (wordRange === '500-1000 words') {
         return 2
-    } else if (wordRange === '1200-1600 words') {
-        return 3
-    } else if (wordRange === '1600-2000 words') {
+    } else if (wordRange === '1000-2000 words') {
         return 4
-    } else if (wordRange === '2000-2500 words') {
-        return 5
     } else {
         return 6
     }
