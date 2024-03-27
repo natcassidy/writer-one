@@ -107,25 +107,47 @@ const generateOutlineAmazon = async (keyWord, context) => {
 
 const generateAmazonArticle = async (outline, keyWord, context, tone, pointOfView, finetune) => {
     const promises = [];
-
     for (const section of outline) {
         if (section.tagName == 'h2') {
-            const contextString = misc.generateContextStringAmazon(section)
-            const promise = claude.generateAmazonSectionClaude(section.content, keyWord, contextString, tone, pointOfView, finetune).then(completion => {
-                const extractedJSON = extractJsonFromString(completion.content[0].text)
-                const sanitizedJSON = sanitizeJSON(extractedJSON)
-                let responseMessage = JSON.parse(sanitizedJSON);
-                section.overviewOfProduct = responseMessage.overviewOfProduct
-                section.pros = responseMessage.pros
-                section.cons = responseMessage.cons
-                section.bottomLine = responseMessage.bottomLine; // Correctly assign to each section
-            });
+            const contextString = misc.generateContextStringAmazon(section);
+            const promise = generateSectionWithRetry(section, keyWord, contextString, tone, pointOfView, finetune)
+                .catch(error => {
+                    console.error("Failed to generate section:", error);
+                    throw error;
+                });
             promises.push(promise);
         }
     }
+    try {
+        await Promise.all(promises);
+    } catch (error) {
+        console.error("Failed to generate Amazon article:", error);
+        throw new Error("Failed to generate Amazon article");
+    }
+};
 
-    return await Promise.all(promises);
-}
+const generateSectionWithRetry = async (section, keyWord, contextString, tone, pointOfView, finetune) => {
+    let attempt = 0;
+    while (attempt < 3) {
+        try {
+            const completion = await claude.generateAmazonSectionClaude(section.content, keyWord, contextString, tone, pointOfView, finetune);
+            const extractedJSON = extractJsonFromString(completion.content[0].text);
+            const sanitizedJSON = sanitizeJSON(extractedJSON);
+            let responseMessage = JSON.parse(sanitizedJSON);
+            section.overviewOfProduct = responseMessage.overviewOfProduct;
+            section.pros = responseMessage.pros;
+            section.cons = responseMessage.cons;
+            section.bottomLine = responseMessage.bottomLine;
+            return; // Exit the function if successful
+        } catch (error) {
+            attempt++;
+            if (attempt >= 3) {
+                console.error("Failed to generate section after 3 attempts:", error);
+                throw new Error("Failed to generate Amazon article section");
+            }
+        }
+    }
+};
 
 const determineArticleLength = (numProducts) => {
     return numProducts * 300

@@ -38,11 +38,12 @@ const generateAmazonSectionClaude = async (sectionHeader, keyWord, context, tone
     const prompt = `
         Generate an word overview of this product: ${keyWord} for a section titled: ${sectionHeader}, DO NOT ADD HEADERS.  
         ${includeFinetune}
-        Here is relevant context from the amazon product page: ${context}.  
+        Here is relevant context from the amazon product page: ${context}. 
+        You can use the reviews to shape the paragragh, but do not specifically mention that it was a review that your opinion came from.  ENSURE YOU DO NOT REFERENCE THE REVIEW DIRECTLY.  As in stating something like "After reading this review here's a con about the product" 
         DO NOT INCLUDE A HEADER JUST WRITE A PARAGRAPH.
         ${includeTone}
         ${includePointOfView}
-        Make sure your opening sentence to the section is unique and doesn't just reiterate the primary keyword.  Avoid using closing statements at the end of the section.
+        Make sure your opening sentence to the section is unique and doesn't just reiterate the primary keyword.  Avoid using closing statements at the end of the section. 
         ENSURE your response is in the following JSON format:\n ${toolsForNow} \n
         YOUR ENTIRE RESPONSE MUST BE IN THE JSON FORMAT ABOVE.  DO NOT INLUDE ANY TEXT BEFORE OR AFTER THE JSON RESONSE.  IF IT IS NOT IN THE JSON FORMAT ABOVE IT WILL BREAK.
         overviewOfProduct: should be 150 words and offer a preview/intro of the product.
@@ -52,7 +53,7 @@ const generateAmazonSectionClaude = async (sectionHeader, keyWord, context, tone
         `;
 
     return await anthropic.messages.create({
-        model: 'claude-3-sonnet-20240229',
+        model: 'claude-3-haiku-20240307',
         max_tokens: 4000,
         system: "You are a helpful assistant designed to output JSON.",
         messages: [

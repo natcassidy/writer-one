@@ -119,7 +119,13 @@ router.post('/processAmazon', async (req, res) => {
   }
 
   console.log('generating article')
-  await amazon.generateAmazonArticle(outline, keyWord, context, tone, pointOfView, finetune);
+
+  try {
+    await amazon.generateAmazonArticle(outline, keyWord, context, tone, pointOfView, finetune);
+  } catch (e) {
+    res.status(500).send("Error generating article: ", error)
+  }
+  
 
   // console.log('article generated now doing gemini article')
   // const geminiOutline = structuredClone(outline);
@@ -137,9 +143,7 @@ router.post('/processAmazon', async (req, res) => {
 
 // Route handler
 router.post("/outline", async (req, res) => {
-  let { keyWord, internalUrl, articleLength, wordRange, tone,
-    pointOfView, realTimeResearch, citeSources, includeFAQs,
-    generatedImages, generateOutline, outline, currentUser } = req.body
+  let { keyWord, wordRange, currentUser } = req.body
 
   let context = ""
   let jobId = -1
@@ -181,7 +185,6 @@ router.get("/testClaude", async (req, res) => {
   const data = await amazon.testClaude()
   res.status(200).send(data.content[0].text)
 })
-
 
 router.get("/testClaudeOutline", async (req, res) => {
   const data = await amazon.generateOutlineClaude("Best ways to lose weight 2024", '2000-2500 words', "")
