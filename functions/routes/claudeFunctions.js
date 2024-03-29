@@ -133,7 +133,7 @@ const generateNotesForArticle = (outline) => {
 
 const saveFinetuneConfig = async (currentUser, urls, textInputs, name) => {
     try {
-        if (name != "" && (urls || textInputs) && (urls.length > 0 || textInputs.length > 0)) {
+        if (name != "") {
             await firebaseFunctions.addFinetunetoFirebaseUser(currentUser, urls, name, textInputs)
         }
     } catch (error) {
