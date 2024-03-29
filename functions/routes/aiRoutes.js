@@ -125,7 +125,7 @@ router.post('/processAmazon', async (req, res) => {
   } catch (e) {
     res.status(500).send("Error generating article: ", error)
   }
-  
+
 
   // console.log('article generated now doing gemini article')
   // const geminiOutline = structuredClone(outline);
