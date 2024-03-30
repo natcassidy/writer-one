@@ -250,11 +250,59 @@ const decrementUserWordCount = async (currentUser, amountToDecrement) => {
     return newWordCount;
 };
 
+const addToQueue = async (keyWord, internalUrl, tone, pointOfView, includeFAQs, currentUser, finetuneChosen, wordRange, citeSources) => {
+    await admin.firestore().collection('queue').add({
+        keyWord, 
+        internalUrl, 
+        tone, 
+        pointOfView, 
+        includeFAQs, 
+        currentUser, 
+        finetuneChosen,
+        status: 'pending',
+        wordRange,
+        citeSources,
+        createdAt: Date.now()
+    });
+}
+
+const getNextItemFirebase = async () => {
+    const snapshot = await admin.firestore().collection('queue')
+        .where('status', '==', 'pending')
+        .orderBy('createdAt')
+        .limit(1)
+        .get();
+
+    if (!snapshot.empty) {
+        const item = snapshot.docs[0];
+        const itemId = item.id;
+        return {itemId, ...item.data()};
+
+    } else {
+        throw new Error('No pending items in the queue');
+    }
+}
+
+const markItemCompleted = async (itemId) => {
+    try {
+        // Update the item status to 'completed'
+        await admin.firestore().collection('queue').doc(itemId).update({
+            status: 'completed',
+        });
+
+        console.log(`Item ${itemId} processed successfully`);
+    } catch (e) {
+        throw new Error(e)
+    }
+}
 
 module.exports = {
     updateFirebaseJob,
     getContextFromDb,
     decrementUserWordCount,
     addFinetunetoFirebaseUser,
-    findFinetuneInFirebase
+    findFinetuneInFirebase,
+    addToQueue, 
+    getNextItemFirebase,
+    markItemCompleted
 };

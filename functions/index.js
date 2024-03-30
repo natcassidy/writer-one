@@ -6,6 +6,7 @@ const aiRoutes = require('./routes/aiRoutes');
 const gptRoutes = require('./routes/gptRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 require('dotenv').config();
+const bulMiscFunctions = require('./routes/bulkMiscFunctions')
 
 const corsOptions = {
   origin: ['https://chat.openai.com','http://localhost:3000', 'https://writer-one-frontend.vercel.app', 'https://writer-one-frontend.vercel.app/'],
@@ -19,3 +20,7 @@ app.use('/gpt', gptRoutes);
 app.use('/admin', adminRoutes);
 
 exports.plugin = functions.https.onRequest(app); 
+exports.processQueue = functions.pubsub.schedule('every 1 minutes').onRun(async (context) => {
+  await bulMiscFunctions.processNextItem();
+  return null;
+});

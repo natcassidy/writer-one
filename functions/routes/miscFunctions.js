@@ -485,6 +485,12 @@ function extractJsonFromString(str) {
     return null;
 }
 
+const parseKeyWords = (keyWords) => {
+    const keyWordList = keyWords.split('\,')
+
+    return keyWordList
+}
+
 module.exports = {
     stripEscapeChars,
     stripToText,
@@ -498,5 +504,6 @@ module.exports = {
     doSerpResearch,
     doesUserHaveEnoughWordsAmazon,
     determineSectionCount,
-    generateContextStringAmazon
+    generateContextStringAmazon,
+    parseKeyWords
 };

@@ -15,7 +15,7 @@ const vertex = require('./vertexAiFunctions')
 const amazon = require('./amazonScraperFunctions')
 const claude = require('./claudeFunctions')
 const firebaseFunctions = require('./firebaseFunctions')
-
+const bulkMiscFunctions = require('./bulkMiscFunctions')
 
 // ------ Dev Dep ------
 const fs = require("node:fs");
@@ -67,7 +67,7 @@ router.post('/process', async (req, res) => {
   try {
     updatedOutline = await amazon.generateArticleClaude(outline, keyWord, context, tone, pointOfView, citeSources, finetune);
   } catch (error) {
-    res.status(500).send("Error generating article: ", error)
+    return res.status(500).send("Error generating article: ", error)
   }
 
   console.log('article generated now doing gemini article')
@@ -81,6 +81,31 @@ router.post('/process', async (req, res) => {
   res.status(200).send({ "article": updatedOutline, updatedWordCount })
 });
 
+router.post("/processBlogBulk", async (req, res) => {
+  let { keyWord, internalUrl, tone, pointOfView, includeFAQs, currentUser, finetuneChosen, wordRange, citeSources } = req.body
+
+  const keyWordList = misc.parseKeyWords(keyWord)
+
+  console.log('List: ', keyWordList)
+  keyWordList.forEach(keyWord => {
+    firebaseFunctions.addToQueue(keyWord, internalUrl, tone, pointOfView, includeFAQs, currentUser, finetuneChosen, wordRange, citeSources)
+  })
+
+  res.status(200).send({"success": keyWordList})
+})
+
+router.post("/manuallyTriggerBulkQueue", async (req, res) => {
+  try {
+    await bulkMiscFunctions.processNextItem()
+    
+  } catch (e) {
+    console.log('Error logged at top: ', e)
+    return res.status(500).send({"error": e})
+  }
+
+  res.status(200).send("success")
+})
+
 router.post('/processAmazon', async (req, res) => {
   let { keyWord, internalUrl, tone, numberOfProducts,
     pointOfView, includeFAQs,
@@ -90,7 +115,7 @@ router.post('/processAmazon', async (req, res) => {
   const isWithinWordCount = await misc.doesUserHaveEnoughWordsAmazon(currentUser, length)
 
   if (!isWithinWordCount) {
-    res.status(500).send("Word Count Limit Hit")
+    return res.status(500).send("Word Count Limit Hit")
   }
 
   let context = ""
@@ -123,7 +148,7 @@ router.post('/processAmazon', async (req, res) => {
   try {
     await amazon.generateAmazonArticle(outline, keyWord, context, tone, pointOfView, finetune);
   } catch (e) {
-    res.status(500).send("Error generating article: ", error)
+    return res.status(500).send("Error generating article: ", error)
   }
 
 
@@ -158,7 +183,7 @@ router.post("/outline", async (req, res) => {
     res.status(200).send({ responseMessage, jobId });
   } catch (error) {
     console.error('Error:', error);
-    res.status(500).send(error.message || 'An error occurred');
+    return res.status(500).send(error.message || 'An error occurred');
   }
 });
 
