@@ -87,20 +87,25 @@ router.post("/processBlogBulk", async (req, res) => {
   const keyWordList = misc.parseKeyWords(keyWord)
 
   console.log('List: ', keyWordList)
-  keyWordList.forEach(keyWord => {
-    firebaseFunctions.addToQueue(keyWord, internalUrl, tone, pointOfView, includeFAQs, currentUser, finetuneChosen, wordRange, citeSources)
-  })
+  try {
+    keyWordList.forEach(keyWord => {
+      firebaseFunctions.addToQueue(keyWord, internalUrl, tone, pointOfView, includeFAQs, currentUser, finetuneChosen, wordRange, citeSources)
+    })
+  }
+  catch (e) {
+    return res.status(500).send({"error": e})
+  }
 
-  res.status(200).send({"success": keyWordList})
+  res.status(200).send({ "success": keyWordList })
 })
 
 router.post("/manuallyTriggerBulkQueue", async (req, res) => {
   try {
     await bulkMiscFunctions.processNextItem()
-    
+
   } catch (e) {
     console.log('Error logged at top: ', e)
-    return res.status(500).send({"error": e})
+    return res.status(500).send({ "error": e })
   }
 
   res.status(200).send("success")

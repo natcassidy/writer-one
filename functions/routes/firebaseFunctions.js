@@ -296,6 +296,19 @@ const markItemCompleted = async (itemId) => {
     }
 }
 
+const markItemInProgress = async (itemId) => {
+    try {
+        // Update the item status to 'completed'
+        await admin.firestore().collection('queue').doc(itemId).update({
+            status: 'inProgress',
+        });
+
+        console.log(`Item ${itemId} Error`);
+    } catch (e) {
+        throw new Error(e)
+    }
+}
+
 module.exports = {
     updateFirebaseJob,
     getContextFromDb,
@@ -304,5 +317,6 @@ module.exports = {
     findFinetuneInFirebase,
     addToQueue, 
     getNextItemFirebase,
-    markItemCompleted
+    markItemCompleted,
+    markItemInProgress
 };

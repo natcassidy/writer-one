@@ -19,8 +19,8 @@ app.use('/ai', aiRoutes);
 app.use('/gpt', gptRoutes);
 app.use('/admin', adminRoutes);
 
-exports.plugin = functions.https.onRequest(app); 
-exports.processQueue = functions.pubsub.schedule('every 1 minutes').onRun(async (context) => {
+exports.plugin = functions.runWith({ timeoutSeconds: 180 }).https.onRequest(app);
+exports.processQueue = functions.runWith({ timeoutSeconds: 180 }).pubsub.schedule('every 1 minutes').onRun(async (context) => {
   await bulMiscFunctions.processNextItem();
   return null;
 });

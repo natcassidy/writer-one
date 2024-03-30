@@ -69,7 +69,7 @@ const processNextItem = async () => {
 
     try {
         const { keyWord, internalUrl, tone, pointOfView, includeFAQs, currentUser, finetuneChosen, wordRange, citeSources, itemId} = await firebaseFunctions.getNextItemFirebase()
-
+        firebaseFunctions.markItemInProgress(itemId)
         itemIdProcess = itemId
         const article = await processBlogArticleFromBulk(keyWord, internalUrl, tone, pointOfView, includeFAQs, currentUser, finetuneChosen, wordRange, citeSources)
         await firebaseFunctions.markItemCompleted(itemId)
