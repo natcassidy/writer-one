@@ -81,15 +81,15 @@ router.post('/process', async (req, res) => {
   res.status(200).send({ "article": updatedOutline, updatedWordCount })
 });
 
-router.post("/processBlogBulk", async (req, res) => {
-  let { keyWord, internalUrl, tone, pointOfView, includeFAQs, currentUser, finetuneChosen, wordRange, citeSources } = req.body
+router.post("/processBulk", async (req, res) => {
+  let { keyWord, internalUrl, tone, pointOfView, includeFAQs, currentUser, finetuneChosen, wordRange, citeSources, isAmazonArticle, amazonUrl, affiliate, numberOfProducts } = req.body
 
   const keyWordList = misc.parseKeyWords(keyWord)
 
   console.log('List: ', keyWordList)
   try {
     keyWordList.forEach(keyWord => {
-      firebaseFunctions.addToQueue(keyWord, internalUrl, tone, pointOfView, includeFAQs, currentUser, finetuneChosen, wordRange, citeSources)
+      firebaseFunctions.addToQueue(keyWord, internalUrl, tone, pointOfView, includeFAQs, currentUser, finetuneChosen, wordRange, citeSources, isAmazonArticle, amazonUrl, affiliate, numberOfProducts)
     })
   }
   catch (e) {

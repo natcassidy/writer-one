@@ -250,7 +250,7 @@ const decrementUserWordCount = async (currentUser, amountToDecrement) => {
     return newWordCount;
 };
 
-const addToQueue = async (keyWord, internalUrl, tone, pointOfView, includeFAQs, currentUser, finetuneChosen, wordRange, citeSources) => {
+const addToQueue = async (keyWord, internalUrl, tone, pointOfView, includeFAQs, currentUser, finetuneChosen, wordRange, citeSources, isAmazonArticle, amazonUrl, affiliate, numberOfProducts) => {
     await admin.firestore().collection('queue').add({
         keyWord, 
         internalUrl, 
@@ -262,6 +262,10 @@ const addToQueue = async (keyWord, internalUrl, tone, pointOfView, includeFAQs, 
         status: 'pending',
         wordRange,
         citeSources,
+        isAmazonArticle, 
+        amazonUrl,
+        affiliate, 
+        numberOfProducts,
         createdAt: Date.now()
     });
 }
@@ -303,7 +307,7 @@ const markItemInProgress = async (itemId) => {
             status: 'inProgress',
         });
 
-        console.log(`Item ${itemId} Error`);
+        console.log(`Item ${itemId} in progress`);
     } catch (e) {
         throw new Error(e)
     }
