@@ -123,6 +123,7 @@ const processNextItem = async () => {
         await firebaseFunctions.markItemCompleted(itemId)
     } catch (e) {
         console.log('Error processing bulk Article: ', e)
+        await firebaseFunctions.markItemInError(itemIdProcess)
         throw new Error(e)
     }
 }
