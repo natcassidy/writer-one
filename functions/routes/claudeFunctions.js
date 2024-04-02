@@ -66,7 +66,7 @@ const generateAmazonSectionClaude = async (sectionHeader, keyWord, context, tone
         `;
 
     const response =  await anthropic.messages.create({
-        model: 'claude-3-haiku-20240307',
+        model: process.env.CLAUDE_API_MODEL,
         max_tokens: 4000,
         system: "You are a helpful assistant designed to output JSON.",
         messages: [
@@ -123,7 +123,7 @@ const generateSectionClaude = async (outline, keyWord, context, tone, pointOfVie
         YOUR ENTIRE RESPONSE MUST BE IN THE JSON FORMAT ABOVE.  DO NOT INLUDE ANY TEXT BEFORE OR AFTER THE JSON RESONSE.  IF IT IS NOT IN THE JSON FORMAT ABOVE IT WILL BREAK.  REMEMBER IT IS CRITICAL THAT EACH PARAGRAGH SHOULD BE OVER 300 WORDS IN LENGTH.  AND CLOSER TO 500 WORDS FOR EACH PARAGRAPH.`;
 
     const response = await anthropic.messages.create({
-        model: 'claude-3-sonnet-20240229',
+        model: process.env.CLAUDE_API_MODEL,
         max_tokens: 4000,
         system: "You are a helpful assistant designed to output JSON.",
         messages: [
@@ -277,7 +277,7 @@ async function generateOutlineClaude(keyword, wordRange, context) {
     const message = `Generate an outline for the keyword: ${keyword}.  Here is some context and info on the topic: ${context}.\n Ensure you response in the json format below: ${toolsForNow}. \n The wordCount for the article is in the range of ${wordRange}.  Each subsection will be roughly 200-400 words worth of content so please ensure that you keep in mind the size of the section when determining how many to create.  DO NOT include the word count in your response or function call, only use it to keep track of yourself. You DO NOT NEED TO HAVE MULTIPLE SUBSECTIONS PER SECTION.  Here are is some relevent research on the topic you can use to construct it.  Please include notes in the subsections as to ensure the article flows smoothly from one section to the next.  Notes should simply be a little more info on what this section needs to cover.  Do not include generate placeholders like Brand A, Team A etc in your headers.  Remember no more than ${sectionsCount} h2's are allowed to be included in your outline.  You can have multiple subsections (tagName: h3) per tagName: h2.  You don't need to include an introduction or conclusion.`
 
     const response = await anthropic.messages.create({
-        model: 'claude-3-sonnet-20240229',
+        model: process.env.CLAUDE_API_MODEL,
         max_tokens: 4000,
         system: "You are a helpful assistant designed to output JSON.",
         messages: [
@@ -310,7 +310,7 @@ const summarizeContentClaude = async (content, keyWord) => {
     }`
 
     const response = await anthropic.messages.create({
-        model: 'claude-3-sonnet-20240229',
+        model: process.env.CLAUDE_HAIKU_MODEL,
         max_tokens: 4000,
         system: "You are a helpful assistant designed to output JSON.",
         messages: [

@@ -8,6 +8,13 @@ const qs = require('qs');
 require('dotenv').config()
 const pino = require('pino');
 const path = require('path');
+const misc = require('./miscFunctions');
+const vertex = require('./vertexAiFunctions')
+const amazon = require('./amazonScraperFunctions')
+const claude = require('./claudeFunctions')
+const firebaseFunctions = require('./firebaseFunctions')
+const bulkMiscFunctions = require('./bulkMiscFunctions')
+const fs = require("node:fs");
 
 const logger = pino({
   transport: {
@@ -19,18 +26,6 @@ const logger = pino({
     }
   }
 })
-
-// ------ Helper .js Deps ------
-const apiFunctions = require('./apiFunctions');
-const misc = require('./miscFunctions');
-const vertex = require('./vertexAiFunctions')
-const amazon = require('./amazonScraperFunctions')
-const claude = require('./claudeFunctions')
-const firebaseFunctions = require('./firebaseFunctions')
-const bulkMiscFunctions = require('./bulkMiscFunctions')
-
-// ------ Dev Dep ------
-const fs = require("node:fs");
 
 router.post('/process', async (req, res) => {
   logger.debug("Entering processing of Blog Post")

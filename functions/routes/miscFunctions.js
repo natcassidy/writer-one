@@ -8,14 +8,14 @@ const pino = require('pino');
 const path = require('path');
 
 const logger = pino({
-  transport: {
-    target: "pino-pretty",
-    options: {
-      ignore: "pid,hostname",
-      destination: path.join(__dirname, 'logger-output.log'),
-      colorize: false
+    transport: {
+        target: "pino-pretty",
+        options: {
+            ignore: "pid,hostname",
+            destination: path.join(__dirname, 'logger-output.log'),
+            colorize: false
+        }
     }
-  }
 })
 
 const stripEscapeChars = (string) => {
@@ -268,7 +268,7 @@ async function findGoodData(params, keyWord) {
     console.log('serp results returned with size: ', data.length);
     const results = [];
     const chunkSize = 10;
-    
+
     for (let i = 0; i < data.length; i += chunkSize) {
         const chunk = data.slice(i, i + chunkSize);
         const promises = chunk.map(async item => {
@@ -288,19 +288,19 @@ async function findGoodData(params, keyWord) {
             }
             return null;
         });
-        
+
         const chunkResults = await Promise.all(promises);
         results.push(...chunkResults.filter(result => result !== null));
-        
+
         // Check if the results array has reached 5 items
         if (results.length >= 6) {
             break; // Exit the loop early
         }
-        
+
         // Wait for the current batch of promises to resolve before proceeding
         await new Promise(resolve => setTimeout(resolve, 0));
     }
-    
+
     return results.join('\n\n'); // Join the results array into a single string with newline separators
 }
 
@@ -405,25 +405,21 @@ const createScrapeConfig = (countryCode) => ({
 });
 
 const getSerpResults = async (data) => {
-    logger.info("Entering getSerpResults")
+    logger.info("Entering getSerpResults");
     const query = data;
     const countryCode = query.countryCode || ""; // Simplify country code determination
-
     const serpConfig = createSerpConfig(query, countryCode);
     const scrapeConfig = createScrapeConfig(countryCode);
-
     try {
         const axiosResponse = await axios.get(`https://www.google.com/search`, serpConfig);
-        let promises = axiosResponse.data.organic.map(el => {
+        const promises = axiosResponse.data.organic.map(el => {
             return processElement(el, scrapeConfig); // Refactor processing into a separate function
         });
-
         const settledPromises = await Promise.allSettled(promises);
         const trimmed = settledPromises.map(item => item.status === "fulfilled" ? item.value : item.reason);
-
         // Improved logging for debugging
         console.log(`Processed ${trimmed.length} items.`);
-        logger.info("Finished getSerpResults")
+        logger.info("Finished getSerpResults");
         return trimmed;
     } catch (err) {
         console.error("Error in getSerpResults:", err.message);
@@ -464,12 +460,10 @@ async function processElement(el, scrapeConfig) {
                 body = body.substring(0, 10000);
             }
             const description = stripToText(el.description);
-
             let type = "scraped";
             if (checkIfStore(body)) {
                 type = "scraped - store";
             }
-
             return {
                 status: "good",
                 type: type,
