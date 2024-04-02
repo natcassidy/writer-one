@@ -6,7 +6,19 @@ const router = express.Router();
 const axios = require('axios');
 const qs = require('qs');
 require('dotenv').config()
+const pino = require('pino');
+const path = require('path');
 
+const logger = pino({
+  transport: {
+    target: "pino-pretty",
+    options: {
+      ignore: "pid,hostname",
+      destination: path.join(__dirname, 'logger-output.log'),
+      colorize: false
+    }
+  }
+})
 
 // ------ Helper .js Deps ------
 const apiFunctions = require('./apiFunctions');
@@ -21,6 +33,7 @@ const bulkMiscFunctions = require('./bulkMiscFunctions')
 const fs = require("node:fs");
 
 router.post('/process', async (req, res) => {
+  logger.debug("Entering processing of Blog Post")
   let { keyWord, internalUrl, wordRange, tone,
     pointOfView, realTimeResearch, citeSources, includeFAQs,
     generatedImages, generateOutline, outline, currentUser, jobId, finetuneChosen } = req.body
@@ -78,6 +91,8 @@ router.post('/process', async (req, res) => {
   console.log('word count: ', wordCount)
   jobId = await firebaseFunctions.updateFirebaseJob(currentUser, jobId, "outline", updatedOutline)
   //Outline will now contain each section filled in with data
+  logger.debug("Exiting processing of Blog Post")
+
   res.status(200).send({ "article": updatedOutline, updatedWordCount })
 });
 
@@ -93,21 +108,23 @@ router.post("/processBulk", async (req, res) => {
     })
   }
   catch (e) {
-    return res.status(500).send({"error": e})
+    return res.status(500).send({ "error": e })
   }
 
   res.status(200).send({ "success": keyWordList })
 })
 
 router.post("/manuallyTriggerBulkQueue", async (req, res) => {
+  logger.info("Entering manuallyTriggerBulkQueue")
   try {
     await bulkMiscFunctions.processNextItem()
 
   } catch (e) {
     console.log('Error logged at top: ', e)
-    return res.status(500).send({ "error": e })
+    res.status(500).send({ "error": e })
   }
 
+  logger.info("Leaving manuallyTriggerBulkQueue")
   res.status(200).send("success")
 })
 

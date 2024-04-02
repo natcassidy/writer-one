@@ -3,11 +3,24 @@ const cheerio = require('cheerio');
 require('dotenv').config()
 const Anthropic = require('@anthropic-ai/sdk');
 const { UnprocessableEntityError } = require('@anthropic-ai/sdk/error');
-
 const firebaseFunctions = require('./firebaseFunctions')
+const pino = require('pino');
+const path = require('path');
+
+const logger = pino({
+  transport: {
+    target: "pino-pretty",
+    options: {
+      ignore: "pid,hostname",
+      destination: path.join(__dirname, 'logger-output.log'),
+      colorize: false
+    }
+  }
+})
 
 //Next steps are to figure out how to pass the right info into the section generation and have the right info come
 const generateAmazonSectionClaude = async (sectionHeader, keyWord, context, tone, pointOfView, finetune) => {
+    logger.info("Entering generateAmazonSectionClaude")
     const anthropic = new Anthropic({
         apiKey: process.env.CLAUDE_API_KEY
     });
@@ -52,7 +65,7 @@ const generateAmazonSectionClaude = async (sectionHeader, keyWord, context, tone
         bottomLine: should be minumum 300 words and provide the user with an summary of the information regarding the product.
         `;
 
-    return await anthropic.messages.create({
+    const response =  await anthropic.messages.create({
         model: 'claude-3-haiku-20240307',
         max_tokens: 4000,
         system: "You are a helpful assistant designed to output JSON.",
@@ -60,9 +73,13 @@ const generateAmazonSectionClaude = async (sectionHeader, keyWord, context, tone
             { "role": "user", "content": prompt },
         ]
     });
+
+    logger.info("Finished generateAmazonSectionClaude")
+    return response
 }
 
 const generateSectionClaude = async (outline, keyWord, context, tone, pointOfView, citeSources, finetune) => {
+    logger.info("Entering generateSectionClaude")
     const anthropic = new Anthropic({
         apiKey: process.env.CLAUDE_API_KEY
     });
@@ -105,7 +122,7 @@ const generateSectionClaude = async (outline, keyWord, context, tone, pointOfVie
         ENSURE your response is in the following JSON format:\n ${toolsForNow} \n
         YOUR ENTIRE RESPONSE MUST BE IN THE JSON FORMAT ABOVE.  DO NOT INLUDE ANY TEXT BEFORE OR AFTER THE JSON RESONSE.  IF IT IS NOT IN THE JSON FORMAT ABOVE IT WILL BREAK.  REMEMBER IT IS CRITICAL THAT EACH PARAGRAGH SHOULD BE OVER 300 WORDS IN LENGTH.  AND CLOSER TO 500 WORDS FOR EACH PARAGRAPH.`;
 
-    return await anthropic.messages.create({
+    const response = await anthropic.messages.create({
         model: 'claude-3-sonnet-20240229',
         max_tokens: 4000,
         system: "You are a helpful assistant designed to output JSON.",
@@ -113,6 +130,8 @@ const generateSectionClaude = async (outline, keyWord, context, tone, pointOfVie
             { "role": "user", "content": prompt },
         ]
     });
+    logger.info("Finished generateSectionClaude")
+    return response
 }
 
 const generateNotesForArticle = (outline) => {
@@ -132,6 +151,7 @@ const generateNotesForArticle = (outline) => {
 }
 
 const saveFinetuneConfig = async (currentUser, urls, textInputs, name) => {
+    logger.info("Entering saveFinetuneConfig")
     try {
         if (name != "") {
             await firebaseFunctions.addFinetunetoFirebaseUser(currentUser, urls, name, textInputs)
@@ -140,6 +160,7 @@ const saveFinetuneConfig = async (currentUser, urls, textInputs, name) => {
         console.log('Error: ', error)
         throw new Error(error)
     }
+    logger.info("Finished saveFinetuneConfig")
 }
 
 const generateFinetune = async (urls) => {
@@ -223,7 +244,7 @@ function stripToText(html) {
 }
 
 async function generateOutlineClaude(keyword, wordRange, context) {
-
+    logger.info("Entering generateOutlineClaude")
     const anthropic = new Anthropic({
         apiKey: process.env.CLAUDE_API_KEY
     });
@@ -255,7 +276,7 @@ async function generateOutlineClaude(keyword, wordRange, context) {
 
     const message = `Generate an outline for the keyword: ${keyword}.  Here is some context and info on the topic: ${context}.\n Ensure you response in the json format below: ${toolsForNow}. \n The wordCount for the article is in the range of ${wordRange}.  Each subsection will be roughly 200-400 words worth of content so please ensure that you keep in mind the size of the section when determining how many to create.  DO NOT include the word count in your response or function call, only use it to keep track of yourself. You DO NOT NEED TO HAVE MULTIPLE SUBSECTIONS PER SECTION.  Here are is some relevent research on the topic you can use to construct it.  Please include notes in the subsections as to ensure the article flows smoothly from one section to the next.  Notes should simply be a little more info on what this section needs to cover.  Do not include generate placeholders like Brand A, Team A etc in your headers.  Remember no more than ${sectionsCount} h2's are allowed to be included in your outline.  You can have multiple subsections (tagName: h3) per tagName: h2.  You don't need to include an introduction or conclusion.`
 
-    return await anthropic.messages.create({
+    const response = await anthropic.messages.create({
         model: 'claude-3-sonnet-20240229',
         max_tokens: 4000,
         system: "You are a helpful assistant designed to output JSON.",
@@ -263,6 +284,8 @@ async function generateOutlineClaude(keyword, wordRange, context) {
             { "role": "user", "content": message },
         ]
     });
+    logger.info("Finished generateOutlineClaude")
+    return response
 }
 
 const determineSectionCount = (wordRange) => {
@@ -276,6 +299,7 @@ const determineSectionCount = (wordRange) => {
 }
 
 const summarizeContentClaude = async (content, keyWord) => {
+    logger.info("Entering summarizeContentClaude")
     const anthropic = new Anthropic({
         apiKey: process.env.CLAUDE_API_KEY
     });
@@ -285,7 +309,7 @@ const summarizeContentClaude = async (content, keyWord) => {
         "keyPoints": "string"
     }`
 
-    return await anthropic.messages.create({
+    const response = await anthropic.messages.create({
         model: 'claude-3-sonnet-20240229',
         max_tokens: 4000,
         system: "You are a helpful assistant designed to output JSON.",
@@ -293,6 +317,9 @@ const summarizeContentClaude = async (content, keyWord) => {
             { "role": "user", "content": `Extract the most important info and data from the content provided.  Only extract relevent data that might help someone else writing an article on the same topic.  Keep your points concise and include statitics or data where possible.  Do not include unnecssary filler word material, simply list out all the most import parts of the content. Your job is NOT to summarize, only to extract the most important data from the article, like hard stats, and data. Here is the supplied content: ${content}.\n  Ensure your format your response in json and only in json.  Make sure to adheres ot this format. ${toolsForNow}.\n Try to keep your notes relevent to this topic: ${keyWord}.  Get as much relevent data as possible in your extraction.` },
         ]
     });
+
+    logger.info("Finished summarizeContentClaude")
+    return response
 }
 
 function sanitizeJSON(jsonString) {

@@ -110,20 +110,11 @@ const generateAmazonArticle = async (outline, keyWord, context, tone, pointOfVie
     for (const section of outline) {
         if (section.tagName == 'h2') {
             const contextString = misc.generateContextStringAmazon(section);
-            const promise = generateSectionWithRetry(section, keyWord, contextString, tone, pointOfView, finetune)
-                .catch(error => {
-                    console.error("Failed to generate section:", error);
-                    throw error;
-                });
+            const promise = generateSectionWithRetry(section, keyWord, contextString, tone, pointOfView, finetune);
             promises.push(promise);
         }
     }
-    try {
-        await Promise.all(promises);
-    } catch (error) {
-        console.error("Failed to generate Amazon article:", error);
-        throw new Error("Failed to generate Amazon article");
-    }
+    return await Promise.all(promises);
 };
 
 const generateSectionWithRetry = async (section, keyWord, contextString, tone, pointOfView, finetune) => {
@@ -269,59 +260,53 @@ function flattenJsonToHtmlList(json) {
 }
 
 const generateArticleClaude = async (outline, keyWord, context, tone, pointOfView, citeSources, finetune) => {
-    let constructedSections = [];
-    let piecesOfOutline = [];
-
+    const constructedSections = [];
+    const piecesOfOutline = [];
     for (const section of outline) {
         if (section.tagName === 'h1' || section.tagName === 'h2') {
             if (piecesOfOutline.length > 0) {
-                let attempt = 0;
-                let success = false;
-
-                while (attempt < 3 && !success) { // Attempt to call the method up to 3 times
-                    try {
-                        const sections = await generateSectionsOfArticle(piecesOfOutline, keyWord, context, tone, pointOfView, citeSources, finetune);
-                        constructedSections.push(...sections);
-                        piecesOfOutline = []; // Reset for next sections
-                        success = true; // Mark success to exit loop
-                    } catch (error) {
-                        attempt++; // Increment attempt count
-                        if (attempt >= 3) {
-                            // Log error or handle maximum attempt reach here
-                            console.error("Failed to generate sections after 3 attempts:", error);
-                            throw new Error("Failed to generate article correctly")
-                        }
-                    }
-                }
+                const promise = generateSectionsWithRetry(piecesOfOutline, keyWord, context, tone, pointOfView, citeSources, finetune);
+                constructedSections.push(promise);
+                piecesOfOutline.length = 0; // Reset for next sections
             }
             constructedSections.push(section); // Add the h1 or h2 section itself
         } else if (section.tagName === 'h3') {
             piecesOfOutline.push(section); // Collect h3 sections for processing
         }
     }
-
     // Handle any remaining pieces after loop
     if (piecesOfOutline.length > 0) {
-        let attempt = 0;
-        let success = false;
+        const promise = generateSectionsWithRetry(piecesOfOutline, keyWord, context, tone, pointOfView, citeSources, finetune);
+        constructedSections.push(promise);
+    }
+    try {
+        const resolvedSections = await Promise.all(constructedSections.map(async (section) => {
+            if (section instanceof Promise) {
+                return await section;
+            }
+            return section;
+        }));
+        return resolvedSections.flat();
+    } catch (error) {
+        console.error("Failed to generate article correctly:", error);
+        throw new Error("Failed to generate article correctly");
+    }
+};
 
-        while (attempt < 3 && !success) {
-            try {
-                const sections = await generateSectionsOfArticle(piecesOfOutline, keyWord, context, tone, pointOfView, citeSources, finetune);
-                constructedSections.push(...sections);
-                success = true;
-            } catch (error) {
-                attempt++;
-                if (attempt >= 3) {
-                    // Log error or handle maximum attempt reach here
-                    console.error("Failed to generate sections after 3 attempts:", error);
-                    throw new Error("Failed to generate article correctly")
-                }
+const generateSectionsWithRetry = async (piecesOfOutline, keyWord, context, tone, pointOfView, citeSources, finetune) => {
+    let attempt = 0;
+    while (attempt < 3) {
+        try {
+            const sections = await generateSectionsOfArticle(piecesOfOutline, keyWord, context, tone, pointOfView, citeSources, finetune);
+            return sections;
+        } catch (error) {
+            attempt++;
+            if (attempt >= 3) {
+                console.error("Failed to generate sections after 3 attempts:", error);
+                throw error;
             }
         }
     }
-
-    return constructedSections;
 };
 
 //NEED TO HANDLE ERRORS HERE

@@ -252,25 +252,34 @@ const decrementUserWordCount = async (currentUser, amountToDecrement) => {
 
 const addToQueue = async (keyWord, internalUrl, tone, pointOfView, includeFAQs, currentUser, finetuneChosen, wordRange, citeSources, isAmazonArticle, amazonUrl, affiliate, numberOfProducts) => {
     await admin.firestore().collection('queue').add({
-        keyWord, 
-        internalUrl, 
-        tone, 
-        pointOfView, 
-        includeFAQs, 
-        currentUser, 
+        keyWord,
+        internalUrl,
+        tone,
+        pointOfView,
+        includeFAQs,
+        currentUser,
         finetuneChosen,
         status: 'pending',
         wordRange,
         citeSources,
-        isAmazonArticle, 
+        isAmazonArticle,
         amazonUrl,
-        affiliate, 
+        affiliate,
         numberOfProducts,
         createdAt: Date.now()
     });
 }
 
 const getNextItemFirebase = async () => {
+    // Check the count of items with status "inProgress"
+    const inProgressSnapshot = await admin.firestore().collection('queue')
+        .where('status', '==', 'inProgress')
+        .get();
+
+    if (inProgressSnapshot.size >= 2) {
+        throw new Error('Maximum limit of inProgress items reached');
+    }
+
     const snapshot = await admin.firestore().collection('queue')
         .where('status', '==', 'pending')
         .orderBy('createdAt')
@@ -280,12 +289,11 @@ const getNextItemFirebase = async () => {
     if (!snapshot.empty) {
         const item = snapshot.docs[0];
         const itemId = item.id;
-        return {itemId, ...item.data()};
-
+        return { itemId, ...item.data() };
     } else {
         throw new Error('No pending items in the queue');
     }
-}
+};
 
 const markItemCompleted = async (itemId) => {
     try {
@@ -332,7 +340,7 @@ module.exports = {
     decrementUserWordCount,
     addFinetunetoFirebaseUser,
     findFinetuneInFirebase,
-    addToQueue, 
+    addToQueue,
     getNextItemFirebase,
     markItemCompleted,
     markItemInProgress,

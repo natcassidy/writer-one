@@ -3,8 +3,20 @@ const axios = require('axios');
 const qs = require('qs');
 const admin = require('firebase-admin');
 require('dotenv').config()
-
 const claude = require('./claudeFunctions')
+const pino = require('pino');
+const path = require('path');
+
+const logger = pino({
+  transport: {
+    target: "pino-pretty",
+    options: {
+      ignore: "pid,hostname",
+      destination: path.join(__dirname, 'logger-output.log'),
+      colorize: false
+    }
+  }
+})
 
 const stripEscapeChars = (string) => {
     // TODO: Check this regex to make sure it doesn't break anything.
@@ -255,7 +267,8 @@ async function findGoodData(params, keyWord) {
     const data = await getSerpResults(params);
     console.log('serp results returned with size: ', data.length);
     const results = [];
-    const chunkSize = 3;
+    const chunkSize = 10;
+    
     for (let i = 0; i < data.length; i += chunkSize) {
         const chunk = data.slice(i, i + chunkSize);
         const promises = chunk.map(async item => {
@@ -263,9 +276,9 @@ async function findGoodData(params, keyWord) {
                 try {
                     const returnedSummary = await claude.summarizeContentClaude(item.data, params.query);
                     if (returnedSummary) {
-                        const extractedJSON = extractJsonFromString(returnedSummary.content[0].text)
-                        const sanitizedJSON = sanitizeJSON(extractedJSON)
-                        const responseMessage = JSON.parse(sanitizedJSON)
+                        const extractedJSON = extractJsonFromString(returnedSummary.content[0].text);
+                        const sanitizedJSON = sanitizeJSON(extractedJSON);
+                        const responseMessage = JSON.parse(sanitizedJSON);
                         let newContext = generateContextStringBlog(item.title, item.link, responseMessage.keyPoints);
                         return newContext;
                     }
@@ -275,14 +288,19 @@ async function findGoodData(params, keyWord) {
             }
             return null;
         });
+        
         const chunkResults = await Promise.all(promises);
         results.push(...chunkResults.filter(result => result !== null));
-       
+        
         // Check if the results array has reached 5 items
         if (results.length >= 6) {
             break; // Exit the loop early
         }
+        
+        // Wait for the current batch of promises to resolve before proceeding
+        await new Promise(resolve => setTimeout(resolve, 0));
     }
+    
     return results.join('\n\n'); // Join the results array into a single string with newline separators
 }
 
@@ -387,6 +405,7 @@ const createScrapeConfig = (countryCode) => ({
 });
 
 const getSerpResults = async (data) => {
+    logger.info("Entering getSerpResults")
     const query = data;
     const countryCode = query.countryCode || ""; // Simplify country code determination
 
@@ -404,6 +423,7 @@ const getSerpResults = async (data) => {
 
         // Improved logging for debugging
         console.log(`Processed ${trimmed.length} items.`);
+        logger.info("Finished getSerpResults")
         return trimmed;
     } catch (err) {
         console.error("Error in getSerpResults:", err.message);
