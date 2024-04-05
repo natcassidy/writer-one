@@ -91,6 +91,71 @@ router.post('/process', async (req, res) => {
   res.status(200).send({ "article": updatedOutline, updatedWordCount })
 });
 
+router.post('/processByIp', async (req, res) => {
+  const ipAddress = req.ip
+  logger.debug("Entering processing of Blog Post")
+  let { keyWord, internalUrl, wordRange, tone,
+    pointOfView, realTimeResearch, citeSources, includeFAQs,
+    generatedImages, generateOutline, outline, currentUser, jobId, finetuneChosen } = req.body
+
+  // const isWithinWordCount = await misc.doesUserHaveEnoughWords(currentUser, wordRange)
+
+  // if (!isWithinWordCount) {
+  //   res.status(500).send("Word Count Limit Hit")
+  // }
+
+  let context = ""
+  if (!jobId) {
+    jobId = -1
+  }
+
+  const articleType = "blog"
+
+  if (outline.length != 0) {
+    jobId = await firebaseFunctions.updateFirebaseJob(currentUser, jobId, "outline", outline, articleType)
+    console.log('outline generated')
+  } else {
+    context = await misc.doSerpResearch(keyWord, "")
+    jobId = await firebaseFunctions.updateFirebaseJob(currentUser, jobId, "context", context, articleType)
+    outline = await amazon.generateOutlineClaude(keyWord, wordRange, context)
+    jobId = await firebaseFunctions.updateFirebaseJob(currentUser, jobId, "outline", outline, articleType)
+    console.log('outline: \n', outline)
+  }
+
+  let finetune = ""
+
+  finetuneChosen.textInputs.forEach(input => {
+    finetune += input.body
+  })
+
+  try {
+    finetune += await claude.generateFinetune(finetuneChosen.urls)
+  } catch (error) {
+    console.log('Error generating finetune ', error)
+  }
+  // context = await misc.getContextFromDb(currentUser, jobId)
+
+  console.log('generating article')
+  let updatedOutline
+  try {
+    updatedOutline = await amazon.generateArticleClaude(outline, keyWord, context, tone, pointOfView, citeSources, finetune);
+  } catch (error) {
+    return res.status(500).send("Error generating article: ", error)
+  }
+
+  console.log('article generated now doing gemini article')
+
+  console.log('gemini article generated')
+  const wordCount = misc.countWords(updatedOutline)
+  const updatedWordCount = await firebaseFunctions.decrementUserWordCount(currentUser, wordCount)
+  console.log('word count: ', wordCount)
+  jobId = await firebaseFunctions.updateFirebaseJob(currentUser, jobId, "outline", updatedOutline)
+  //Outline will now contain each section filled in with data
+  logger.debug("Exiting processing of Blog Post")
+
+  res.status(200).send({ "article": updatedOutline, updatedWordCount })
+});
+
 router.post("/processBulk", async (req, res) => {
   let { keyWord, internalUrl, tone, pointOfView, includeFAQs, currentUser, finetuneChosen, wordRange, citeSources, isAmazonArticle, amazonUrl, affiliate, numberOfProducts } = req.body
 
