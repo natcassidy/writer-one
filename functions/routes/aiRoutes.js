@@ -6,8 +6,8 @@ const router = express.Router();
 const axios = require('axios');
 const qs = require('qs');
 require('dotenv').config()
-const pino = require('pino');
-const path = require('path');
+// const pino = require('pino');
+// const path = require('path');
 const misc = require('./miscFunctions');
 const vertex = require('./vertexAiFunctions')
 const amazon = require('./amazonScraperFunctions')
@@ -16,19 +16,19 @@ const firebaseFunctions = require('./firebaseFunctions')
 const bulkMiscFunctions = require('./bulkMiscFunctions')
 const fs = require("node:fs");
 
-const logger = pino({
-  transport: {
-    target: "pino-pretty",
-    options: {
-      ignore: "pid,hostname",
-      destination: path.join(__dirname, 'logger-output.log'),
-      colorize: false
-    }
-  }
-})
+// const logger = pino({
+//   transport: {
+//     target: "pino-pretty",
+//     options: {
+//       ignore: "pid,hostname",
+//       destination: path.join(__dirname, 'logger-output.log'),
+//       colorize: false
+//     }
+//   }
+// })
 
 router.post('/process', async (req, res) => {
-  logger.debug("Entering processing of Blog Post")
+  console.log("Entering processing of Blog Post")
   let { keyWord, internalUrl, wordRange, tone,
     pointOfView, realTimeResearch, citeSources, includeFAQs,
     generatedImages, generateOutline, outline, currentUser, jobId, finetuneChosen } = req.body
@@ -86,7 +86,7 @@ router.post('/process', async (req, res) => {
   console.log('word count: ', wordCount)
   jobId = await firebaseFunctions.updateFirebaseJob(currentUser, jobId, "outline", updatedOutline)
   //Outline will now contain each section filled in with data
-  logger.debug("Exiting processing of Blog Post")
+  console.log("Exiting processing of Blog Post")
 
   res.status(200).send({ "article": updatedOutline, updatedWordCount })
 });
@@ -95,7 +95,7 @@ router.post('/processFreeTrial', extractIpMiddleware, async (req, res) => {
 
   let clientIp = req.clientIp
 
-  logger.debug("Entering processing of Blog Post")
+  console.log("Entering processing of Blog Post")
   let { keyWord, internalUrl, wordRange, tone,
     pointOfView, realTimeResearch, citeSources, includeFAQs,
     generatedImages, generateOutline, outline, currentUser, jobId, finetuneChosen } = req.body
@@ -147,7 +147,7 @@ router.post('/processFreeTrial', extractIpMiddleware, async (req, res) => {
 
   jobId = await firebaseFunctions.updateFirebaseJobByIp(clientIp, jobId, "outline", updatedOutline)
   //Outline will now contain each section filled in with data
-  logger.debug("Exiting processing of Blog Post")
+  console.log("Exiting processing of Blog Post")
 
   await firebaseFunctions.updateIpFreeArticle(clientIp)
 
@@ -173,7 +173,7 @@ router.post("/processBulk", async (req, res) => {
 })
 
 router.post("/manuallyTriggerBulkQueue", async (req, res) => {
-  logger.info("Entering manuallyTriggerBulkQueue")
+  console.log("Entering manuallyTriggerBulkQueue")
   try {
     await bulkMiscFunctions.processNextItem()
 
@@ -182,7 +182,7 @@ router.post("/manuallyTriggerBulkQueue", async (req, res) => {
     res.status(500).send({ "error": e })
   }
 
-  logger.info("Leaving manuallyTriggerBulkQueue")
+  console.log("Leaving manuallyTriggerBulkQueue")
   res.status(200).send("success")
 })
 

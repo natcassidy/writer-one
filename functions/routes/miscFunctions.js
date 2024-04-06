@@ -4,19 +4,19 @@ const qs = require('qs');
 const admin = require('firebase-admin');
 require('dotenv').config()
 const claude = require('./claudeFunctions')
-const pino = require('pino');
-const path = require('path');
+// const pino = require('pino');
+// const path = require('path');
 
-const logger = pino({
-    transport: {
-        target: "pino-pretty",
-        options: {
-            ignore: "pid,hostname",
-            destination: path.join(__dirname, 'logger-output.log'),
-            colorize: false
-        }
-    }
-})
+// const logger = pino({
+//     transport: {
+//         target: "pino-pretty",
+//         options: {
+//             ignore: "pid,hostname",
+//             destination: path.join(__dirname, 'logger-output.log'),
+//             colorize: false
+//         }
+//     }
+// })
 
 const stripEscapeChars = (string) => {
     // TODO: Check this regex to make sure it doesn't break anything.
@@ -405,7 +405,7 @@ const createScrapeConfig = (countryCode) => ({
 });
 
 const getSerpResults = async (data) => {
-    logger.info("Entering getSerpResults");
+    console.log("Entering getSerpResults");
     const query = data;
     const countryCode = query.countryCode || ""; // Simplify country code determination
     const serpConfig = createSerpConfig(query, countryCode);
@@ -419,7 +419,7 @@ const getSerpResults = async (data) => {
         const trimmed = settledPromises.map(item => item.status === "fulfilled" ? item.value : item.reason);
         // Improved logging for debugging
         console.log(`Processed ${trimmed.length} items.`);
-        logger.info("Finished getSerpResults");
+        console.log("Finished getSerpResults");
         return trimmed;
     } catch (err) {
         console.error("Error in getSerpResults:", err.message);

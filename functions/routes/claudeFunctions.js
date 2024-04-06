@@ -4,23 +4,23 @@ require('dotenv').config()
 const Anthropic = require('@anthropic-ai/sdk');
 const { UnprocessableEntityError } = require('@anthropic-ai/sdk/error');
 const firebaseFunctions = require('./firebaseFunctions')
-const pino = require('pino');
-const path = require('path');
+// const pino = require('pino');
+// const path = require('path');
 
-const logger = pino({
-  transport: {
-    target: "pino-pretty",
-    options: {
-      ignore: "pid,hostname",
-      destination: path.join(__dirname, 'logger-output.log'),
-      colorize: false
-    }
-  }
-})
+// const logger = pino({
+//   transport: {
+//     target: "pino-pretty",
+//     options: {
+//       ignore: "pid,hostname",
+//       destination: path.join(__dirname, 'logger-output.log'),
+//       colorize: false
+//     }
+//   }
+// })
 
 //Next steps are to figure out how to pass the right info into the section generation and have the right info come
 const generateAmazonSectionClaude = async (sectionHeader, keyWord, context, tone, pointOfView, finetune) => {
-    logger.info("Entering generateAmazonSectionClaude")
+    console.log("Entering generateAmazonSectionClaude")
     const anthropic = new Anthropic({
         apiKey: process.env.CLAUDE_API_KEY
     });
@@ -74,12 +74,12 @@ const generateAmazonSectionClaude = async (sectionHeader, keyWord, context, tone
         ]
     });
 
-    logger.info("Finished generateAmazonSectionClaude")
+    console.log("Finished generateAmazonSectionClaude")
     return response
 }
 
 const generateSectionClaude = async (outline, keyWord, context, tone, pointOfView, citeSources, finetune) => {
-    logger.info("Entering generateSectionClaude")
+    console.log("Entering generateSectionClaude")
     const anthropic = new Anthropic({
         apiKey: process.env.CLAUDE_API_KEY
     });
@@ -130,7 +130,7 @@ const generateSectionClaude = async (outline, keyWord, context, tone, pointOfVie
             { "role": "user", "content": prompt },
         ]
     });
-    logger.info("Finished generateSectionClaude")
+    console.log("Finished generateSectionClaude")
     return response
 }
 
@@ -151,7 +151,7 @@ const generateNotesForArticle = (outline) => {
 }
 
 const saveFinetuneConfig = async (currentUser, urls, textInputs, name) => {
-    logger.info("Entering saveFinetuneConfig")
+    console.log("Entering saveFinetuneConfig")
     try {
         if (name != "") {
             await firebaseFunctions.addFinetunetoFirebaseUser(currentUser, urls, name, textInputs)
@@ -160,7 +160,7 @@ const saveFinetuneConfig = async (currentUser, urls, textInputs, name) => {
         console.log('Error: ', error)
         throw new Error(error)
     }
-    logger.info("Finished saveFinetuneConfig")
+    console.log("Finished saveFinetuneConfig")
 }
 
 const generateFinetune = async (urls) => {
@@ -244,7 +244,7 @@ function stripToText(html) {
 }
 
 async function generateOutlineClaude(keyword, wordRange, context) {
-    logger.info("Entering generateOutlineClaude")
+    console.log("Entering generateOutlineClaude")
     const anthropic = new Anthropic({
         apiKey: process.env.CLAUDE_API_KEY
     });
@@ -284,7 +284,7 @@ async function generateOutlineClaude(keyword, wordRange, context) {
             { "role": "user", "content": message },
         ]
     });
-    logger.info("Finished generateOutlineClaude")
+    console.log("Finished generateOutlineClaude")
     return response
 }
 
@@ -299,7 +299,7 @@ const determineSectionCount = (wordRange) => {
 }
 
 const summarizeContentClaude = async (content, keyWord) => {
-    logger.info("Entering summarizeContentClaude")
+    console.log("Entering summarizeContentClaude")
     const anthropic = new Anthropic({
         apiKey: process.env.CLAUDE_API_KEY
     });
@@ -318,7 +318,7 @@ const summarizeContentClaude = async (content, keyWord) => {
         ]
     });
 
-    logger.info("Finished summarizeContentClaude")
+    console.log("Finished summarizeContentClaude")
     return response
 }
 
