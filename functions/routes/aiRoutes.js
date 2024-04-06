@@ -91,7 +91,7 @@ router.post('/process', async (req, res) => {
   res.status(200).send({ "article": updatedOutline, updatedWordCount })
 });
 
-router.post('/processByIp', extractIpMiddleware, async (req, res) => {
+router.post('/processFreeTrial', extractIpMiddleware, async (req, res) => {
 
   //SET THIS TO req.clientIp
   let clientIp = '127.0.0.1'
@@ -100,7 +100,6 @@ router.post('/processByIp', extractIpMiddleware, async (req, res) => {
   let { keyWord, internalUrl, wordRange, tone,
     pointOfView, realTimeResearch, citeSources, includeFAQs,
     generatedImages, generateOutline, outline, currentUser, jobId, finetuneChosen } = req.body
-
 
   let context = ""
   if (!jobId) {
@@ -117,13 +116,13 @@ router.post('/processByIp', extractIpMiddleware, async (req, res) => {
   const articleType = "blog"
 
   if (outline.length != 0) {
-    jobId = await firebaseFunctions.updateFirebaseJob(currentUser, jobId, "outline", outline, articleType)
+    jobId = await firebaseFunctions.updateFirebaseJobByIp(clientIp, jobId, "outline", outline, articleType)
     console.log('outline generated')
   } else {
     context = await misc.doSerpResearch(keyWord, "")
-    jobId = await firebaseFunctions.updateFirebaseJob(currentUser, jobId, "context", context, articleType)
+    jobId = await firebaseFunctions.updateFirebaseJobByIp(clientIp, jobId, "context", context, articleType)
     outline = await amazon.generateOutlineClaude(keyWord, wordRange, context)
-    jobId = await firebaseFunctions.updateFirebaseJob(currentUser, jobId, "outline", outline, articleType)
+    jobId = await firebaseFunctions.updateFirebaseJobByIp(clientIp, jobId, "outline", outline, articleType)
     console.log('outline: \n', outline)
   }
 
@@ -148,19 +147,13 @@ router.post('/processByIp', extractIpMiddleware, async (req, res) => {
     return res.status(500).send("Error generating article: ", error)
   }
 
-  console.log('article generated now doing gemini article')
-
-  console.log('gemini article generated')
-  const wordCount = misc.countWords(updatedOutline)
-  const updatedWordCount = await firebaseFunctions.decrementUserWordCount(currentUser, wordCount)
-  console.log('word count: ', wordCount)
-  jobId = await firebaseFunctions.updateFirebaseJob(currentUser, jobId, "outline", updatedOutline)
+  jobId = await firebaseFunctions.updateFirebaseJobByIp(clientIp, jobId, "outline", updatedOutline)
   //Outline will now contain each section filled in with data
   logger.debug("Exiting processing of Blog Post")
 
   await firebaseFunctions.updateIpFreeArticle(clientIp)
 
-  res.status(200).send({ "article": updatedOutline, updatedWordCount })
+  res.status(200).send({ "article": updatedOutline })
 });
 
 router.post("/processBulk", async (req, res) => {
