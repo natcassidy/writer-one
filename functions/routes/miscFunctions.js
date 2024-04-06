@@ -505,6 +505,11 @@ const parseKeyWords = (keyWords) => {
     return keyWordList
 }
 
+const parseIp = (req) => {
+    return req.headers['x-forwarded-for']?.split(',').shift()
+        || req.socket?.remoteAddress
+}
+
 module.exports = {
     stripEscapeChars,
     stripToText,
@@ -519,5 +524,6 @@ module.exports = {
     doesUserHaveEnoughWordsAmazon,
     determineSectionCount,
     generateContextStringAmazon,
-    parseKeyWords
+    parseKeyWords,
+    parseIp
 };

@@ -38,6 +38,7 @@ app.use('/admin', adminRoutes);
 app.use(Sentry.Handlers.requestHandler());
 app.use(Sentry.Handlers.tracingHandler());
 app.use(Sentry.Handlers.errorHandler());
+app.set('trust proxy', true)
 
 exports.plugin = functions.runWith({ timeoutSeconds: 180 }).https.onRequest(app);
 // exports.processQueue = functions.runWith({ timeoutSeconds: 180 }).pubsub.schedule('every 1 minutes').onRun(async (context) => {

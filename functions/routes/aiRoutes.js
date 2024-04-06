@@ -27,8 +27,6 @@ const logger = pino({
   }
 })
 
-
-
 router.post('/process', async (req, res) => {
   logger.debug("Entering processing of Blog Post")
   let { keyWord, internalUrl, wordRange, tone,
@@ -93,22 +91,27 @@ router.post('/process', async (req, res) => {
   res.status(200).send({ "article": updatedOutline, updatedWordCount })
 });
 
-router.post('/processByIp', async (req, res) => {
-  const ipAddress = req.ip
+router.post('/processByIp', extractIpMiddleware, async (req, res) => {
+
+  //SET THIS TO req.clientIp
+  let clientIp = '127.0.0.1'
+
   logger.debug("Entering processing of Blog Post")
   let { keyWord, internalUrl, wordRange, tone,
     pointOfView, realTimeResearch, citeSources, includeFAQs,
     generatedImages, generateOutline, outline, currentUser, jobId, finetuneChosen } = req.body
 
-  // const isWithinWordCount = await misc.doesUserHaveEnoughWords(currentUser, wordRange)
-
-  // if (!isWithinWordCount) {
-  //   res.status(500).send("Word Count Limit Hit")
-  // }
 
   let context = ""
   if (!jobId) {
     jobId = -1
+  }
+
+  //UPDATE THIS TO USE req.clientIp
+  const hasFreeArticle = await firebaseFunctions.validateIpHasFreeArticle(clientIp)
+
+  if(!hasFreeArticle) {
+    return res.status(500).send("No Free Article Remaining!")
   }
 
   const articleType = "blog"
@@ -154,6 +157,8 @@ router.post('/processByIp', async (req, res) => {
   jobId = await firebaseFunctions.updateFirebaseJob(currentUser, jobId, "outline", updatedOutline)
   //Outline will now contain each section filled in with data
   logger.debug("Exiting processing of Blog Post")
+
+  await firebaseFunctions.updateIpFreeArticle(clientIp)
 
   res.status(200).send({ "article": updatedOutline, updatedWordCount })
 });
@@ -303,6 +308,21 @@ router.get("/testClaudeOutline", async (req, res) => {
 router.get("/debug-sentry", (req, res) => {
   throw new Error("My first Sentry error!");
 });
+
+router.get("/testIP", extractIpMiddleware, (req, res) => {
+  res.status(200).send(req.clientIp);
+});
+
+router.get("/isFreeArticleAvailable", extractIpMiddleware, async (req, res) => {
+  let ipAddress = '127.0.0.1'
+  const isFreeArticleAvailable = await firebaseFunctions.validateIpHasFreeArticle(ipAddress)
+  res.status(200).send({"isFreeArticleAvailable": isFreeArticleAvailable});
+});
+
+function extractIpMiddleware(req, res, next) {
+  req.clientIp = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+  next();
+}
 
 module.exports = router;
 

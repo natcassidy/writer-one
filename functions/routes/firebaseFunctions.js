@@ -334,6 +334,51 @@ const markItemInError = async (itemId) => {
     }
 }
 
+async function validateIpHasFreeArticle(ipAddress) {
+    try {
+        const ipTrialRef = admin.firestore().collection('ipTrial').doc(ipAddress);
+        const ipTrialDoc = await ipTrialRef.get();
+
+        if (ipTrialDoc.exists) {
+            const { docsCreated } = ipTrialDoc.data();
+            return docsCreated === 0;
+        } else {
+            await createIpTrialDoc(ipAddress);
+            return true;
+        }
+    } catch (error) {
+        console.error('Error validating IP for free article:', error);
+        throw error;
+    }
+}
+
+async function createIpTrialDoc(ipAddress) {
+    try {
+        const ipTrialRef = admin.firestore().collection('ipTrial').doc(ipAddress);
+        await ipTrialRef.set({
+            ip: ipAddress,
+            docsCreated: 0,
+            createdAt: Date.now(),
+        });
+    } catch (error) {
+        console.error('Error creating IP trial document:', error);
+        throw error;
+    }
+}
+
+async function updateIpFreeArticle(ipAddress) {
+    try {
+        const ipTrialRef = admin.firestore().collection('ipTrial').doc(ipAddress);
+        await ipTrialRef.update({
+            docsCreated: 1,
+            updatedAt: Date.now(),
+        });
+    } catch (error) {
+        console.error('Error updating IP free article count:', error);
+        throw error;
+    }
+}
+
 module.exports = {
     updateFirebaseJob,
     getContextFromDb,
@@ -344,5 +389,7 @@ module.exports = {
     getNextItemFirebase,
     markItemCompleted,
     markItemInProgress,
-    markItemInError
+    markItemInError,
+    validateIpHasFreeArticle,
+    updateIpFreeArticle
 };
