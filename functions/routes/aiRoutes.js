@@ -93,8 +93,7 @@ router.post('/process', async (req, res) => {
 
 router.post('/processFreeTrial', extractIpMiddleware, async (req, res) => {
 
-  //SET THIS TO req.clientIp
-  let clientIp = '127.0.0.1'
+  let clientIp = req.ip
 
   logger.debug("Entering processing of Blog Post")
   let { keyWord, internalUrl, wordRange, tone,
@@ -106,7 +105,6 @@ router.post('/processFreeTrial', extractIpMiddleware, async (req, res) => {
     jobId = -1
   }
 
-  //UPDATE THIS TO USE req.clientIp
   const hasFreeArticle = await firebaseFunctions.validateIpHasFreeArticle(clientIp)
 
   if (!hasFreeArticle) {
@@ -253,7 +251,7 @@ router.post('/processAmazonFreeTrial', async (req, res) => {
     pointOfView, includeFAQs,
     generatedImages, outline, currentUser, jobId, amazonUrl, affiliate, finetuneChosen } = req.body
 
-  let clientIp = '127.0.0.1'
+  let clientIp = req.ip
 
   let context = ""
   if (!jobId) {
@@ -360,7 +358,7 @@ router.get("/testIP", extractIpMiddleware, (req, res) => {
 });
 
 router.get("/isFreeArticleAvailable", extractIpMiddleware, async (req, res) => {
-  let ipAddress = '127.0.0.1'
+  let ipAddress = req.ip
   const isFreeArticleAvailable = await firebaseFunctions.validateIpHasFreeArticle(ipAddress)
   res.status(200).send({ "isFreeArticleAvailable": isFreeArticleAvailable });
 });
