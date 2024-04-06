@@ -109,7 +109,7 @@ router.post('/processFreeTrial', extractIpMiddleware, async (req, res) => {
   //UPDATE THIS TO USE req.clientIp
   const hasFreeArticle = await firebaseFunctions.validateIpHasFreeArticle(clientIp)
 
-  if(!hasFreeArticle) {
+  if (!hasFreeArticle) {
     return res.status(500).send("No Free Article Remaining!")
   }
 
@@ -248,6 +248,59 @@ router.post('/processAmazon', async (req, res) => {
   res.status(200).send({ "article": outline, wordCount })
 });
 
+router.post('/processAmazonFreeTrial', async (req, res) => {
+  let { keyWord, internalUrl, tone, numberOfProducts,
+    pointOfView, includeFAQs,
+    generatedImages, outline, currentUser, jobId, amazonUrl, affiliate, finetuneChosen } = req.body
+
+  let clientIp = '127.0.0.1'
+
+  let context = ""
+  if (!jobId) {
+    jobId = -1
+  }
+
+  //UPDATE THIS TO USE req.clientIp
+  const hasFreeArticle = await firebaseFunctions.validateIpHasFreeArticle(clientIp)
+
+  if (!hasFreeArticle) {
+    return res.status(500).send("No Free Article Remaining!")
+  }
+
+  const articleType = "amazon"
+
+  context = await amazon.performSearch(keyWord, amazonUrl, numberOfProducts, affiliate)
+  // jobId = await firebaseFunctions.updateFirebaseJob(currentUser, jobId, "context", context, articleType)
+  outline = await amazon.generateOutlineAmazon(keyWord, context)
+  // jobId = await firebaseFunctions.updateFirebaseJob(currentUser, jobId, "outline", outline, articleType)
+  console.log('outline generated')
+
+  let finetune = ""
+
+  finetuneChosen.textInputs.forEach(input => {
+    finetune += input.body
+  })
+
+  try {
+    finetune += await claude.generateFinetune(finetuneChosen.urls)
+  } catch (error) {
+    console.log('Error generating finetune ', error)
+  }
+
+  console.log('generating article')
+
+  try {
+    await amazon.generateAmazonArticle(outline, keyWord, context, tone, pointOfView, finetune);
+  } catch (e) {
+    return res.status(500).send("Error generating article: ", error)
+  }
+  
+  jobId = await firebaseFunctions.updateFirebaseJobByIp(clientIp, jobId, "outline", outline, articleType)
+  await firebaseFunctions.updateIpFreeArticle(clientIp)
+
+  res.status(200).send({ "article": outline })
+});
+
 // Route handler
 router.post("/outline", async (req, res) => {
   let { keyWord, wordRange, currentUser } = req.body
@@ -309,7 +362,7 @@ router.get("/testIP", extractIpMiddleware, (req, res) => {
 router.get("/isFreeArticleAvailable", extractIpMiddleware, async (req, res) => {
   let ipAddress = '127.0.0.1'
   const isFreeArticleAvailable = await firebaseFunctions.validateIpHasFreeArticle(ipAddress)
-  res.status(200).send({"isFreeArticleAvailable": isFreeArticleAvailable});
+  res.status(200).send({ "isFreeArticleAvailable": isFreeArticleAvailable });
 });
 
 function extractIpMiddleware(req, res, next) {
