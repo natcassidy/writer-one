@@ -28,7 +28,6 @@ const fs = require("node:fs");
 // })
 
 router.post('/process', async (req, res) => {
-  return res.status(500).send("error")
   console.log("Entering processing of Blog Post")
   let { keyWord, internalUrl, wordRange, tone,
     pointOfView, realTimeResearch, citeSources, includeFAQs,
