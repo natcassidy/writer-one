@@ -28,6 +28,7 @@ const fs = require("node:fs");
 // })
 
 router.post('/process', async (req, res) => {
+  return res.status(500).send("error")
   console.log("Entering processing of Blog Post")
   let { keyWord, internalUrl, wordRange, tone,
     pointOfView, realTimeResearch, citeSources, includeFAQs,
@@ -237,13 +238,13 @@ router.post('/processAmazon', async (req, res) => {
   // await vertex.generateArticleGemini(geminiOutline)
 
   // console.log('gemini article generated')
-  const wordCount = amazon.countWordsClaudeBlog(outline)
-  // const updatedWordCount = await firebaseFunctions.decrementUserWordCount(currentUser, wordCount)
+  const wordCount = amazon.countWordsClaudeAmazon(outline)
+  const updatedWordCount = await firebaseFunctions.decrementUserWordCount(currentUser, wordCount)
   jobId = await firebaseFunctions.updateFirebaseJob(currentUser, jobId, "outline", outline, articleType)
   console.log('word count: ', wordCount)
   //Outline will now contain each section filled in with data
   console.log('outline:\n', outline)
-  res.status(200).send({ "article": outline, wordCount })
+  res.status(200).send({ "article": outline, updatedWordCount })
 });
 
 router.post('/processAmazonFreeTrial', async (req, res) => {

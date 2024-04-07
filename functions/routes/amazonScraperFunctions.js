@@ -186,6 +186,41 @@ function countWordsClaudeBlog(data) {
     return wordCount;
 }
 
+function countWordsClaudeAmazon(data) {
+    // Initialize a counter for the words
+    let wordCount = 0;
+
+    // Iterate through each item in the data
+    data.forEach(item => {
+        // Count words in 'content'
+        if (item.bottomLine) {
+            wordCount += item.bottomLine.split(/\s+/).filter(Boolean).length;
+        }
+
+        // Count words in 'sectionContent' if it exists
+        if (item.overviewOfProduct) {
+            wordCount += item.overviewOfProduct.split(/\s+/).filter(Boolean).length;
+        }
+
+        if(item.pros) {
+            item.pros.forEach(pros => {
+                wordCount += pros.point.split(/\s+/).filter(Boolean).length;
+            })
+        }
+
+        if(item.cons) {
+            if(item.cons) {
+                item.cons.forEach(cons => {
+                    wordCount += cons.point.split(/\s+/).filter(Boolean).length;
+                })
+            }
+        }
+    });
+
+    // Return the total word count
+    return wordCount;
+}
+
 const testClaude = async () => {
     const anthropic = new Anthropic({
         apiKey: process.env.CLAUDE_API_KEY
@@ -363,5 +398,6 @@ module.exports = {
     testClaude,
     generateOutlineClaude,
     generateArticleClaude,
-    countWordsClaudeBlog
+    countWordsClaudeBlog,
+    countWordsClaudeAmazon
 };
