@@ -47,11 +47,14 @@ router.post("/process", async (req, res) => {
     finetuneChosen,
   } = req.body;
 
-  // const isWithinWordCount = await misc.doesUserHaveEnoughWords(currentUser, wordRange)
+  const isWithinWordCount = await misc.doesUserHaveEnoughWords(
+    currentUser,
+    wordRange
+  );
 
-  // if (!isWithinWordCount) {
-  //   res.status(500).send("Word Count Limit Hit")
-  // }
+  if (!isWithinWordCount) {
+    res.status(500).send("Word Count Limit Hit");
+  }
 
   let context = "";
   if (!jobId) {
