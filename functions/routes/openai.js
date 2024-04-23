@@ -4,14 +4,14 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-const summarizeContent = async (content) => {
+const summarizeContent = async (content, keyWord) => {
   const toolsForNow = [
     {
       type: "function",
       function: {
         name: "provideAnalysis",
         description:
-          "Extract the most valuable insights from the content provided, include any relevent or necessary data in the provided content, keep sucinct.",
+          "Extract the most valuable information and points from the content provided, include any relevent or necessary data in the provided content, keep sucinct.",
         parameters: {
           type: "object",
           properties: {
@@ -33,7 +33,16 @@ const summarizeContent = async (content) => {
       },
       {
         role: "user",
-        content: `Extract the most important info and data from the content provided.  Only extract relevent data that might help someone else writing an article on the same topic.  Keep your points concise and include statitics or data where possible.  Do not include unnecssary filler word material, simply list out all the most import parts of the content. Your job is NOT to summarize, only to extract the most important data from the article. Here is the supplied content: ${content}`,
+        content: `Extract the most important and specific information from the provided content that is directly related to the subject: ${keyWord}. Include key details such as:
+
+        Specific brand names, product names, companies, features, ingredients, etc.
+        Precise statistics and data points. Format data as percentages, ratios, rankings, or other concrete metrics where possible.
+        Noteworthy facts, findings, or conclusions from studies or expert sources
+        
+        Organize the extracted information into clear categories or sections based on the content.
+        Aim for a high level of accuracy and avoid any generalizations or filler content. The extracted information will be used as source material for an article, so it's critical that the details are correct and not misleading.
+        For example, if the article is reviewing the best cat foods, the extracted information should include the specific top brands recommended, key features of each food, and any statistics like "70% of vets recommend Brand X".
+        Here is the content to extract information from: ${content}`,
       },
     ],
     tools: toolsForNow,
