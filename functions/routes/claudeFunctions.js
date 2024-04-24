@@ -30,6 +30,9 @@ const generateAmazonSectionClaude = async (
   console.log("Entering generateAmazonSectionClaude");
   const anthropic = new Anthropic({
     apiKey: process.env.CLAUDE_API_KEY,
+    defaultHeaders: {
+      "anthropic-beta": "tools-2024-04-04",
+    },
   });
 
   const toolsForNow = `
@@ -101,6 +104,9 @@ const generateSectionClaude = async (
   console.log("Entering generateSectionClaude");
   const anthropic = new Anthropic({
     apiKey: process.env.CLAUDE_API_KEY,
+    defaultHeaders: {
+      "anthropic-beta": "tools-2024-04-04",
+    },
   });
 
   let listOfSections = "";
@@ -110,9 +116,8 @@ const generateSectionClaude = async (
 
   const toolsForNow = [
     {
-      name: "format_paragraphs",
-      description:
-        "Format the generated paragraphs into the specified JSON structure.",
+      name: "generate_article",
+      description: `Generate paragraphs based on the information provided for each subsection.  Ensure to include a paragraph for each section: ${listOfSections}.  When calling this function you MUST provide ${outline.length} number of elements in the array.`,
       input_schema: {
         type: "object",
         properties: {
@@ -163,12 +168,13 @@ const generateSectionClaude = async (
         ${notesForArticle}
         \n REMEMBER YOU MUST WRITE ${outline.length} sections. DO NOT INCLUDE THE HEADER ONLY THE PARAGRAGH.  If you do not provide an array of length ${outline.length}, for the sections titled: [${listOfSections}] -- EVERYTHING WILL BREAK.
         Paragraphs should each be between 300-500 words length each.  The sections should flow together nicely.
-        ENSURE your response is in the following JSON format:\n ${toolsForNow} \n
-        YOUR ENTIRE RESPONSE MUST BE IN THE JSON FORMAT ABOVE.  DO NOT INLUDE ANY TEXT BEFORE OR AFTER THE JSON RESONSE.  IF IT IS NOT IN THE JSON FORMAT ABOVE IT WILL BREAK.  REMEMBER IT IS CRITICAL THAT EACH PARAGRAGH SHOULD BE OVER 300 WORDS IN LENGTH.  AND CLOSER TO 500 WORDS FOR EACH PARAGRAPH.`;
+        REMEMBER IT IS CRITICAL THAT EACH PARAGRAGH SHOULD BE OVER 300 WORDS IN LENGTH.  AND CLOSER TO 500 WORDS FOR EACH PARAGRAPH.
+        Use the tool generate_article for generating the article by passing in the paragraphs you created.`;
 
   const response = await anthropic.messages.create({
     model: process.env.CLAUDE_API_MODEL,
     max_tokens: 4000,
+    tools: toolsForNow,
     system: "You are a helpful assistant designed to output JSON.",
     messages: [{ role: "user", content: prompt }],
   });
