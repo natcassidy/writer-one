@@ -47,11 +47,14 @@ router.post("/process", async (req, res) => {
     finetuneChosen,
   } = req.body;
 
-  // const isWithinWordCount = await misc.doesUserHaveEnoughWords(currentUser, wordRange)
+  const isWithinWordCount = await misc.doesUserHaveEnoughWords(
+    currentUser,
+    wordRange
+  );
 
-  // if (!isWithinWordCount) {
-  //   res.status(500).send("Word Count Limit Hit")
-  // }
+  if (!isWithinWordCount) {
+    res.status(500).send("Word Count Limit Hit");
+  }
 
   let context = "";
   if (!jobId) {
@@ -59,6 +62,8 @@ router.post("/process", async (req, res) => {
   }
 
   const articleType = "blog";
+
+  let finetune;
 
   if (outline.length != 0) {
     jobId = await firebaseFunctions.updateFirebaseJob(
@@ -69,7 +74,19 @@ router.post("/process", async (req, res) => {
       articleType
     );
     console.log("outline generated");
+
+    try {
+      finetune = claude.generateFineTuneService(finetuneChosen.textInputs);
+    } catch (error) {
+      console.log("Error generating finetune ", error);
+    }
   } else {
+    try {
+      finetune = claude.generateFineTuneService(finetuneChosen.textInputs);
+    } catch (error) {
+      console.log("Error generating finetune ", error);
+    }
+
     context = await misc.doSerpResearch(keyWord, "");
     jobId = await firebaseFunctions.updateFirebaseJob(
       currentUser,
@@ -88,19 +105,6 @@ router.post("/process", async (req, res) => {
     );
     console.log("outline: \n", outline);
   }
-
-  let finetune = "";
-
-  finetuneChosen.textInputs.forEach((input) => {
-    finetune += input.body;
-  });
-
-  try {
-    finetune += await claude.generateFinetune(finetuneChosen.urls);
-  } catch (error) {
-    console.log("Error generating finetune ", error);
-  }
-  // context = await misc.getContextFromDb(currentUser, jobId)
 
   console.log("generating article");
   let updatedOutline;
@@ -174,6 +178,7 @@ router.post("/processFreeTrial", extractIpMiddleware, async (req, res) => {
   }
 
   const articleType = "blog";
+  let finetune = "";
 
   if (outline.length != 0) {
     jobId = await firebaseFunctions.updateFirebaseJobByIp(
@@ -184,6 +189,12 @@ router.post("/processFreeTrial", extractIpMiddleware, async (req, res) => {
       articleType
     );
     console.log("outline generated");
+
+    try {
+      finetune = claude.generateFineTuneService(finetuneChosen.textInputs);
+    } catch (error) {
+      console.log("Error generating finetune ", error);
+    }
   } else {
     context = await misc.doSerpResearch(keyWord, "");
     jobId = await firebaseFunctions.updateFirebaseJobByIp(
@@ -201,21 +212,12 @@ router.post("/processFreeTrial", extractIpMiddleware, async (req, res) => {
       outline,
       articleType
     );
-    console.log("outline: \n", outline);
+    try {
+      finetune = claude.generateFineTuneService(finetuneChosen.textInputs);
+    } catch (error) {
+      console.log("Error generating finetune ", error);
+    }
   }
-
-  let finetune = "";
-
-  finetuneChosen.textInputs.forEach((input) => {
-    finetune += input.body;
-  });
-
-  try {
-    finetune += await claude.generateFinetune(finetuneChosen.urls);
-  } catch (error) {
-    console.log("Error generating finetune ", error);
-  }
-  // context = await misc.getContextFromDb(currentUser, jobId)
 
   console.log("generating article");
   let updatedOutline;
@@ -321,7 +323,6 @@ router.post("/processAmazon", async (req, res) => {
     affiliate,
     finetuneChosen,
   } = req.body;
-
   const length = amazon.determineArticleLength(numberOfProducts);
   const isWithinWordCount = await misc.doesUserHaveEnoughWordsAmazon(
     currentUser,
@@ -339,6 +340,12 @@ router.post("/processAmazon", async (req, res) => {
 
   const articleType = "amazon";
 
+  try {
+    finetune = claude.generateFineTuneService(finetuneChosen.textInputs);
+  } catch (error) {
+    console.log("Error generating finetune ", error);
+  }
+
   context = await amazon.performSearch(
     keyWord,
     amazonUrl,
@@ -349,18 +356,6 @@ router.post("/processAmazon", async (req, res) => {
   outline = await amazon.generateOutlineAmazon(keyWord, context);
   // jobId = await firebaseFunctions.updateFirebaseJob(currentUser, jobId, "outline", outline, articleType)
   console.log("outline generated");
-
-  let finetune = "";
-
-  finetuneChosen.textInputs.forEach((input) => {
-    finetune += input.body;
-  });
-
-  try {
-    finetune += await claude.generateFinetune(finetuneChosen.urls);
-  } catch (error) {
-    console.log("Error generating finetune ", error);
-  }
 
   console.log("generating article");
 
@@ -578,6 +573,11 @@ router.get("/isFreeArticleAvailable", extractIpMiddleware, async (req, res) => {
 router.get("/testOpenai", extractIpMiddleware, async (req, res) => {
   const heartBeat = await openai.healthCheck();
   res.status(200).send({ isAlive: heartBeat });
+});
+
+router.post("/testFinetune", async (req, res) => {
+  const results = await claude.generateFineTuneService(req.body.articles);
+  res.status(200).send({ results });
 });
 
 function extractIpMiddleware(req, res, next) {

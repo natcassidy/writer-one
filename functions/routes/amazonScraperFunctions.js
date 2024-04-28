@@ -438,9 +438,10 @@ const generateSectionsOfArticle = async (
   tone,
   pointOfView,
   citeSources,
-  finetune
+  finetunePromise
 ) => {
   const outlineCopy = structuredClone(piecesOfOutline);
+  const finetune = await finetunePromise;
   try {
     const completion = await claude.generateSectionClaude(
       outlineCopy,
