@@ -103,9 +103,16 @@ const generateSectionClaude = async (
   tone,
   pointOfView,
   citeSources,
-  finetune
+  finetune,
+  sectionWordCount
 ) => {
-  let fineTuneData = await finetune;
+  let fineTuneData = "";
+  try {
+    fineTuneData = await finetune;
+  } catch (e) {
+    console.log("Error caught on finetune generating claude section:", e);
+  }
+
   console.log("Entering generateSectionClaude");
   const anthropic = new Anthropic({
     apiKey: process.env.CLAUDE_API_KEY,
@@ -158,11 +165,11 @@ const generateSectionClaude = async (
         ${includePointOfView}
         ${notesForArticle}
         \n REMEMBER YOU MUST WRITE ${outline.length} sections. DO NOT INCLUDE THE HEADER ONLY THE PARAGRAGH.  If you do not provide an array of length ${outline.length}, for the sections titled: [${listOfSections}] -- EVERYTHING WILL BREAK.
-        Paragraphs should each be between 300-500 words length each.  The sections should flow together nicely.
+        Paragraphs should each be ${sectionWordCount} words length each.  The sections should flow together nicely.
         ENSURE your response is in the following JSON format:\n ${toolsForNow} \n
         Your paragraphs should not sound AI generated.  Ensure that you write in a way that is indistinguishable from a human.
         Don't use long sentences in your paragraphs, longer sentences tend to appear AI generated.
-        YOUR ENTIRE RESPONSE MUST BE IN THE JSON FORMAT ABOVE.  DO NOT INLUDE ANY TEXT BEFORE OR AFTER THE JSON RESONSE.  IF IT IS NOT IN THE JSON FORMAT ABOVE IT WILL BREAK.  REMEMBER IT IS CRITICAL THAT EACH PARAGRAGH SHOULD BE OVER 300 WORDS IN LENGTH.  AND CLOSER TO 500 WORDS FOR EACH PARAGRAPH.`;
+        YOUR ENTIRE RESPONSE MUST BE IN THE JSON FORMAT ABOVE.  DO NOT INLUDE ANY TEXT BEFORE OR AFTER THE JSON RESONSE.  IF IT IS NOT IN THE JSON FORMAT ABOVE IT WILL BREAK.  REMEMBER IT IS CRITICAL THAT EACH PARAGRAGH SHOULD BE ATLEAST ${sectionWordCount} IN LENGTH.`;
 
   const response = await anthropic.messages.create({
     model: process.env.CLAUDE_API_MODEL,
@@ -433,7 +440,7 @@ async function generateOutlineClaude(keyword, wordRange, context) {
         Ensure that there are no more than ${sectionsCount} h2's in your outline if you include more than ${sectionsCount} h2's, everything will break.  
         `;
 
-  const message = `Generate an outline for the keyword: ${keyword}.  Here is some context and info on the topic: ${context}.\n Ensure you response in the json format below: ${toolsForNow}. \n The wordCount for the article is in the range of ${wordRange}.  Each subsection will be roughly 200-400 words worth of content so please ensure that you keep in mind the size of the section when determining how many to create.  DO NOT include the word count in your response or function call, only use it to keep track of yourself. You DO NOT NEED TO HAVE MULTIPLE SUBSECTIONS PER SECTION.  Here are is some relevent research on the topic you can use to construct it.  Please include notes in the subsections as to ensure the article flows smoothly from one section to the next.  Notes should simply be a little more info on what this section needs to cover.  Do not include generate placeholders like Brand A, Team A etc in your headers.  Remember no more than ${sectionsCount} h2's are allowed to be included in your outline.  You can have multiple subsections (tagName: h3) per tagName: h2.  You don't need to include an introduction or conclusion.`;
+  const message = `Generate an outline for the keyword: ${keyword}.  Here is some context and info on the topic: ${context}.\n Ensure you response in the json format below: ${toolsForNow}. \n The wordCount for the article is in the range of ${wordRange}.  Each subsection will be roughly 200-400 words worth of content so please ensure that you keep in mind the size of the section when determining how many to create.  DO NOT include the word count in your response or function call, only use it to keep track of yourself. You DO NOT NEED TO HAVE MULTIPLE SUBSECTIONS PER SECTION.  Here are is some relevent research on the topic you can use to construct it.  Please include notes in the subsections as to ensure the article flows smoothly from one section to the next.  Notes should simply be a little more info on what this section needs to cover.  Do not include generate placeholders like Brand A, Team A etc in your headers.  Remember you MUST have ${sectionsCount} included in your outline.  And there must be atleast 1 h3 per h2 included.  You can have multiple subsections (tagName: h3) per tagName: h2.  You don't need to include an introduction or conclusion.`;
 
   const response = await anthropic.messages.create({
     model: process.env.CLAUDE_API_MODEL,
@@ -451,7 +458,7 @@ const determineSectionCount = (wordRange) => {
   } else if (wordRange === "1000-2000 words") {
     return 4;
   } else {
-    return 6;
+    return 7;
   }
 };
 

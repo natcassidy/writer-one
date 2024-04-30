@@ -106,6 +106,7 @@ router.post("/process", async (req, res) => {
     console.log("outline: \n", outline);
   }
 
+  const sectionWordCount = misc.wordLengthCalculator(wordRange, outline);
   console.log("generating article");
   let updatedOutline;
   try {
@@ -116,7 +117,8 @@ router.post("/process", async (req, res) => {
       tone,
       pointOfView,
       citeSources,
-      finetune
+      finetune,
+      sectionWordCount
     );
   } catch (error) {
     return res.status(500).send("Error generating article: " + error);

@@ -344,7 +344,8 @@ const generateArticleClaude = async (
   tone,
   pointOfView,
   citeSources,
-  finetune
+  finetune,
+  sectionWordCount
 ) => {
   const constructedSections = [];
   const piecesOfOutline = [];
@@ -358,7 +359,8 @@ const generateArticleClaude = async (
           tone,
           pointOfView,
           citeSources,
-          finetune
+          finetune,
+          sectionWordCount
         );
         constructedSections.push(promise);
         piecesOfOutline.length = 0; // Reset for next sections
@@ -404,7 +406,8 @@ const generateSectionsWithRetry = async (
   tone,
   pointOfView,
   citeSources,
-  finetune
+  finetune,
+  sectionWordCount
 ) => {
   let attempt = 0;
   while (attempt < 3) {
@@ -417,7 +420,8 @@ const generateSectionsWithRetry = async (
         tone,
         pointOfView,
         citeSources,
-        finetune
+        finetune,
+        sectionWordCount
       );
       return sections;
     } catch (error) {
@@ -438,10 +442,10 @@ const generateSectionsOfArticle = async (
   tone,
   pointOfView,
   citeSources,
-  finetunePromise
+  finetunePromise,
+  sectionWordCount
 ) => {
   const outlineCopy = structuredClone(piecesOfOutline);
-  const finetune = await finetunePromise;
   try {
     const completion = await claude.generateSectionClaude(
       outlineCopy,
@@ -450,7 +454,8 @@ const generateSectionsOfArticle = async (
       tone,
       pointOfView,
       citeSources,
-      finetune
+      finetunePromise,
+      sectionWordCount
     );
     const extractedJSON = extractJsonFromString(completion.content[0].text);
     const sanitizedJSON = sanitizeJSON(extractedJSON);
