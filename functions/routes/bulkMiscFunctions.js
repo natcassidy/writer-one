@@ -46,10 +46,10 @@ const processBlogArticleFromBulk = async (
   );
   console.log("outline: \n", outline);
 
-  let finetune = "";
+  let finetune;
 
   try {
-    finetune = await claude.generateFineTuneService(finetuneChosen.textInputs);
+    finetune = claude.generateFineTuneService(finetuneChosen.textInputs);
   } catch (error) {
     console.log("Error generating finetune ", error);
   }
@@ -134,7 +134,7 @@ const processAmazonArticleFromBulk = async (
   // jobId = await firebaseFunctions.updateFirebaseJob(currentUser, jobId, "outline", outline, articleType)
   console.log("outline generated");
 
-  let finetune = "";
+  let finetune;
 
   try {
     finetune = await claude.generateFineTuneService(finetuneChosen.textInputs);

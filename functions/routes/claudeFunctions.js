@@ -28,7 +28,14 @@ const generateAmazonSectionClaude = async (
   finetunePromise
 ) => {
   console.log("Entering generateAmazonSectionClaude");
-  const finetune = await finetunePromise;
+  let finetune = "";
+
+  try {
+    finetune = await finetunePromise;
+  } catch (e) {
+    console.log("Error caught on finetune generating claude section:", e);
+  }
+
   const anthropic = new Anthropic({
     apiKey: process.env.CLAUDE_API_KEY,
   });

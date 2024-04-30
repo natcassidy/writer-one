@@ -341,7 +341,7 @@ router.post("/processAmazon", async (req, res) => {
   }
 
   const articleType = "amazon";
-
+  let finetune = "";
   try {
     finetune = claude.generateFineTuneService(finetuneChosen.textInputs);
   } catch (error) {
