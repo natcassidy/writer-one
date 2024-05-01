@@ -175,10 +175,10 @@ const doesUserHaveEnoughWords = async (currentUser, articleLength) => {
     const userWords = doc.data().words;
 
     // Extract the maximum word count requirement from the articleLength string.
-    const maxRequiredWords = parseInt(articleLength.split("-").pop());
+    const minRequiredWords = parseInt(articleLength.split("-").shift());
 
     // Check if the user has enough words.
-    return userWords >= maxRequiredWords;
+    return userWords >= minRequiredWords;
   } catch (error) {
     console.error("Error fetching user data:", error);
     throw error; // Consider handling or rethrowing the error as appropriate for your application.

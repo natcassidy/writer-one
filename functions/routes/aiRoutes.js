@@ -53,7 +53,7 @@ router.post("/process", async (req, res) => {
   );
 
   if (!isWithinWordCount) {
-    res.status(500).send("Word Count Limit Hit");
+    return res.status(500).send("Word Count Limit Hit");
   }
 
   let context = "";
@@ -302,7 +302,7 @@ router.post("/manuallyTriggerBulkQueue", async (req, res) => {
     await bulkMiscFunctions.processNextItem();
   } catch (e) {
     console.log("Error logged at top: ", e);
-    res.status(500).send({ error: e });
+    return res.status(500).send({ error: e });
   }
 
   console.log("Leaving manuallyTriggerBulkQueue");
