@@ -45,6 +45,7 @@ router.post("/process", async (req, res) => {
     currentUser,
     jobId,
     finetuneChosen,
+    internalUrls,
   } = req.body;
 
   const isWithinWordCount = await misc.doesUserHaveEnoughWords(
@@ -64,6 +65,7 @@ router.post("/process", async (req, res) => {
   const articleType = "blog";
 
   let finetune;
+  let internalUrlContext;
 
   if (outline.length != 0) {
     jobId = await firebaseFunctions.updateFirebaseJob(
@@ -80,6 +82,11 @@ router.post("/process", async (req, res) => {
     } catch (error) {
       console.log("Error generating finetune ", error);
     }
+    if (internalUrls.size > 0) {
+      internalUrlContext = misc.doInternalUrlResearch(internalUrls);
+    }
+
+    context = await misc.doSerpResearch(keyWord, "");
   } else {
     try {
       finetune = claude.generateFineTuneService(finetuneChosen.textInputs);
@@ -87,7 +94,12 @@ router.post("/process", async (req, res) => {
       console.log("Error generating finetune ", error);
     }
 
+    if (internalUrls.size > 0) {
+      internalUrlContext = misc.doInternalUrlResearch(internalUrls);
+    }
+
     context = await misc.doSerpResearch(keyWord, "");
+
     jobId = await firebaseFunctions.updateFirebaseJob(
       currentUser,
       jobId,
@@ -118,7 +130,8 @@ router.post("/process", async (req, res) => {
       pointOfView,
       citeSources,
       finetune,
-      sectionWordCount
+      sectionWordCount,
+      internalUrlContext
     );
   } catch (error) {
     return res.status(500).send("Error generating article: " + error);

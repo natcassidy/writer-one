@@ -111,13 +111,21 @@ const generateSectionClaude = async (
   pointOfView,
   citeSources,
   finetune,
-  sectionWordCount
+  sectionWordCount,
+  internalUrlContext
 ) => {
   let fineTuneData = "";
+  let internalUrlData = "";
   try {
     fineTuneData = await finetune;
   } catch (e) {
     console.log("Error caught on finetune generating claude section:", e);
+  }
+
+  try {
+    internalUrlData = await internalUrlContext;
+  } catch (e) {
+    console.log("Error caught on internalUrl generating claude section:", e);
   }
 
   console.log("Entering generateSectionClaude");
