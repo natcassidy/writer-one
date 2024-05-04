@@ -567,8 +567,15 @@ router.get("/testIP", extractIpMiddleware, (req, res) => {
 
 router.get("/isFreeArticleAvailable", extractIpMiddleware, async (req, res) => {
   let ipAddress = req.clientIp;
-  const isFreeArticleAvailable =
-    await firebaseFunctions.validateIpHasFreeArticle(ipAddress);
+  let isFreeArticleAvailable;
+  try {
+    isFreeArticleAvailable = await firebaseFunctions.validateIpHasFreeArticle(
+      ipAddress
+    );
+  } catch (e) {
+    return res.status(500).send("Error retrieving data");
+  }
+
   res.status(200).send({ isFreeArticleAvailable: isFreeArticleAvailable });
 });
 

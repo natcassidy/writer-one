@@ -31,6 +31,8 @@ const corsOptions = {
     "http://localhost:3000",
     "https://writer-one-frontend.vercel.app",
     "https://writer-one-frontend.vercel.app/",
+    "https://www.writer-one.com",
+    "https://www.writer-one.com/",
   ],
   optionsSuccessStatus: 200,
 };

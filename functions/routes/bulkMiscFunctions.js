@@ -14,11 +14,14 @@ const processBlogArticleFromBulk = async (
   wordRange,
   citeSources
 ) => {
-  // const isWithinWordCount = await misc.doesUserHaveEnoughWords(currentUser, wordRange)
+  const isWithinWordCount = await misc.doesUserHaveEnoughWords(
+    currentUser,
+    wordRange
+  );
 
-  // if (!isWithinWordCount) {
-  //   res.status(500).send("Word Count Limit Hit")
-  // }
+  if (!isWithinWordCount) {
+    return res.status(500).send("Word Count Limit Hit");
+  }
 
   let jobId;
   let context = "";
