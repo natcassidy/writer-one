@@ -115,7 +115,7 @@ const generateSectionClaude = async (
   internalUrlContext
 ) => {
   let fineTuneData = "";
-  let internalUrlData = "";
+  let internalUrlData;
   try {
     fineTuneData = await finetune;
   } catch (e) {
@@ -146,9 +146,8 @@ const generateSectionClaude = async (
 
   const notesForArticle = generateNotesForArticle(outline);
 
-  const includeFinetune =
-    fineTuneData.instructions != ""
-      ? `
+  const includeFinetune = fineTuneData.instructions
+    ? `
         ---------------------------
         Follow the below instructions wrapped in <styleOfWriting></styleOfWriting> tags to capture the style and tone desired.
         <styleOfWriting>
@@ -156,7 +155,7 @@ const generateSectionClaude = async (
         </styleOfWriting>
         ---------------------------
         `
-      : "";
+    : "";
   const includeTone = tone
     ? `Ensure you write with the following tone: ${tone}\n`
     : "";
@@ -166,17 +165,20 @@ const generateSectionClaude = async (
   const includePointOfView = pointOfView
     ? `Please write this section using the following point of view: ${pointOfView}\n`
     : "";
+  const includeInternalUrl = internalUrlData
+    ? `Here are some additional context that may be of note to cite. Please include the source in an <a> tag like this example: <a href="https://www.reuters.com/world/us/democratic-candidates-running-us-president-2024-2023-09-18/">Reuters</a>. Use it naturally in the article if it's appropriate, do not place all of the sources at the end.  Use it to link a specific word or set of words wrapped with the <a> tag.  Additional Context is wrapped in <additionalContext></additionalContext> tags below.\n<additionalContext>${internalUrlData}</additionalContext>\n`
+    : "";
   const prompt = `
-        Your job is to Generate paragraphs for each subsection provided on this topic: ${keyWord} for the following sections: [${listOfSections}]. DO NOT ADD HEADERS.
-        ${includeFinetune}
-        Generate paragraphs for each subsection provided on this topic: ${keyWord} for the following sections: [${listOfSections}]. DO NOT ADD HEADERS.  
+        Your job is to Generate paragraphs for each subsection provided on this topic wrapped in <topic></topic> tags: <topic>${keyWord}</topic> for the following sections: [${listOfSections}]. DO NOT ADD HEADERS.
+        ${includeFinetune}  
         Here is relevant context wrapped in <context></context>  tags, to help you with facts and information when writing.
         <context>
         ${context}.
         </context>  
+        ${includeCitedSources}
+        ${includeInternalUrl}
         DO NOT INCLUDE A HEADER JUST WRITE A PARAGRAPH.
         ${includeTone}
-        ${includeCitedSources}
         ${includePointOfView}
         ${notesForArticle}
         \n REMEMBER YOU MUST WRITE ${outline.length} sections. DO NOT INCLUDE THE HEADER ONLY THE PARAGRAGH.  If you do not provide an array of length ${outline.length}, for the sections titled: [${listOfSections}] -- EVERYTHING WILL BREAK.
@@ -184,7 +186,7 @@ const generateSectionClaude = async (
         ENSURE your response is in the following JSON format:\n ${toolsForNow} \n
         Your paragraphs should not sound AI generated.  Ensure that you write in a way that is indistinguishable from a human.
         Don't use long sentences in your paragraphs, longer sentences tend to appear AI generated.
-        YOUR ENTIRE RESPONSE MUST BE IN THE JSON FORMAT ABOVE.  DO NOT INLUDE ANY TEXT BEFORE OR AFTER THE JSON RESONSE.  IF IT IS NOT IN THE JSON FORMAT ABOVE IT WILL BREAK.  REMEMBER IT IS CRITICAL THAT EACH PARAGRAGH SHOULD BE ATLEAST ${sectionWordCount} IN LENGTH.`;
+        YOUR ENTIRE RESPONSE MUST BE IN THE JSON FORMAT ABOVE.  DO NOT INCLUDE ANY TEXT BEFORE OR AFTER THE JSON RESPONSE.  IF IT IS NOT IN THE JSON FORMAT ABOVE IT WILL BREAK.  REMEMBER IT IS CRITICAL THAT EACH PARAGRAGH SHOULD BE ATLEAST ${sectionWordCount} IN LENGTH.`;
 
   const response = await anthropic.messages.create({
     model: process.env.CLAUDE_API_MODEL,
@@ -203,9 +205,13 @@ const generateNotesForArticle = (outline) => {
     if (outline[i].notes) {
       notes += `For section #${
         i + 1
-      }, here are some general notes to keep in mind when writing this section.\n ${
+      }, here are some general notes to keep in mind when writing this section wrapped in <section${
+        i + 1
+      }></section${i + 1}> tags.\n <section${i + 1}>${
         outline[i].notes
-      } \n`;
+      }</section${
+        i + 1
+      }> \n  DO NOT WRAP YOUR RESPONSE IN TAGS OR <section> tags!`;
     }
 
     if (outline[i].clientNotes) {

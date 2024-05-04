@@ -82,8 +82,8 @@ router.post("/process", async (req, res) => {
     } catch (error) {
       console.log("Error generating finetune ", error);
     }
-    if (internalUrls.size > 0) {
-      internalUrlContext = misc.doInternalUrlResearch(internalUrls);
+    if (internalUrls.length > 0) {
+      internalUrlContext = misc.doInternalUrlResearch(internalUrls, keyWord);
     }
 
     context = await misc.doSerpResearch(keyWord, "");
@@ -94,8 +94,8 @@ router.post("/process", async (req, res) => {
       console.log("Error generating finetune ", error);
     }
 
-    if (internalUrls.size > 0) {
-      internalUrlContext = misc.doInternalUrlResearch(internalUrls);
+    if (internalUrls.length > 0) {
+      internalUrlContext = misc.doInternalUrlResearch(internalUrls, keyWord);
     }
 
     context = await misc.doSerpResearch(keyWord, "");
@@ -184,9 +184,13 @@ router.post("/processFreeTrial", extractIpMiddleware, async (req, res) => {
     jobId = -1;
   }
 
-  const hasFreeArticle = await firebaseFunctions.validateIpHasFreeArticle(
-    clientIp
-  );
+  let hasFreeArticle = false;
+
+  try {
+    hasFreeArticle = await firebaseFunctions.validateIpHasFreeArticle(clientIp);
+  } catch (e) {
+    return res.status(500).send("Error retrieving data");
+  }
 
   if (!hasFreeArticle) {
     return res.status(500).send("No Free Article Remaining!");
@@ -434,10 +438,13 @@ router.post("/processAmazonFreeTrial", async (req, res) => {
     jobId = -1;
   }
 
-  //UPDATE THIS TO USE req.clientIp
-  const hasFreeArticle = await firebaseFunctions.validateIpHasFreeArticle(
-    clientIp
-  );
+  let hasFreeArticle = false;
+
+  try {
+    hasFreeArticle = await firebaseFunctions.validateIpHasFreeArticle(clientIp);
+  } catch (e) {
+    return res.status(500).send("Error retrieving data");
+  }
 
   if (!hasFreeArticle) {
     return res.status(500).send("No Free Article Remaining!");

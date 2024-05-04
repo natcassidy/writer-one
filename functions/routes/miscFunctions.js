@@ -268,55 +268,89 @@ const doSerpResearch = async (keyWord, countryCode) => {
   return context;
 };
 
-const doInternalUrlResearch = async (internalUrls) => {
-  const data = await getSerpResultsForInternalUrls(internalUrls);
-  console.log("serp results returned with size: ", data.length);
-  const results = [];
-  const chunkSize = 10;
+const doInternalUrlResearch = async (internalUrls, title) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const data = await getSerpResultsForInternalUrls(internalUrls);
+      console.log("serp results returned with size: ", data.length);
+      const results = [];
+      const chunkSize = 10;
 
-  for (let i = 0; i < data.length; i += chunkSize) {
-    const chunk = data.slice(i, i + chunkSize);
-    const promises = chunk.map(async (item) => {
-      if (item.status === "good") {
-        try {
-          const returnedSummary = await openai.summarizeContent(
-            item.data,
-            params.query
-          );
-          if (returnedSummary) {
-            const extractedJSON = extractJsonFromString(
-              returnedSummary.choices[0].message.tool_calls[0].function
-                .arguments
-            );
-            const sanitizedJSON = sanitizeJSON(extractedJSON);
-            const responseMessage = JSON.parse(sanitizedJSON);
-            let newContext = generateContextStringBlog(
-              item.title,
-              item.link,
-              responseMessage.keyPoints
-            );
-            return newContext;
+      for (let i = 0; i < data.length; i += chunkSize) {
+        const chunk = data.slice(i, i + chunkSize);
+        const promises = chunk.map(async (item) => {
+          if (item.status === "good") {
+            try {
+              const returnedSummary = await openai.summarizeContent(
+                item.data,
+                title
+              );
+              if (returnedSummary) {
+                const extractedJSON = extractJsonFromString(
+                  returnedSummary.choices[0].message.tool_calls[0].function
+                    .arguments
+                );
+                const sanitizedJSON = sanitizeJSON(extractedJSON);
+                const responseMessage = JSON.parse(sanitizedJSON);
+                let newContext = generateContextStringBlog(
+                  item.title,
+                  item.link,
+                  responseMessage.keyPoints
+                );
+                return newContext;
+              }
+            } catch (e) {
+              console.log("Error retrieving data summary", e);
+            }
           }
-        } catch (e) {
-          console.log("Error retrieving data summary", e);
+          return null;
+        });
+
+        const chunkResults = await Promise.all(promises);
+        results.push(...chunkResults.filter((result) => result !== null));
+
+        // Check if the results array has reached 5 items
+        if (results.length >= 6) {
+          break; // Exit the loop early
         }
+
+        // Wait for the current batch of promises to resolve before proceeding
+        await new Promise((resolve) => setTimeout(resolve, 0));
       }
-      return null;
-    });
 
-    const chunkResults = await Promise.all(promises);
-    results.push(...chunkResults.filter((result) => result !== null));
-
-    // Check if the results array has reached 5 items
-    if (results.length >= 6) {
-      break; // Exit the loop early
+      resolve(results.join("\n\n")); // Resolve the Promise with the final result
+    } catch (error) {
+      reject(error); // Reject the Promise if an error occurs
     }
+  });
+};
 
-    // Wait for the current batch of promises to resolve before proceeding
-    await new Promise((resolve) => setTimeout(resolve, 0));
+const getSerpResultsForInternalUrls = async (internalUrls) => {
+  console.log("Entering getSerpResultsForInternalUrls");
+  const countryCode = ""; // Simplify country code determination
+  const scrapeConfig = createScrapeConfig(countryCode);
+  try {
+    const promises = internalUrls.map((url) => {
+      const element = {
+        link: url,
+        title: "",
+        description: "",
+      };
+      return processElement(element, scrapeConfig); // Refactor processing into a separate function
+    });
+    const settledPromises = await Promise.allSettled(promises);
+    const trimmed = settledPromises.map((item) =>
+      item.status === "fulfilled" ? item.value : item.reason
+    );
+    // Improved logging for debugging
+    console.log(`Processed ${trimmed.length} items.`);
+    console.log("Finished getSerpResultsForInternalUrls");
+    return trimmed;
+  } catch (err) {
+    console.error("Error in getSerpResultsForInternalUrls:", err.message);
+    // Log more detailed error information if necessary
+    return []; // Return an empty array or appropriate error response
   }
-
-  return results.join("\n\n"); // Join the results array into a single string with newline separators
 };
 
 async function findGoodData(params, keyWord) {
@@ -468,34 +502,6 @@ const createScrapeConfig = (countryCode) => ({
     },
   },
 });
-
-const getSerpResultsForInternalUrls = async (internalUrls) => {
-  console.log("Entering getSerpResultsForInternalUrls");
-  const countryCode = query.countryCode || ""; // Simplify country code determination
-  const scrapeConfig = createScrapeConfig(countryCode);
-  try {
-    const promises = internalUrls.map((url) => {
-      const element = {
-        link: url,
-        title: "",
-        description: "",
-      };
-      return processElement(el, scrapeConfig); // Refactor processing into a separate function
-    });
-    const settledPromises = await Promise.allSettled(promises);
-    const trimmed = settledPromises.map((item) =>
-      item.status === "fulfilled" ? item.value : item.reason
-    );
-    // Improved logging for debugging
-    console.log(`Processed ${trimmed.length} items.`);
-    console.log("Finished getSerpResultsForInternalUrls");
-    return trimmed;
-  } catch (err) {
-    console.error("Error in getSerpResultsForInternalUrls:", err.message);
-    // Log more detailed error information if necessary
-    return []; // Return an empty array or appropriate error response
-  }
-};
 
 const getSerpResults = async (data) => {
   console.log("Entering getSerpResults");
