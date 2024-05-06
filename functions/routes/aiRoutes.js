@@ -513,13 +513,16 @@ router.post("/outline", async (req, res) => {
 
   try {
     context = await misc.doSerpResearch(keyWord, "");
-    jobId = await firebaseFunctions.updateFirebaseJob(
-      currentUser,
-      jobId,
-      "context",
-      context,
-      articleType
-    );
+    if (currentUser) {
+      jobId = await firebaseFunctions.updateFirebaseJob(
+        currentUser,
+        jobId,
+        "context",
+        context,
+        articleType
+      );
+    }
+
     const responseMessage = await amazon.generateOutlineClaude(
       keyWord,
       wordRange,
