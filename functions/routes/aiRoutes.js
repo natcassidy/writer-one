@@ -525,13 +525,17 @@ router.post("/outline", async (req, res) => {
       wordRange,
       context
     );
-    jobId = await firebaseFunctions.updateFirebaseJob(
-      currentUser,
-      jobId,
-      "outline",
-      responseMessage,
-      articleType
-    );
+
+    if (currentUser) {
+      jobId = await firebaseFunctions.updateFirebaseJob(
+        currentUser,
+        jobId,
+        "outline",
+        responseMessage,
+        articleType
+      );
+    }
+
     res.status(200).send({ responseMessage, jobId });
   } catch (error) {
     console.error("Error:", error);
