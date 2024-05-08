@@ -77,24 +77,28 @@ router.post("/process", async (req, res) => {
     );
     console.log("outline generated");
 
-    try {
-      finetune = claude.generateFineTuneService(finetuneChosen.textInputs);
-    } catch (error) {
-      console.log("Error generating finetune ", error);
+    if (finetuneChosen.textInputs) {
+      try {
+        finetune = claude.generateFineTuneService(finetuneChosen.textInputs);
+      } catch (error) {
+        console.log("Error generating finetune ", error);
+      }
     }
-    if (internalUrls.length > 0) {
+    if (internalUrls && internalUrls.length > 0) {
       internalUrlContext = misc.doInternalUrlResearch(internalUrls, keyWord);
     }
 
     context = await misc.doSerpResearch(keyWord, "");
   } else {
-    try {
-      finetune = claude.generateFineTuneService(finetuneChosen.textInputs);
-    } catch (error) {
-      console.log("Error generating finetune ", error);
+    if (finetuneChosen.textInputs) {
+      try {
+        finetune = claude.generateFineTuneService(finetuneChosen.textInputs);
+      } catch (error) {
+        console.log("Error generating finetune ", error);
+      }
     }
 
-    if (internalUrls.length > 0) {
+    if (internalUrls && internalUrls.length > 0) {
       internalUrlContext = misc.doInternalUrlResearch(internalUrls, keyWord);
     }
 
@@ -271,7 +275,7 @@ router.post("/processFreeTrial", extractIpMiddleware, async (req, res) => {
 router.post("/processBulk", async (req, res) => {
   let {
     keyWord,
-    internalUrl,
+    internalUrls,
     tone,
     pointOfView,
     includeFAQs,
@@ -285,6 +289,7 @@ router.post("/processBulk", async (req, res) => {
     numberOfProducts,
   } = req.body;
 
+  console.log("Processing bulk blog, adding to queue");
   const keyWordList = misc.parseKeyWords(keyWord);
 
   console.log("List: ", keyWordList);
@@ -292,7 +297,7 @@ router.post("/processBulk", async (req, res) => {
     keyWordList.forEach((keyWord) => {
       firebaseFunctions.addToQueue(
         keyWord,
-        internalUrl,
+        internalUrls,
         tone,
         pointOfView,
         includeFAQs,
@@ -307,9 +312,11 @@ router.post("/processBulk", async (req, res) => {
       );
     });
   } catch (e) {
+    console.log("Error adding to queue: ", e);
     return res.status(500).send({ error: e });
   }
 
+  console.log("Processing bulk blog, finished adding to queue");
   res.status(200).send({ success: keyWordList });
 });
 

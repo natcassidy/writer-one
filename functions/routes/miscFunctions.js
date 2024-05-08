@@ -408,7 +408,9 @@ const generateContextStringAmazon = (section) => {
   let contextString = `Product description: ${section.content}\n`;
 
   for (let i = 0; i < section.reviews.length; i++) {
-    contextString += `Review #${i}: ${section.reviews[i].body}\n`;
+    contextString += `<review ${i + 1}> ${section.reviews[i].body}</review ${
+      i + 1
+    }>\n`;
   }
 
   return contextString;

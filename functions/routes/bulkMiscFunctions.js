@@ -5,7 +5,7 @@ const claude = require("./claudeFunctions");
 
 const processBlogArticleFromBulk = async (
   keyWord,
-  internalUrl,
+  internalUrls,
   tone,
   pointOfView,
   includeFAQs,
@@ -31,6 +31,21 @@ const processBlogArticleFromBulk = async (
 
   const articleType = "blog";
 
+  let finetune;
+  let internalUrlContext;
+
+  if (finetuneChosen.textInputs) {
+    try {
+      finetune = claude.generateFineTuneService(finetuneChosen.textInputs);
+    } catch (error) {
+      console.log("Error generating finetune ", error);
+    }
+  }
+
+  if (internalUrls && internalUrls.length > 0) {
+    internalUrlContext = misc.doInternalUrlResearch(internalUrls, keyWord);
+  }
+
   context = await misc.doSerpResearch(keyWord, "");
   jobId = await firebaseFunctions.updateFirebaseJob(
     currentUser,
@@ -49,14 +64,7 @@ const processBlogArticleFromBulk = async (
   );
   console.log("outline: \n", outline);
 
-  let finetune;
-
-  try {
-    finetune = claude.generateFineTuneService(finetuneChosen.textInputs);
-  } catch (error) {
-    console.log("Error generating finetune ", error);
-  }
-
+  const sectionWordCount = misc.wordLengthCalculator(wordRange, outline);
   console.log("generating article");
   let updatedOutline;
   try {
@@ -67,7 +75,9 @@ const processBlogArticleFromBulk = async (
       tone,
       pointOfView,
       citeSources,
-      finetune
+      finetune,
+      sectionWordCount,
+      internalUrlContext
     );
   } catch (e) {
     throw new Error(e);
@@ -126,6 +136,13 @@ const processAmazonArticleFromBulk = async (
 
   const articleType = "amazon";
 
+  let finetune = "";
+  try {
+    finetune = claude.generateFineTuneService(finetuneChosen.textInputs);
+  } catch (error) {
+    console.log("Error generating finetune ", error);
+  }
+
   context = await amazon.performSearch(
     keyWord,
     amazonUrl,
@@ -136,14 +153,6 @@ const processAmazonArticleFromBulk = async (
   outline = await amazon.generateOutlineAmazon(keyWord, context);
   // jobId = await firebaseFunctions.updateFirebaseJob(currentUser, jobId, "outline", outline, articleType)
   console.log("outline generated");
-
-  let finetune;
-
-  try {
-    finetune = await claude.generateFineTuneService(finetuneChosen.textInputs);
-  } catch (error) {
-    console.log("Error generating finetune ", error);
-  }
 
   console.log("generating article");
 
@@ -183,7 +192,7 @@ const processNextItem = async () => {
   try {
     const {
       keyWord,
-      internalUrl,
+      internalUrls,
       tone,
       pointOfView,
       includeFAQs,
@@ -203,7 +212,7 @@ const processNextItem = async () => {
     if (isAmazonArticle) {
       const article = await processAmazonArticleFromBulk(
         keyWord,
-        internalUrl,
+        internalUrls,
         tone,
         pointOfView,
         includeFAQs,
@@ -220,12 +229,14 @@ const processNextItem = async () => {
     } else {
       const article = await processBlogArticleFromBulk(
         keyWord,
-        internalUrl,
+        internalUrls,
         tone,
         pointOfView,
         includeFAQs,
         currentUser,
-        finetuneChosen
+        finetuneChosen,
+        wordRange,
+        citeSources
       );
     }
 

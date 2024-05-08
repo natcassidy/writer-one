@@ -9,16 +9,12 @@ const Anthropic = require("@anthropic-ai/sdk");
 const claude = require("./claudeFunctions");
 const misc = require("./miscFunctions");
 
-const getReview = async (asin, associateId) => {
+const getProduct = async (asin) => {
   const params = {
     api_key: process.env.ASIN_API_KEY,
-    type: "reviews",
+    type: "product",
     amazon_domain: "amazon.com",
     asin,
-    reviewer_type: "verified_purchase",
-    review_media_type: "media_reviews_only",
-    sort_by: "most_recent",
-    associate_id: associateId ? associateId : "",
   };
 
   try {
@@ -60,18 +56,27 @@ const performSearch = async (
 
     const resultProductArray = await Promise.all(
       searchResults.map(async (result) => {
-        const reviewsData = await getReview(result.asin, affiliateID);
-        let reviews = []; // Default to an empty array if no reviews are found
+        const productData = await getProduct(result.asin);
+        // let reviews = []; // Default to an empty array if no reviews are found
 
-        // Check if reviewsData is not null and has a 'reviews' property before accessing it
-        if (reviewsData && reviewsData.reviews) {
-          reviews = reviewsData.reviews;
+        let imageUrl;
+        let reviews = [];
+        if (productData && productData.product.main_image.link) {
+          imageUrl = productData.product.main_image.link;
         }
+
+        if (productData && productData.product.top_reviews) {
+          reviews = productData.product.top_reviews;
+        }
+        // // Check if reviewsData is not null and has a 'reviews' property before accessing it
+        // if (reviewsData && reviewsData.reviews) {
+        //   reviews = reviewsData.reviews;
+        // }
 
         return {
           title: result.title,
           description: result.description,
-          image: result.image,
+          image: imageUrl,
           link: result.link,
           price: result.price,
           rating: result.rating,
