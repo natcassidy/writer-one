@@ -77,7 +77,11 @@ router.post("/process", async (req, res) => {
     );
     console.log("outline generated");
 
-    if (finetuneChosen.textInputs) {
+    if (
+      finetuneChosen.textInputs &&
+      finetuneChosen.textInputs.length != 0 &&
+      finetuneChosen.textInputs[0].body != ""
+    ) {
       try {
         finetune = claude.generateFineTuneService(finetuneChosen.textInputs);
       } catch (error) {
@@ -90,7 +94,11 @@ router.post("/process", async (req, res) => {
 
     context = await misc.doSerpResearch(keyWord, "");
   } else {
-    if (finetuneChosen.textInputs) {
+    if (
+      finetuneChosen.textInputs &&
+      finetuneChosen.textInputs.length != 0 &&
+      finetuneChosen.textInputs[0].body != ""
+    ) {
       try {
         finetune = claude.generateFineTuneService(finetuneChosen.textInputs);
       } catch (error) {
@@ -213,10 +221,16 @@ router.post("/processFreeTrial", extractIpMiddleware, async (req, res) => {
     );
     console.log("outline generated");
 
-    try {
-      finetune = claude.generateFineTuneService(finetuneChosen.textInputs);
-    } catch (error) {
-      console.log("Error generating finetune ", error);
+    if (
+      finetuneChosen.textInputs &&
+      finetuneChosen.textInputs.length != 0 &&
+      finetuneChosen.textInputs[0].body != ""
+    ) {
+      try {
+        finetune = claude.generateFineTuneService(finetuneChosen.textInputs);
+      } catch (error) {
+        console.log("Error generating finetune ", error);
+      }
     }
   } else {
     context = await misc.doSerpResearch(keyWord, "");
@@ -235,10 +249,16 @@ router.post("/processFreeTrial", extractIpMiddleware, async (req, res) => {
       outline,
       articleType
     );
-    try {
-      finetune = claude.generateFineTuneService(finetuneChosen.textInputs);
-    } catch (error) {
-      console.log("Error generating finetune ", error);
+    if (
+      finetuneChosen.textInputs &&
+      finetuneChosen.textInputs.length != 0 &&
+      finetuneChosen.textInputs[0].body != ""
+    ) {
+      try {
+        finetune = claude.generateFineTuneService(finetuneChosen.textInputs);
+      } catch (error) {
+        console.log("Error generating finetune ", error);
+      }
     }
   }
 
@@ -366,10 +386,17 @@ router.post("/processAmazon", async (req, res) => {
 
   const articleType = "amazon";
   let finetune = "";
-  try {
-    finetune = claude.generateFineTuneService(finetuneChosen.textInputs);
-  } catch (error) {
-    console.log("Error generating finetune ", error);
+  if (
+    finetuneChosen.textInputs &&
+    finetuneChosen.textInputs.length != 0 &&
+    finetuneChosen.textInputs[0].body != "" &&
+    finetuneChosen.textInputs[0].body != ""
+  ) {
+    try {
+      finetune = claude.generateFineTuneService(finetuneChosen.textInputs);
+    } catch (error) {
+      console.log("Error generating finetune ", error);
+    }
   }
 
   context = await amazon.performSearch(

@@ -407,7 +407,10 @@ async function findGoodData(params, keyWord) {
 const generateContextStringAmazon = (section) => {
   let contextString = `Product description: ${section.content}\n`;
 
-  for (let i = 0; i < section.reviews.length; i++) {
+  const maxLoops = 10;
+  const reviewCount = Math.min(section.reviews.length, maxLoops);
+
+  for (let i = 0; i < reviewCount; i++) {
     contextString += `<review ${i + 1}> ${section.reviews[i].body}</review ${
       i + 1
     }>\n`;
