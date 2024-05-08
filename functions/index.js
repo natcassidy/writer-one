@@ -50,7 +50,10 @@ app.set("trust proxy", true);
 exports.plugin = functions
   .runWith({ timeoutSeconds: 360 })
   .https.onRequest(app);
-// exports.processQueue = functions.runWith({ timeoutSeconds: 180 }).pubsub.schedule('every 1 minutes').onRun(async (context) => {
-//   await bulMiscFunctions.processNextItem();
-//   return null;
-// });
+exports.processQueue = functions
+  .runWith({ timeoutSeconds: 360 })
+  .pubsub.schedule("every 1 minutes")
+  .onRun(async (context) => {
+    await bulMiscFunctions.processNextItem();
+    return null;
+  });
