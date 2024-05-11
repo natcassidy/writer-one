@@ -28,10 +28,10 @@ const generateAmazonSectionClaude = async (
   finetunePromise
 ) => {
   console.log("Entering generateAmazonSectionClaude");
-  let finetune = "";
+  let fineTuneData = "";
 
   try {
-    finetune = await finetunePromise;
+    fineTuneData = await finetunePromise;
   } catch (e) {
     console.log("Error caught on finetune generating claude section:", e);
   }
@@ -54,14 +54,14 @@ const generateAmazonSectionClaude = async (
     `;
 
   const includeFinetune =
-    finetune != ""
+    fineTuneData && fineTuneData.instructions
       ? `
-      ---------------------------
-      Follow the below instructions wrapped in <styleOfWriting></styleOfWriting> tags to capture the style and tone desired.
-      <styleOfWriting>
-      ${finetune}
-      </styleOfWriting>
-      ---------------------------
+        ---------------------------
+        Follow the below instructions wrapped in <styleOfWriting></styleOfWriting> tags to capture the style and tone desired.
+        <styleOfWriting>
+        ${fineTuneData.instructions}
+        </styleOfWriting>
+        ---------------------------
         `
       : "";
 
@@ -146,8 +146,9 @@ const generateSectionClaude = async (
 
   const notesForArticle = generateNotesForArticle(outline);
 
-  const includeFinetune = fineTuneData.instructions
-    ? `
+  const includeFinetune =
+    fineTuneData && fineTuneData.instructions
+      ? `
         ---------------------------
         Follow the below instructions wrapped in <styleOfWriting></styleOfWriting> tags to capture the style and tone desired.
         <styleOfWriting>
@@ -155,7 +156,7 @@ const generateSectionClaude = async (
         </styleOfWriting>
         ---------------------------
         `
-    : "";
+      : "";
   const includeTone = tone
     ? `Ensure you write with the following tone: ${tone}\n`
     : "";
