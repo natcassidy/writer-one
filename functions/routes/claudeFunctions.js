@@ -431,13 +431,11 @@ function stripToText(html) {
   return $("body").prop("textContent");
 }
 
-async function generateOutlineClaude(keyword, wordRange, context) {
+async function generateOutlineClaude(keyword, sectionCount, context) {
   console.log("Entering generateOutlineClaude");
   const anthropic = new Anthropic({
     apiKey: process.env.CLAUDE_API_KEY,
   });
-
-  const sectionsCount = determineSectionCount(wordRange);
 
   const toolsForNow = `
         {
@@ -458,10 +456,10 @@ async function generateOutlineClaude(keyword, wordRange, context) {
         }
 
         Ensure your response is in json in the json format above.  You can have multiple subsections within sections.  Include notes to help structure what content should be touched on in the subsections.
-        Ensure that there are no more than ${sectionsCount} h2's in your outline if you include more than ${sectionsCount} h2's, everything will break.  
+        Ensure that there are no more than ${sectionCount} h2's in your outline if you include more than ${sectionCount} h2's, everything will break.  
         `;
 
-  const message = `Generate an outline for the keyword: ${keyword}.  Here is some context and info on the topic: ${context}.\n Ensure you response in the json format below: ${toolsForNow}. \n The wordCount for the article is in the range of ${wordRange}.  Each subsection will be roughly 200-400 words worth of content so please ensure that you keep in mind the size of the section when determining how many to create.  DO NOT include the word count in your response or function call, only use it to keep track of yourself. You DO NOT NEED TO HAVE MULTIPLE SUBSECTIONS PER SECTION.  Here are is some relevent research on the topic you can use to construct it.  Please include notes in the subsections as to ensure the article flows smoothly from one section to the next.  Notes should simply be a little more info on what this section needs to cover.  Do not include generate placeholders like Brand A, Team A etc in your headers.  Remember you MUST have ${sectionsCount} included in your outline.  And there must be atleast 1 h3 per h2 included.  You can have multiple subsections (tagName: h3) per tagName: h2.  You don't need to include an introduction or conclusion.`;
+  const message = `Generate an outline for the keyword: ${keyword}.  Here is some context and info on the topic: ${context}.\n Ensure you response in the json format below: ${toolsForNow}. \n The wordCount for the article is in the range of 300-500 words.  Each subsection will be roughly 300-500 words worth of content so please ensure that you keep in mind the size of the section when determining how many to create.  DO NOT include the word count in your response or function call, only use it to keep track of yourself. You DO NOT NEED TO HAVE MULTIPLE SUBSECTIONS PER SECTION.  Here are is some relevent research on the topic you can use to construct it.  Please include notes in the subsections as to ensure the article flows smoothly from one section to the next.  Notes should simply be a little more info on what this section needs to cover.  Do not include generate placeholders like Brand A, Team A etc in your headers.  Remember you MUST have ${sectionCount} included in your outline.  And there must be atleast 1 h3 per h2 included.  You can have multiple subsections (tagName: h3) per tagName: h2.  You don't need to include an introduction or conclusion.`;
 
   const response = await anthropic.messages.create({
     model: process.env.CLAUDE_API_MODEL,
@@ -472,16 +470,6 @@ async function generateOutlineClaude(keyword, wordRange, context) {
   console.log("Finished generateOutlineClaude");
   return response;
 }
-
-const determineSectionCount = (wordRange) => {
-  if (wordRange === "500-1000 words") {
-    return 2;
-  } else if (wordRange === "1000-2000 words") {
-    return 4;
-  } else {
-    return 7;
-  }
-};
 
 const summarizeContentClaude = async (content, keyWord) => {
   console.log("Entering summarizeContentClaude");

@@ -33,7 +33,7 @@ router.post("/process", async (req, res) => {
   let {
     keyWord,
     internalUrl,
-    wordRange,
+    sectionCount,
     tone,
     pointOfView,
     realTimeResearch,
@@ -118,7 +118,11 @@ router.post("/process", async (req, res) => {
       context,
       articleType
     );
-    outline = await amazon.generateOutlineClaude(keyWord, wordRange, context);
+    outline = await amazon.generateOutlineClaude(
+      keyWord,
+      sectionCount,
+      context
+    );
     jobId = await firebaseFunctions.updateFirebaseJob(
       currentUser,
       jobId,
@@ -172,7 +176,7 @@ router.post("/processFreeTrial", extractIpMiddleware, async (req, res) => {
   let {
     keyWord,
     internalUrl,
-    wordRange,
+    sectionCount,
     tone,
     pointOfView,
     realTimeResearch,
@@ -235,7 +239,11 @@ router.post("/processFreeTrial", extractIpMiddleware, async (req, res) => {
       context,
       articleType
     );
-    outline = await amazon.generateOutlineClaude(keyWord, wordRange, context);
+    outline = await amazon.generateOutlineClaude(
+      keyWord,
+      sectionCount,
+      context
+    );
     jobId = await firebaseFunctions.updateFirebaseJobByIp(
       clientIp,
       jobId,
@@ -295,7 +303,7 @@ router.post("/processBulk", async (req, res) => {
     includeFAQs,
     currentUser,
     finetuneChosen,
-    wordRange,
+    sectionCount,
     citeSources,
     isAmazonArticle,
     amazonUrl,
@@ -317,7 +325,7 @@ router.post("/processBulk", async (req, res) => {
         includeFAQs,
         currentUser,
         finetuneChosen,
-        wordRange,
+        sectionCount,
         citeSources,
         isAmazonArticle,
         amazonUrl,
@@ -528,7 +536,7 @@ router.post("/processAmazonFreeTrial", async (req, res) => {
 
 // Route handler
 router.post("/outline", async (req, res) => {
-  let { keyWord, wordRange, currentUser } = req.body;
+  let { keyWord, sectionCount, currentUser } = req.body;
 
   let context = "";
   let jobId = -1;
@@ -549,7 +557,7 @@ router.post("/outline", async (req, res) => {
 
     const responseMessage = await amazon.generateOutlineClaude(
       keyWord,
-      wordRange,
+      sectionCount,
       context
     );
 
@@ -602,7 +610,7 @@ router.get("/testClaude", async (req, res) => {
 router.get("/testClaudeOutline", async (req, res) => {
   const data = await amazon.generateOutlineClaude(
     "Best ways to lose weight 2024",
-    "2000-2500 words",
+    "2",
     ""
   );
   res.status(200).send(data);

@@ -375,22 +375,6 @@ const generateContextStringBlog = (title, link, keyPoints) => {
   return contextString;
 };
 
-const determineSectionCount = (wordRange) => {
-  if (wordRange === "500-800 words") {
-    return 2;
-  } else if (wordRange === "800-1200 words") {
-    return 3;
-  } else if (wordRange === "1200-1600 words") {
-    return 4;
-  } else if (wordRange === "1600-2000 words") {
-    return 5;
-  } else if (wordRange === "2000-2500 words") {
-    return 6;
-  } else {
-    return 7;
-  }
-};
-
 // This is required for the scraping to work through the proxy
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 
@@ -576,28 +560,6 @@ const parseIp = (req) => {
   );
 };
 
-const wordLengthCalculator = (wordRange, outline) => {
-  let sectionLength = 300;
-  let numH3 = 0;
-  for (const section of outline) {
-    if (section.tagName === "h3") {
-      numH3++;
-    }
-  }
-
-  if (numH3 != 0) {
-    if (wordRange === "500-1000 words") {
-      sectionLength = Math.ceil(1000 / numH3 / 100) * 100;
-    } else if (wordRange === "1000-2000 words") {
-      sectionLength = Math.ceil(2000 / numH3 / 100) * 100;
-    } else {
-      sectionLength = Math.ceil(3000 / numH3 / 100) * 100;
-    }
-  }
-
-  return sectionLength;
-};
-
 module.exports = {
   stripEscapeChars,
   stripToText,
@@ -608,10 +570,8 @@ module.exports = {
   processAIResponseToHtml,
   doesUserHaveEnoughArticles,
   doSerpResearch,
-  determineSectionCount,
   generateContextStringAmazon,
   parseKeyWords,
   parseIp,
-  wordLengthCalculator,
   doInternalUrlResearch,
 };

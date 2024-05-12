@@ -11,7 +11,7 @@ const processBlogArticleFromBulk = async (
   includeFAQs,
   currentUser,
   finetuneChosen,
-  wordRange,
+  sectionCount,
   citeSources
 ) => {
   const isWithinArticleCount = await misc.doesUserHaveEnoughArticles(
@@ -53,7 +53,7 @@ const processBlogArticleFromBulk = async (
     context,
     articleType
   );
-  outline = await amazon.generateOutlineClaude(keyWord, wordRange, context);
+  outline = await amazon.generateOutlineClaude(keyWord, sectionCount, context);
   jobId = await firebaseFunctions.updateFirebaseJob(
     currentUser,
     jobId,
@@ -105,7 +105,7 @@ const processAmazonArticleFromBulk = async (
   includeFAQs,
   currentUser,
   finetuneChosen,
-  wordRange,
+  sectionCount,
   citeSources,
   itemId,
   isAmazonArticle,
@@ -190,7 +190,7 @@ const processNextItem = async () => {
       includeFAQs,
       currentUser,
       finetuneChosen,
-      wordRange,
+      sectionCount,
       citeSources,
       itemId,
       isAmazonArticle,
@@ -210,7 +210,7 @@ const processNextItem = async () => {
         includeFAQs,
         currentUser,
         finetuneChosen,
-        wordRange,
+        sectionCount,
         citeSources,
         itemId,
         isAmazonArticle,
@@ -227,7 +227,7 @@ const processNextItem = async () => {
         includeFAQs,
         currentUser,
         finetuneChosen,
-        wordRange,
+        sectionCount,
         citeSources
       );
     }

@@ -207,10 +207,10 @@ const testClaude = async () => {
   });
 };
 
-const generateOutlineClaude = async (keyWord, wordRange, context) => {
+const generateOutlineClaude = async (keyWord, sectionCount, context) => {
   const completion = await claude.generateOutlineClaude(
     keyWord,
-    wordRange,
+    sectionCount,
     context
   );
   const extractedJSON = extractJsonFromString(completion.content[0].text);
