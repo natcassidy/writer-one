@@ -14,13 +14,12 @@ const processBlogArticleFromBulk = async (
   wordRange,
   citeSources
 ) => {
-  const isWithinWordCount = await misc.doesUserHaveEnoughWords(
-    currentUser,
-    wordRange
+  const isWithinArticleCount = await misc.doesUserHaveEnoughArticles(
+    currentUser
   );
 
-  if (!isWithinWordCount) {
-    return res.status(500).send("Word Count Limit Hit");
+  if (!isWithinArticleCount) {
+    return res.status(500).send("Article Count Limit Hit");
   }
 
   let jobId;
@@ -64,7 +63,6 @@ const processBlogArticleFromBulk = async (
   );
   console.log("outline: \n", outline);
 
-  const sectionWordCount = misc.wordLengthCalculator(wordRange, outline);
   console.log("generating article");
   let updatedOutline;
   try {
@@ -76,7 +74,6 @@ const processBlogArticleFromBulk = async (
       pointOfView,
       citeSources,
       finetune,
-      sectionWordCount,
       internalUrlContext
     );
   } catch (e) {
@@ -86,12 +83,10 @@ const processBlogArticleFromBulk = async (
   console.log("article generated now doing gemini article");
 
   console.log("gemini article generated");
-  const wordCount = misc.countWords(updatedOutline);
-  const updatedWordCount = await firebaseFunctions.decrementUserWordCount(
-    currentUser,
-    wordCount
+  const updatedArticleCount = await firebaseFunctions.decrementUserArticleCount(
+    currentUser
   );
-  console.log("word count: ", wordCount);
+
   jobId = await firebaseFunctions.updateFirebaseJob(
     currentUser,
     jobId,
@@ -118,13 +113,11 @@ const processAmazonArticleFromBulk = async (
   affiliate,
   numberOfProducts
 ) => {
-  const length = amazon.determineArticleLength(numberOfProducts);
-  const isWithinWordCount = await misc.doesUserHaveEnoughWordsAmazon(
-    currentUser,
-    length
+  const isWithinArticleCount = await misc.doesUserHaveEnoughArticles(
+    currentUser
   );
 
-  if (!isWithinWordCount) {
+  if (!isWithinArticleCount) {
     return res.status(500).send("Word Count Limit Hit");
   }
 
@@ -168,11 +161,11 @@ const processAmazonArticleFromBulk = async (
   } catch (e) {
     throw new Error(e);
   }
-  const wordCount = amazon.countWordsClaudeBlog(outline);
-  const updatedWordCount = await firebaseFunctions.decrementUserWordCount(
-    currentUser,
-    wordCount
+
+  const updatedArticleCount = await firebaseFunctions.decrementUserArticleCount(
+    currentUser
   );
+
   jobId = await firebaseFunctions.updateFirebaseJob(
     currentUser,
     jobId,
@@ -180,7 +173,6 @@ const processAmazonArticleFromBulk = async (
     outline,
     articleType
   );
-  console.log("word count: ", wordCount);
   //Outline will now contain each section filled in with data
   console.log("outline:\n", outline);
   return outline;

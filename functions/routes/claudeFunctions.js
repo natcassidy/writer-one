@@ -111,7 +111,6 @@ const generateSectionClaude = async (
   pointOfView,
   citeSources,
   finetune,
-  sectionWordCount,
   internalUrlContext
 ) => {
   let fineTuneData = "";
@@ -183,11 +182,11 @@ const generateSectionClaude = async (
         ${includePointOfView}
         ${notesForArticle}
         \n REMEMBER YOU MUST WRITE ${outline.length} sections. DO NOT INCLUDE THE HEADER ONLY THE PARAGRAPH.  If you do not provide an array of length ${outline.length}, for the sections titled: [${listOfSections}] -- EVERYTHING WILL BREAK.
-        Paragraphs should each be ${sectionWordCount} words length each.  The sections should flow together nicely.
+        Paragraphs should each be 500 words length each.  The sections should flow together nicely.
         ENSURE your response is in the following JSON format:\n ${toolsForNow} \n
         Your paragraphs should not sound AI generated.  Ensure that you write in a way that is indistinguishable from a human.
         Don't use long sentences in your paragraphs, longer sentences tend to appear AI generated.
-        YOUR ENTIRE RESPONSE MUST BE IN THE JSON FORMAT ABOVE.  DO NOT INCLUDE ANY TEXT BEFORE OR AFTER THE JSON RESPONSE.  IF IT IS NOT IN THE JSON FORMAT ABOVE IT WILL BREAK.  REMEMBER IT IS CRITICAL THAT EACH PARAGRAPH SHOULD BE ATLEAST ${sectionWordCount} IN LENGTH.`;
+        YOUR ENTIRE RESPONSE MUST BE IN THE JSON FORMAT ABOVE.  DO NOT INCLUDE ANY TEXT BEFORE OR AFTER THE JSON RESPONSE.  IF IT IS NOT IN THE JSON FORMAT ABOVE IT WILL BREAK.  REMEMBER IT IS CRITICAL THAT EACH PARAGRAPH SHOULD BE ATLEAST 500 IN LENGTH.`;
 
   const response = await anthropic.messages.create({
     model: process.env.CLAUDE_API_MODEL,

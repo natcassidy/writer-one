@@ -311,7 +311,7 @@ const arraysMatch = (arr1, arr2) => {
   return true;
 };
 
-const decrementUserWordCount = async (currentUser, amountToDecrement) => {
+const decrementUserArticleCount = async (currentUser) => {
   if (!currentUser) {
     throw new Error("No user defined");
   }
@@ -321,7 +321,6 @@ const decrementUserWordCount = async (currentUser, amountToDecrement) => {
     .collection("customers")
     .doc(currentUser.uid);
 
-  let newWordCount = 0;
   try {
     const doc = await userRef.get();
 
@@ -331,23 +330,23 @@ const decrementUserWordCount = async (currentUser, amountToDecrement) => {
     }
 
     // Correctly retrieve and decrement the word count
-    const currentWordCount = doc.data().words;
-    newWordCount = currentWordCount - amountToDecrement;
+    const currentArticles = doc.data().articles;
+    let newArticleCount = currentArticles - 1;
 
     // Check for negative values
-    if (newWordCount < 0) {
+    if (newArticleCount < 0) {
       console.log("Word count cannot be negative.");
-      newWordCount = 0;
+      newArticleCount = 0;
     }
 
     // Update the document with the new word count
-    await userRef.update({ words: newWordCount });
+    await userRef.update({ articles: newArticleCount });
   } catch (error) {
     console.error("Error updating word count:", error);
     throw error; // Rethrowing the error is a good practice for error handling
   }
 
-  return newWordCount;
+  return newArticleCount;
 };
 
 const addToQueue = async (
@@ -500,7 +499,7 @@ async function updateIpFreeArticle(ipAddress) {
 module.exports = {
   updateFirebaseJob,
   getContextFromDb,
-  decrementUserWordCount,
+  decrementUserArticleCount,
   addFinetunetoFirebaseUser,
   findFinetuneInFirebase,
   addToQueue,

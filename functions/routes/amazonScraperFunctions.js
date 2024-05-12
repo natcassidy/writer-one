@@ -190,83 +190,6 @@ const determineArticleLength = (numProducts) => {
   return numProducts * 300;
 };
 
-function countWords(data) {
-  // Initialize a counter for the words
-  let wordCount = 0;
-
-  // Iterate through each item in the data
-  data.forEach((item) => {
-    // Count words in 'content'
-    if (item.content) {
-      wordCount += item.content.split(/\s+/).filter(Boolean).length;
-    }
-
-    // Count words in 'sectionContent' if it exists
-    if (item.sectionContent) {
-      wordCount += item.sectionContent.split(/\s+/).filter(Boolean).length;
-    }
-  });
-
-  // Return the total word count
-  return wordCount;
-}
-
-function countWordsClaudeBlog(data) {
-  // Initialize a counter for the words
-  let wordCount = 0;
-
-  // Iterate through each item in the data
-  data.forEach((item) => {
-    // Count words in 'content'
-    if (item.content) {
-      wordCount += item.content.split(/\s+/).filter(Boolean).length;
-    }
-
-    // Count words in 'sectionContent' if it exists
-    if (item.sectionContent) {
-      wordCount += item.sectionContent.split(/\s+/).filter(Boolean).length;
-    }
-  });
-
-  // Return the total word count
-  return wordCount;
-}
-
-function countWordsClaudeAmazon(data) {
-  // Initialize a counter for the words
-  let wordCount = 0;
-
-  // Iterate through each item in the data
-  data.forEach((item) => {
-    // Count words in 'content'
-    if (item.bottomLine) {
-      wordCount += item.bottomLine.split(/\s+/).filter(Boolean).length;
-    }
-
-    // Count words in 'sectionContent' if it exists
-    if (item.overviewOfProduct) {
-      wordCount += item.overviewOfProduct.split(/\s+/).filter(Boolean).length;
-    }
-
-    if (item.pros) {
-      item.pros.forEach((pros) => {
-        wordCount += pros.point.split(/\s+/).filter(Boolean).length;
-      });
-    }
-
-    if (item.cons) {
-      if (item.cons) {
-        item.cons.forEach((cons) => {
-          wordCount += cons.point.split(/\s+/).filter(Boolean).length;
-        });
-      }
-    }
-  });
-
-  // Return the total word count
-  return wordCount;
-}
-
 const testClaude = async () => {
   const anthropic = new Anthropic({
     apiKey: process.env.CLAUDE_API_KEY,
@@ -350,7 +273,6 @@ const generateArticleClaude = async (
   pointOfView,
   citeSources,
   finetune,
-  sectionWordCount,
   internalUrlContext
 ) => {
   const constructedSections = [];
@@ -366,7 +288,6 @@ const generateArticleClaude = async (
           pointOfView,
           citeSources,
           finetune,
-          sectionWordCount,
           internalUrlContext
         );
         constructedSections.push(promise);
@@ -414,7 +335,6 @@ const generateSectionsWithRetry = async (
   pointOfView,
   citeSources,
   finetune,
-  sectionWordCount,
   internalUrlContext
 ) => {
   let attempt = 0;
@@ -429,7 +349,6 @@ const generateSectionsWithRetry = async (
         pointOfView,
         citeSources,
         finetune,
-        sectionWordCount,
         internalUrlContext
       );
       return sections;
@@ -452,7 +371,6 @@ const generateSectionsOfArticle = async (
   pointOfView,
   citeSources,
   finetunePromise,
-  sectionWordCount,
   internalUrlContext
 ) => {
   const outlineCopy = structuredClone(piecesOfOutline);
@@ -465,7 +383,6 @@ const generateSectionsOfArticle = async (
       pointOfView,
       citeSources,
       finetunePromise,
-      sectionWordCount,
       internalUrlContext
     );
     const extractedJSON = extractJsonFromString(completion.content[0].text);
@@ -517,6 +434,4 @@ module.exports = {
   testClaude,
   generateOutlineClaude,
   generateArticleClaude,
-  countWordsClaudeBlog,
-  countWordsClaudeAmazon,
 };

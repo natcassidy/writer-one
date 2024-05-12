@@ -48,13 +48,12 @@ router.post("/process", async (req, res) => {
     internalUrls,
   } = req.body;
 
-  const isWithinWordCount = await misc.doesUserHaveEnoughWords(
-    currentUser,
-    wordRange
+  const isWithinArticleCount = await misc.doesUserHaveEnoughArticles(
+    currentUser
   );
 
-  if (!isWithinWordCount) {
-    return res.status(500).send("Word Count Limit Hit");
+  if (!isWithinArticleCount) {
+    return res.status(500).send("Article Count Limit Hit");
   }
 
   let context = "";
@@ -130,9 +129,8 @@ router.post("/process", async (req, res) => {
     console.log("outline: \n", outline);
   }
 
-  const sectionWordCount = misc.wordLengthCalculator(wordRange, outline);
   console.log("generating article");
-  let updatedOutline;
+  let updatedOutline = "";
   try {
     updatedOutline = await amazon.generateArticleClaude(
       outline,
@@ -142,7 +140,6 @@ router.post("/process", async (req, res) => {
       pointOfView,
       citeSources,
       finetune,
-      sectionWordCount,
       internalUrlContext
     );
   } catch (error) {
@@ -152,12 +149,10 @@ router.post("/process", async (req, res) => {
   console.log("article generated now doing gemini article");
 
   console.log("gemini article generated");
-  const wordCount = misc.countWords(updatedOutline);
-  const updatedWordCount = await firebaseFunctions.decrementUserWordCount(
-    currentUser,
-    wordCount
+  const updatedArticleCount = await firebaseFunctions.decrementUserArticleCount(
+    currentUser
   );
-  console.log("word count: ", wordCount);
+
   jobId = await firebaseFunctions.updateFirebaseJob(
     currentUser,
     jobId,
@@ -167,7 +162,7 @@ router.post("/process", async (req, res) => {
   //Outline will now contain each section filled in with data
   console.log("Exiting processing of Blog Post");
 
-  res.status(200).send({ article: updatedOutline, updatedWordCount });
+  res.status(200).send({ article: updatedOutline, updatedArticleCount });
 });
 
 router.post("/processFreeTrial", extractIpMiddleware, async (req, res) => {
@@ -186,7 +181,6 @@ router.post("/processFreeTrial", extractIpMiddleware, async (req, res) => {
     generatedImages,
     generateOutline,
     outline,
-    currentUser,
     jobId,
     finetuneChosen,
   } = req.body;
@@ -369,13 +363,11 @@ router.post("/processAmazon", async (req, res) => {
     affiliate,
     finetuneChosen,
   } = req.body;
-  const length = amazon.determineArticleLength(numberOfProducts);
-  const isWithinWordCount = await misc.doesUserHaveEnoughWordsAmazon(
-    currentUser,
-    length
+  const isWithinArticleCount = await misc.doesUserHaveEnoughArticles(
+    currentUser
   );
 
-  if (!isWithinWordCount) {
+  if (!isWithinArticleCount) {
     return res.status(500).send("Word Count Limit Hit");
   }
 
@@ -430,10 +422,8 @@ router.post("/processAmazon", async (req, res) => {
   // await vertex.generateArticleGemini(geminiOutline)
 
   // console.log('gemini article generated')
-  const wordCount = amazon.countWordsClaudeAmazon(outline);
-  const updatedWordCount = await firebaseFunctions.decrementUserWordCount(
-    currentUser,
-    wordCount
+  const updatedArticleCount = await firebaseFunctions.decrementUserArticleCount(
+    currentUser
   );
   jobId = await firebaseFunctions.updateFirebaseJob(
     currentUser,
@@ -442,10 +432,10 @@ router.post("/processAmazon", async (req, res) => {
     outline,
     articleType
   );
-  console.log("word count: ", wordCount);
+  console.log("word count: ", updatedArticleCount);
   //Outline will now contain each section filled in with data
   console.log("outline:\n", outline);
-  res.status(200).send({ article: outline, updatedWordCount });
+  res.status(200).send({ article: outline, updatedArticleCount });
 });
 
 router.post("/processAmazonFreeTrial", async (req, res) => {

@@ -21,16 +21,16 @@ router.post("/webhooks", async (req, res) => {
 
     const invoiceId = payment.invoice;
     let stripePricing = await getPricingFromStripe(invoiceId);
-    let wordCount = 0;
+    let articleCount = 0;
 
     if (stripePricing === process.env.PLAN_15000_WORDS) {
-      wordCount = 15000;
+      articleCount = 5;
     } else if (stripePricing === process.env.PLAN_50000_WORDS) {
-      wordCount = 50000;
+      articleCount = 10;
     } else if (stripePricing === process.env.PLAN_150000_WORDS) {
-      wordCount = 150000;
+      articleCount = 20;
     } else if (stripePricing === process.env.PLAN_500000_WORDS) {
-      wordCount = 500000;
+      articleCount = 50;
     }
 
     let oldPlanId = await getOldPlanId(customer);
@@ -53,7 +53,7 @@ router.post("/webhooks", async (req, res) => {
 
     let planInfoStatus = await updateFirebasePlanInfo(
       isAppendApplied,
-      wordCount,
+      articleCount,
       stripePricing,
       customer
     );
@@ -97,7 +97,7 @@ const getPricingFromStripe = async (invoiceId) => {
 
 const updateFirebasePlanInfo = async (
   isAppendApplied,
-  wordCount,
+  articleCount,
   stripePricing,
   customer
 ) => {
@@ -112,15 +112,15 @@ const updateFirebasePlanInfo = async (
       customerRef.docs.map(async (doc) => {
         if (isAppendApplied) {
           // Retrieve the current words count and add the new wordCount to it
-          const currentWords = doc.data().words || 0; // Fallback to 0 if 'words' field is not present
+          const currentArticles = doc.data().articles || 0; // Fallback to 0 if 'words' field is not present
           await doc.ref.update({
-            words: currentWords + wordCount,
+            articles: currentArticles + articleCount,
             plan: stripePricing ? stripePricing : 0,
           });
         } else {
           // Replace the existing words value with the new wordCount
           await doc.ref.update({
-            words: wordCount,
+            articles: articleCount,
             plan: stripePricing ? stripePricing : 0,
           });
         }

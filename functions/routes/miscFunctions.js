@@ -154,7 +154,7 @@ function flattenJsonToHtmlList(json) {
   return resultList;
 }
 
-const doesUserHaveEnoughWords = async (currentUser, articleLength) => {
+const doesUserHaveEnoughArticles = async (currentUser) => {
   if (!currentUser) {
     throw new Error("No user defined");
   }
@@ -172,41 +172,10 @@ const doesUserHaveEnoughWords = async (currentUser, articleLength) => {
       return false; // Assuming the function should return false if the document doesn't exist.
     }
 
-    const userWords = doc.data().words;
-
-    // Extract the maximum word count requirement from the articleLength string.
-    const minRequiredWords = parseInt(articleLength.split("-").shift());
+    const userArticles = doc.data().articles;
 
     // Check if the user has enough words.
-    return userWords >= minRequiredWords;
-  } catch (error) {
-    console.error("Error fetching user data:", error);
-    throw error; // Consider handling or rethrowing the error as appropriate for your application.
-  }
-};
-
-const doesUserHaveEnoughWordsAmazon = async (currentUser, articleLength) => {
-  if (!currentUser) {
-    throw new Error("No user defined");
-  }
-
-  const userRef = admin
-    .firestore()
-    .collection("customers")
-    .doc(currentUser.uid);
-
-  try {
-    const doc = await userRef.get();
-
-    if (!doc.exists) {
-      console.log("No such document!");
-      return false; // Assuming the function should return false if the document doesn't exist.
-    }
-
-    const userWords = doc.data().words;
-
-    // Check if the user has enough words.
-    return userWords >= articleLength;
+    return userArticles >= 1;
   } catch (error) {
     console.error("Error fetching user data:", error);
     throw error; // Consider handling or rethrowing the error as appropriate for your application.
@@ -221,27 +190,6 @@ function processAIResponseToHtml(responseMessage) {
   } catch (error) {
     throw new Error("Failed to process AI response");
   }
-}
-
-function countWords(data) {
-  // Initialize a counter for the words
-  let wordCount = 0;
-
-  // Iterate through each item in the data
-  data.forEach((item) => {
-    // Count words in 'content'
-    if (item.content) {
-      wordCount += item.content.split(/\s+/).filter(Boolean).length;
-    }
-
-    // Count words in 'sectionContent' if it exists
-    if (item.sectionContent) {
-      wordCount += item.sectionContent.split(/\s+/).filter(Boolean).length;
-    }
-  });
-
-  // Return the total word count
-  return wordCount;
 }
 
 const doSerpResearch = async (keyWord, countryCode) => {
@@ -658,10 +606,8 @@ module.exports = {
   stripDotDotDotItems,
   flattenJsonToHtmlList,
   processAIResponseToHtml,
-  doesUserHaveEnoughWords,
-  countWords,
+  doesUserHaveEnoughArticles,
   doSerpResearch,
-  doesUserHaveEnoughWordsAmazon,
   determineSectionCount,
   generateContextStringAmazon,
   parseKeyWords,
