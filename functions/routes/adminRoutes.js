@@ -25,8 +25,12 @@ router.post("/webhooks", async (req, res) => {
 
     if (stripePricing === process.env.PLAN_15000_WORDS) {
       wordCount = 15000;
-    } else if (stripePricing === process.env.PLAN_45000_WORDS) {
-      wordCount = 45000;
+    } else if (stripePricing === process.env.PLAN_50000_WORDS) {
+      wordCount = 50000;
+    } else if (stripePricing === process.env.PLAN_150000_WORDS) {
+      wordCount = 150000;
+    } else if (stripePricing === process.env.PLAN_500000_WORDS) {
+      wordCount = 500000;
     }
 
     let oldPlanId = await getOldPlanId(customer);
@@ -133,11 +137,19 @@ const isPlanUpgradeOrDowngrade = (newPlanId, oldPlanId) => {
   const currentPlansInOrderOfPrice = [
     {
       planId: process.env.PLAN_15000_WORDS,
-      price: 9,
+      price: 22,
     },
     {
-      planId: process.env.PLAN_45000_WORDS,
-      price: 19,
+      planId: process.env.PLAN_50000_WORDS,
+      price: 69,
+    },
+    {
+      planId: process.env.PLAN_150000_WORDS,
+      price: 189,
+    },
+    {
+      planId: process.env.PLAN_500000_WORDS,
+      price: 599,
     },
   ];
 
