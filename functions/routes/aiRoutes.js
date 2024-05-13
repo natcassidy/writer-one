@@ -56,6 +56,10 @@ router.post("/process", async (req, res) => {
     return res.status(500).send("Article Count Limit Hit");
   }
 
+  if (sectionCount > 6) {
+    return res.status(500).send("Error Generating Article");
+  }
+
   let context = "";
   if (!jobId) {
     jobId = -1;
@@ -206,6 +210,10 @@ router.post("/processFreeTrial", extractIpMiddleware, async (req, res) => {
     return res.status(500).send("No Free Article Remaining!");
   }
 
+  if (sectionCount > 2) {
+    return res.status(500).send("Error Generating Article");
+  }
+
   const articleType = "blog";
   let finetune = "";
 
@@ -313,6 +321,10 @@ router.post("/processBulk", async (req, res) => {
 
   console.log("Processing bulk blog, adding to queue");
   const keyWordList = misc.parseKeyWords(keyWord);
+
+  if (sectionCount > 6) {
+    return res.status(500).send("Error Generating Article");
+  }
 
   console.log("List: ", keyWordList);
   try {

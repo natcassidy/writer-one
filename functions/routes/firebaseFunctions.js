@@ -321,6 +321,7 @@ const decrementUserArticleCount = async (currentUser) => {
     .collection("customers")
     .doc(currentUser.uid);
 
+  let newArticleCount;
   try {
     const doc = await userRef.get();
 
@@ -331,7 +332,7 @@ const decrementUserArticleCount = async (currentUser) => {
 
     // Correctly retrieve and decrement the word count
     const currentArticles = doc.data().articles;
-    let newArticleCount = currentArticles - 1;
+    newArticleCount = currentArticles - 1;
 
     // Check for negative values
     if (newArticleCount < 0) {
