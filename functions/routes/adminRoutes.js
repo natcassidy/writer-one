@@ -23,14 +23,14 @@ router.post("/webhooks", async (req, res) => {
     let stripePricing = await getPricingFromStripe(invoiceId);
     let articleCount = 0;
 
-    if (stripePricing === process.env.PLAN_15000_WORDS) {
-      articleCount = 5;
-    } else if (stripePricing === process.env.PLAN_50000_WORDS) {
+    if (stripePricing === process.env.PRICE_10_PRICE) {
       articleCount = 10;
-    } else if (stripePricing === process.env.PLAN_150000_WORDS) {
-      articleCount = 20;
-    } else if (stripePricing === process.env.PLAN_500000_WORDS) {
-      articleCount = 50;
+    } else if (stripePricing === process.env.PRICE_30_PRICE) {
+      articleCount = 30;
+    } else if (stripePricing === process.env.PRICE_100_PRICE) {
+      articleCount = 100;
+    } else if (stripePricing === process.env.PRICE_300_PRICE) {
+      articleCount = 300;
     }
 
     let oldPlanId = await getOldPlanId(customer);
@@ -136,20 +136,20 @@ const updateFirebasePlanInfo = async (
 const isPlanUpgradeOrDowngrade = (newPlanId, oldPlanId) => {
   const currentPlansInOrderOfPrice = [
     {
-      planId: process.env.PLAN_15000_WORDS,
-      price: 22,
+      planId: process.env.PRICE_10_PRICE,
+      price: 19,
     },
     {
-      planId: process.env.PLAN_50000_WORDS,
-      price: 69,
+      planId: process.env.PRICE_30_PRICE,
+      price: 49,
     },
     {
-      planId: process.env.PLAN_150000_WORDS,
-      price: 189,
+      planId: process.env.PRICE_100_PRICE,
+      price: 159,
     },
     {
-      planId: process.env.PLAN_500000_WORDS,
-      price: 599,
+      planId: process.env.PRICE_300_PRICE,
+      price: 469,
     },
   ];
 
