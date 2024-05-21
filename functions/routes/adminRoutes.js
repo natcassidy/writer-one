@@ -13,6 +13,7 @@ router.post("/webhooks", async (req, res) => {
   const paymentIntent = req.body.data.object.id;
   const customer = req.body.data.object.customer;
 
+  console.log("Payment intent : ", paymentIntent);
   // Confirm the payment status using the Stripe API
   const payment = await stripe.paymentIntents.retrieve(paymentIntent);
 
@@ -22,6 +23,8 @@ router.post("/webhooks", async (req, res) => {
     const invoiceId = payment.invoice;
     let stripePricing = await getPricingFromStripe(invoiceId);
     let articleCount = 0;
+
+    console.log(stripePricing);
 
     if (stripePricing === process.env.PRICE_10_PRICE) {
       articleCount = 10;
