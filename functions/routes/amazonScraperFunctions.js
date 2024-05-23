@@ -406,26 +406,6 @@ const generateSectionsOfArticle = async (
   return outlineCopy;
 };
 
-function sanitizeJSON(jsonString) {
-  return jsonString.replace(/[\u0000-\u001F\u007F-\u009F]/g, "");
-}
-
-function extractJsonFromString(str) {
-  const regex = /{.*}/s;
-  const match = str.match(regex);
-
-  if (match && match.length > 0) {
-    try {
-      return match[0];
-    } catch (error) {
-      console.error("Error parsing JSON:", error);
-      return null;
-    }
-  }
-
-  return null;
-}
-
 module.exports = {
   performSearch,
   generateOutlineAmazon,

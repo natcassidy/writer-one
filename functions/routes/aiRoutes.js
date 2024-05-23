@@ -13,6 +13,7 @@ const vertex = require("./vertexAiFunctions");
 const amazon = require("./amazonScraperFunctions");
 const claude = require("./claudeFunctions");
 const openai = require("./openai");
+const gemini = require("./gemini");
 const firebaseFunctions = require("./firebaseFunctions");
 const bulkMiscFunctions = require("./bulkMiscFunctions");
 const fs = require("node:fs");
@@ -567,7 +568,7 @@ router.post("/outline", async (req, res) => {
       );
     }
 
-    const responseMessage = await amazon.generateOutlineClaude(
+    const responseMessage = await misc.generateOutline(
       keyWord,
       sectionCount,
       context
@@ -657,6 +658,11 @@ router.get("/testOpenai", extractIpMiddleware, async (req, res) => {
 
 router.post("/testFinetune", async (req, res) => {
   const results = await claude.generateFineTuneService(req.body.articles);
+  res.status(200).send({ results });
+});
+
+router.post("/testGemini", async (req, res) => {
+  const results = await gemini.testGemini();
   res.status(200).send({ results });
 });
 

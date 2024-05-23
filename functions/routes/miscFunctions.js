@@ -5,6 +5,7 @@ const admin = require("firebase-admin");
 require("dotenv").config();
 const claude = require("./claudeFunctions");
 const openai = require("./openai");
+const gemini = require("./gemini");
 // const pino = require('pino');
 // const path = require('path');
 
@@ -560,6 +561,17 @@ const parseIp = (req) => {
   );
 };
 
+const generateOutline = async (keyWord, sectionCount, context) => {
+  const completion = await gemini.generateOutline(
+    keyWord,
+    sectionCount,
+    context
+  );
+  const extractedJSON = extractJsonFromString(completion);
+  const sanitizedJSON = sanitizeJSON(extractedJSON);
+  return processAIResponseToHtml(sanitizedJSON);
+};
+
 module.exports = {
   stripEscapeChars,
   stripToText,
@@ -574,4 +586,5 @@ module.exports = {
   parseKeyWords,
   parseIp,
   doInternalUrlResearch,
+  generateOutline,
 };
