@@ -5,7 +5,6 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 const firebaseFunctions = require("./firebaseFunctions");
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro-latest" });
 
 const testGemini = async () => {
   const prompt = "Write a story about a magic backpack.";
@@ -417,36 +416,48 @@ function stripToText(html) {
 async function generateOutline(keyword, sectionCount, context) {
   console.log("Entering generateOutline");
 
-  const outlineFunctionDeclaration = {
-    name: "generate_outline",
+  const generateOutlineFunction = {
+    name: "generateOutline",
     description:
-      "Generates an outline for an article based on the given keyword and context",
+      "Generate an outline for the given keyword using the structure provided. The title section should be the introduction",
     parameters: {
       type: "object",
       properties: {
-        keyword: {
+        title: {
           type: "string",
-          description: "The main keyword or topic of the article",
         },
-        sectionCount: {
-          type: "integer",
-          description:
-            "The number of top-level sections to include in the outline",
-        },
-        context: {
-          type: "string",
-          description: "Additional context or information about the topic",
+        sections: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              name: {
+                type: "string",
+              },
+              subsections: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    name: {
+                      type: "string",
+                    },
+                  },
+                  required: ["name"],
+                },
+              },
+            },
+            required: ["name", "subsections"],
+          },
         },
       },
-      required: ["keyword", "sectionCount", "context"],
+      required: ["title", "sections"],
     },
   };
 
-  const prompt = `You are an article outline generator. Generate an outline for the given keyword and context, with the specified number of sections.`;
-
   const tools = [
     {
-      function_declarations: [outlineFunctionDeclaration],
+      function_declarations: [generateOutlineFunction],
     },
   ];
 
@@ -456,20 +467,84 @@ async function generateOutline(keyword, sectionCount, context) {
     },
   };
 
-  const result = await model.generateContent(prompt, {
-    tools: tools,
-    toolConfig: toolConfig,
+  const model = genAI.getGenerativeModel({
+    model: "gemini-1.5-pro-latest",
+    tools,
+    toolConfig,
   });
 
-  const response = await result.response;
-  const functionCall = response.functionCall;
+  const prompt = `Generate an outline for the keyword: ${keyword}.  Outline should be insightful and make sense to a reader.  Avoid using generic placeholders for headers like Brand 1 or Question 1.  Ensure that there are NO MORE THAN ${sectionCount} sections total. Here is some context and info on the topic: ${context}.  You DO NOT NEED TO HAVE MULTIPLE SUBSECTIONS PER SECTION.`;
 
-  if (functionCall.name === "generate_outline") {
-    const outline = functionCall.args.outline;
-    return JSON.stringify(outline);
-  } else {
-    throw new Error("Unexpected function call: " + functionCall.name);
-  }
+  const chat = model.startChat();
+  const result = await chat.sendMessage(prompt);
+
+  const response = await result.response.candidates[0].content.parts[0]
+    .functionCall.args;
+  return JSON.stringify(response);
+}
+
+async function generateOutlineWithAI(keyword, wordRange) {
+  const toolsForNow = [
+    {
+      type: "function",
+      function: {
+        name: "generateOutline",
+        description:
+          "Generate an outline for the given keyword using the structure provided.  The title section should be the introduction",
+        parameters: {
+          type: "object",
+          properties: {
+            title: {
+              type: "string",
+            },
+            sections: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  name: {
+                    type: "string",
+                  },
+                  subsections: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        name: {
+                          type: "string",
+                        },
+                      },
+                      required: ["name"],
+                    },
+                  },
+                },
+                required: ["name", "subsections"],
+              },
+            },
+          },
+          required: ["title", "sections"],
+        },
+      },
+    },
+  ];
+
+  const sectionsCount = determineSectionCount(wordRange);
+
+  return await openai.chat.completions.create({
+    messages: [
+      {
+        role: "system",
+        content: "You are a helpful assistant designed to output JSON.",
+      },
+      {
+        role: "user",
+        content: `Generate an outline for the keyword: ${keyword}.  Outline should be insightful and make sense to a reader.  Avoid using generic placeholders for headers like Brand 1 or Question 1.  Ensure that there are NO MORE THAN ${sectionsCount} sections total. 1 of the sections MUST be the introduction.  The wordCount for the article is in the range of ${wordRange}.  Each subsection will be roughly 200-300 words worth of content so please ensure that you keep in mind the size of the section when determining how many to create.  DO NOT include the word count in your response or function call, only use it to keep track of yourself. You DO NOT NEED TO HAVE MULTIPLE SUBSECTIONS PER SECTION.`,
+      },
+    ],
+    tools: toolsForNow,
+    model: "gpt-4-0125-preview",
+    response_format: { type: "json_object" },
+  });
 }
 
 function sanitizeJSON(jsonString) {
