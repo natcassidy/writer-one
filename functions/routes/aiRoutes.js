@@ -87,7 +87,7 @@ router.post("/process", async (req, res) => {
       finetuneChosen.textInputs[0].body != ""
     ) {
       try {
-        finetune = claude.generateFineTuneService(finetuneChosen.textInputs);
+        finetune = gemini.generateFineTuneService(finetuneChosen.textInputs);
       } catch (error) {
         console.log("Error generating finetune ", error);
       }
@@ -104,7 +104,7 @@ router.post("/process", async (req, res) => {
       finetuneChosen.textInputs[0].body != ""
     ) {
       try {
-        finetune = claude.generateFineTuneService(finetuneChosen.textInputs);
+        finetune = gemini.generateFineTuneService(finetuneChosen.textInputs);
       } catch (error) {
         console.log("Error generating finetune ", error);
       }
@@ -123,11 +123,7 @@ router.post("/process", async (req, res) => {
       context,
       articleType
     );
-    outline = await amazon.generateOutlineClaude(
-      keyWord,
-      sectionCount,
-      context
-    );
+    outline = await misc.generateOutline(keyWord, sectionCount, context);
     jobId = await firebaseFunctions.updateFirebaseJob(
       currentUser,
       jobId,
@@ -141,7 +137,7 @@ router.post("/process", async (req, res) => {
   console.log("generating article");
   let updatedOutline = "";
   try {
-    updatedOutline = await amazon.generateArticleClaude(
+    updatedOutline = await misc.generateArticle(
       outline,
       keyWord,
       context,
@@ -234,7 +230,7 @@ router.post("/processFreeTrial", extractIpMiddleware, async (req, res) => {
       finetuneChosen.textInputs[0].body != ""
     ) {
       try {
-        finetune = claude.generateFineTuneService(finetuneChosen.textInputs);
+        finetune = gemini.generateFineTuneService(finetuneChosen.textInputs);
       } catch (error) {
         console.log("Error generating finetune ", error);
       }
@@ -266,7 +262,7 @@ router.post("/processFreeTrial", extractIpMiddleware, async (req, res) => {
       finetuneChosen.textInputs[0].body != ""
     ) {
       try {
-        finetune = claude.generateFineTuneService(finetuneChosen.textInputs);
+        finetune = gemini.generateFineTuneService(finetuneChosen.textInputs);
       } catch (error) {
         console.log("Error generating finetune ", error);
       }
@@ -276,7 +272,7 @@ router.post("/processFreeTrial", extractIpMiddleware, async (req, res) => {
   console.log("generating article");
   let updatedOutline;
   try {
-    updatedOutline = await amazon.generateArticleClaude(
+    updatedOutline = await misc.generateArticle(
       outline,
       keyWord,
       context,
@@ -406,7 +402,7 @@ router.post("/processAmazon", async (req, res) => {
     finetuneChosen.textInputs[0].body != ""
   ) {
     try {
-      finetune = claude.generateFineTuneService(finetuneChosen.textInputs);
+      finetune = gemini.generateFineTuneService(finetuneChosen.textInputs);
     } catch (error) {
       console.log("Error generating finetune ", error);
     }
@@ -515,7 +511,7 @@ router.post("/processAmazonFreeTrial", async (req, res) => {
   });
 
   try {
-    finetune += await claude.generateFinetune(finetuneChosen.urls);
+    finetune += await gemini.generateFineTuneService(finetuneChosen.urls);
   } catch (error) {
     console.log("Error generating finetune ", error);
   }
@@ -657,7 +653,7 @@ router.get("/testOpenai", extractIpMiddleware, async (req, res) => {
 });
 
 router.post("/testFinetune", async (req, res) => {
-  const results = await claude.generateFineTuneService(req.body.articles);
+  const results = await gemini.generateFineTuneService(req.body.articles);
   res.status(200).send({ results });
 });
 

@@ -186,8 +186,7 @@ const doesUserHaveEnoughArticles = async (currentUser) => {
 // Function to process AI response and convert to HTML list
 function processAIResponseToHtml(responseMessage) {
   try {
-    const jsonObject = JSON.parse(responseMessage);
-    return flattenJsonToHtmlList(jsonObject);
+    return flattenJsonToHtmlList(responseMessage);
   } catch (error) {
     throw new Error("Failed to process AI response");
   }
@@ -562,14 +561,138 @@ const parseIp = (req) => {
 };
 
 const generateOutline = async (keyWord, sectionCount, context) => {
-  const completion = await gemini.generateOutline(
-    keyWord,
-    sectionCount,
-    context
-  );
-  const extractedJSON = extractJsonFromString(completion);
-  const sanitizedJSON = sanitizeJSON(extractedJSON);
-  return processAIResponseToHtml(sanitizedJSON);
+  const response = await gemini.generateOutline(keyWord, sectionCount, context);
+  return processAIResponseToHtml(response);
+};
+
+const generateSectionsWithRetry = async (
+  piecesOfOutline,
+  keyWord,
+  context,
+  tone,
+  pointOfView,
+  citeSources,
+  finetune,
+  internalUrlContext
+) => {
+  let attempt = 0;
+  while (attempt < 3) {
+    try {
+      console.log("Attempt #: ", attempt);
+      const sections = await generateSectionsOfArticle(
+        piecesOfOutline,
+        keyWord,
+        context,
+        tone,
+        pointOfView,
+        citeSources,
+        finetune,
+        internalUrlContext
+      );
+      return sections;
+    } catch (error) {
+      attempt++;
+      if (attempt >= 3) {
+        console.error("Failed to generate sections after 3 attempts:", error);
+        throw error;
+      }
+    }
+  }
+};
+
+const generateSectionsOfArticle = async (
+  piecesOfOutline,
+  keyWord,
+  context,
+  tone,
+  pointOfView,
+  citeSources,
+  finetunePromise,
+  internalUrlContext
+) => {
+  const outlineCopy = structuredClone(piecesOfOutline);
+  try {
+    const response = await gemini.generateSection(
+      outlineCopy,
+      keyWord,
+      context,
+      tone,
+      pointOfView,
+      citeSources,
+      finetunePromise,
+      internalUrlContext
+    );
+
+    for (let i = 0; i < response.paragraphs.length; i++) {
+      outlineCopy[i].sectionContent = response.paragraphs[i];
+    }
+  } catch (error) {
+    console.error("Error generating sections:", error);
+    throw new Error(e);
+  }
+  return outlineCopy;
+};
+
+const generateArticle = async (
+  outline,
+  keyWord,
+  context,
+  tone,
+  pointOfView,
+  citeSources,
+  finetune,
+  internalUrlContext
+) => {
+  const constructedSections = [];
+  const piecesOfOutline = [];
+  for (const section of outline) {
+    if (section.tagName === "h1" || section.tagName === "h2") {
+      if (piecesOfOutline.length > 0) {
+        const promise = generateSectionsWithRetry(
+          piecesOfOutline,
+          keyWord,
+          context,
+          tone,
+          pointOfView,
+          citeSources,
+          finetune,
+          internalUrlContext
+        );
+        constructedSections.push(promise);
+        piecesOfOutline.length = 0; // Reset for next sections
+      }
+      constructedSections.push(section); // Add the h1 or h2 section itself
+    } else if (section.tagName === "h3") {
+      piecesOfOutline.push(section); // Collect h3 sections for processing
+    }
+  }
+  // Handle any remaining pieces after loop
+  if (piecesOfOutline.length > 0) {
+    const promise = generateSectionsWithRetry(
+      piecesOfOutline,
+      keyWord,
+      context,
+      tone,
+      pointOfView,
+      citeSources,
+      finetune
+    );
+    constructedSections.push(promise);
+  }
+  try {
+    const resolvedSections = await Promise.all(
+      constructedSections.map(async (section) => {
+        if (section instanceof Promise) {
+          return await section;
+        }
+        return section;
+      })
+    );
+    return resolvedSections.flat();
+  } catch (error) {
+    console.error("Failed to generate article correctly:", error);
+    throw new Error("Failed to generate article correctly");
+  }
 };
 
 module.exports = {
@@ -587,4 +710,5 @@ module.exports = {
   parseIp,
   doInternalUrlResearch,
   generateOutline,
+  generateArticle,
 };

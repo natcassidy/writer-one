@@ -66,7 +66,7 @@ const processBlogArticleFromBulk = async (
   console.log("generating article");
   let updatedOutline;
   try {
-    updatedOutline = await amazon.generateArticleClaude(
+    updatedOutline = await misc.generateArticle(
       outline,
       keyWord,
       context,

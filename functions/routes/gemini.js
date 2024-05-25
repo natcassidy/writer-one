@@ -116,20 +116,54 @@ const generateSection = async (
   }
 
   console.log("Entering generateSection");
-  const anthropic = new Anthropic({
-    apiKey: process.env.CLAUDE_API_KEY,
-  });
 
   let listOfSections = "";
   outline.forEach((section) => {
     listOfSections += `${section.content}, `;
   });
 
-  const toolsForNow = `{
-        "paragraphs": [
-            "string"
-        ]
-    }`;
+  const generateSectionFunction = [
+    {
+      name: "generateSection",
+      description: `Generate paragraphs based on the information provided for each subsection.  Ensure to include a paragragh for each section: ${listOfSections}.  When calling this function you MUST provide ${outline.length} number of elements in the array.`,
+
+      parameters: {
+        type: "object",
+        properties: {
+          paragraphs: {
+            type: "array",
+            items: {
+              type: "string",
+            },
+          },
+        },
+        required: ["paragraphs"],
+      },
+    },
+  ];
+
+  const tools = [
+    {
+      function_declarations: [generateSectionFunction],
+    },
+  ];
+
+  const toolConfig = {
+    function_calling_config: {
+      mode: "ANY",
+    },
+  };
+
+  const generationConfig = {
+    maxOutputTokens: 4000,
+    temperature: 0.9,
+  };
+
+  const model = genAI.getGenerativeModel({
+    model: "gemini-1.5-pro-latest",
+    tools,
+    toolConfig,
+  });
 
   const notesForArticle = generateNotesForArticle(outline);
 
@@ -171,15 +205,20 @@ const generateSection = async (
         ${notesForArticle}
         \n REMEMBER YOU MUST WRITE ${outline.length} sections. DO NOT INCLUDE THE HEADER ONLY THE PARAGRAPH.  If you do not provide an array of length ${outline.length}, for the sections titled: [${listOfSections}] -- EVERYTHING WILL BREAK.
         Paragraphs should each be 500 words length each.  The sections should flow together nicely.
-        ENSURE your response is in the following JSON format:\n ${toolsForNow} \n
+        
         Your paragraphs should not sound AI generated.  Ensure that you write in a way that is indistinguishable from a human.
         Don't use long sentences in your paragraphs, longer sentences tend to appear AI generated.
-        YOUR ENTIRE RESPONSE MUST BE IN THE JSON FORMAT ABOVE.  DO NOT INCLUDE ANY TEXT BEFORE OR AFTER THE JSON RESPONSE.  IF IT IS NOT IN THE JSON FORMAT ABOVE IT WILL BREAK.  REMEMBER IT IS CRITICAL THAT EACH PARAGRAPH SHOULD BE ATLEAST 500 IN LENGTH.`;
+        REMEMBER IT IS CRITICAL THAT EACH PARAGRAPH SHOULD BE ATLEAST 500+ words IN LENGTH.  In your response do not include ANY XML tags.  Your response should be plain text ONLY.`;
 
   console.log("Finished generateSection");
-  const result = await model.generateContent(prompt);
-  const response = await result.response;
-  return response.text();
+  const chat = model.startChat({
+    history: [],
+    generationConfig,
+  });
+  const result = await chat.sendMessage(prompt);
+  const response = await result.response.candidates[0].content.parts[0]
+    .functionCall.args;
+  return response;
 };
 
 const generateNotesForArticle = (outline) => {
@@ -224,21 +263,6 @@ const saveFinetuneConfig = async (currentUser, urls, textInputs, name) => {
   console.log("Finished saveFinetuneConfig");
 };
 
-// const generateFinetune = async (urls) => {
-//   const scrapeConfig = createScrapeConfig("");
-
-//   // Map each URL to a promise created by processUrlForFinetune
-//   const scrapePromises = urls.map((url) =>
-//     processUrlForFinetune(url, scrapeConfig)
-//   );
-
-//   // Promise.all waits for all promises in the array to resolve
-//   const scrapedArticles = await Promise.all(scrapePromises);
-
-//   // Once all promises resolve, concatenate their results
-//   return scrapedArticles.map((article) => `${article.data} \n`).join("");
-// };
-
 const generateFinetune = (articles) => {
   return new Promise((resolve, reject) => {
     try {
@@ -252,14 +276,27 @@ const generateFinetune = (articles) => {
         )
         .join("");
 
-      const anthropic = new Anthropic({
-        apiKey: process.env.CLAUDE_API_KEY,
-      });
-
       const toolsForNow = `{
         "instructions": 
             "string"
-    }`;
+      }`;
+
+      const generateFinetune = [
+        {
+          name: "generateFinetune",
+          description: `Generate instructions for immitating the style and tone of the articles provided.`,
+
+          parameters: {
+            type: "object",
+            properties: {
+              instructions: {
+                type: "string",
+              },
+            },
+            required: ["instructions"],
+          },
+        },
+      ];
 
       const prompt = `
         Your job is to analyze the below article(s) and determine how to immitate the writing style of them.  Articles are wrapped in <article></article> tags.
@@ -304,16 +341,44 @@ const generateFinetune = (articles) => {
         5. Encourage the AI model to recommend experimenting with different techniques and finding a unique voice that resonates with the reader.
 
         ENSURE your response is in the following JSON format:\n ${toolsForNow} \n
-        YOUR ENTIRE RESPONSE MUST BE IN THE JSON FORMAT ABOVE.  DO NOT INCLUDE ANY TEXT BEFORE OR AFTER THE JSON RESPONSE.  IF IT IS NOT IN THE JSON FORMAT ABOVE IT WILL BREAK.`;
+        YOUR ENTIRE RESPONSE MUST BE IN THE JSON FORMAT ABOVE.  DO NOT INCLUDE ANY TEXT BEFORE OR AFTER THE JSON RESPONSE.  IF IT IS NOT IN THE JSON FORMAT ABOVE IT WILL BREAK.
+        Please ensure your response is 1000+ words.  Strive to be as detailed as possible.`;
 
-      model
-        .generateContent(prompt)
+      const tools = [
+        {
+          function_declarations: [generateFinetune],
+        },
+      ];
+
+      const toolConfig = {
+        function_calling_config: {
+          mode: "ANY",
+        },
+      };
+
+      const generationConfig = {
+        maxOutputTokens: 4000,
+        temperature: 0.9,
+      };
+
+      const model = genAI.getGenerativeModel({
+        model: "gemini-1.5-pro-latest",
+        tools,
+        toolConfig,
+      });
+
+      const chat = model.startChat({
+        history: [],
+        generationConfig,
+      });
+
+      chat
+        .sendMessage(prompt)
         .then((response) => {
           console.log("Finished finetune");
-          resolve(response);
-        })
-        .then((data) => {
-          return data.text();
+          resolve(
+            response.response.candidates[0].content.parts[0].functionCall.args
+          );
         })
         .catch((error) => {
           reject(error);
@@ -326,17 +391,7 @@ const generateFinetune = (articles) => {
 
 const generateFineTuneService = (articles) => {
   return generateFinetune(articles)
-    .then((completion) => {
-      const extractedJSON = extractJsonFromString(completion.content[0].text);
-      const sanitizedJSON = sanitizeJSON(extractedJSON);
-      let response = "";
-      try {
-        response = JSON.parse(sanitizedJSON);
-      } catch (e) {
-        console.log("Exception: ", e);
-        console.log("With Sanitized Json of : \n", sanitizedJSON);
-        throw new Error(e);
-      }
+    .then((response) => {
       return response.instructions;
     })
     .catch((error) => {
@@ -473,14 +528,14 @@ async function generateOutline(keyword, sectionCount, context) {
     toolConfig,
   });
 
-  const prompt = `Generate an outline for the keyword: ${keyword}.  Outline should be insightful and make sense to a reader.  Avoid using generic placeholders for headers like Brand 1 or Question 1.  Ensure that there are NO MORE THAN ${sectionCount} sections total. Here is some context and info on the topic: ${context}.  You DO NOT NEED TO HAVE MULTIPLE SUBSECTIONS PER SECTION.`;
+  const prompt = `Generate an outline for the keyword: ${keyword}.  Outline should be insightful and make sense to a reader.  Avoid using generic placeholders for headers like Brand 1 or Question 1.  Ensure that there are NO MORE THAN ${sectionCount} sections total. Here is some context and info on the topic: ${context}.  You DO NOT NEED TO HAVE MULTIPLE SUBSECTIONS PER SECTION.  Your subsection names should be consie and to the point.  These are meant to be short subheadings.`;
 
   const chat = model.startChat();
   const result = await chat.sendMessage(prompt);
 
   const response = await result.response.candidates[0].content.parts[0]
     .functionCall.args;
-  return JSON.stringify(response);
+  return response;
 }
 
 function sanitizeJSON(jsonString) {
