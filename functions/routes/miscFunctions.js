@@ -123,30 +123,25 @@ function flattenJsonToHtmlList(json) {
   const resultList = [];
   let idCounter = 1;
 
-  const addItem = (tagName, content) => {
-    resultList.push({ id: idCounter.toString(), tagName, content });
-    idCounter++;
-  };
-
-  const addItemWithNotes = (tagName, content, notes) => {
+  const addItem = (tagName, content, notes) => {
     resultList.push({ id: idCounter.toString(), tagName, content, notes });
     idCounter++;
   };
 
   // Add the title as an h1 tag
-  addItem("h1", json.title);
+  addItem("h1", json.title, json.notesForIntroduction);
 
   // Check if sections exist and is an array before iterating
   if (Array.isArray(json.sections)) {
     json.sections.forEach((section) => {
       // Add each section name as an h2 tag
-      addItem("h2", section.name);
+      addItem("h2", section.name, section.notes);
 
       // Check if subsections exist and is an array before iterating
       if (Array.isArray(section.subsections)) {
         section.subsections.forEach((subsection) => {
           // Add each subsection name as an h3 tag
-          addItemWithNotes("h3", subsection.name, subsection.notes);
+          addItem("h3", subsection.name, subsection.notes);
         });
       }
     });
@@ -188,6 +183,7 @@ function processAIResponseToHtml(responseMessage) {
   try {
     return flattenJsonToHtmlList(responseMessage);
   } catch (error) {
+    console.log("Error: ", error);
     throw new Error("Failed to process AI response");
   }
 }
@@ -575,10 +571,12 @@ const generateSectionsWithRetry = async (
   finetune,
   internalUrlContext
 ) => {
+  const maxAttempts = 3;
   let attempt = 0;
-  while (attempt < 3) {
+
+  while (attempt < maxAttempts) {
     try {
-      console.log("Attempt #: ", attempt);
+      console.log("Attempt #: ", attempt + 1);
       const sections = await generateSectionsOfArticle(
         piecesOfOutline,
         keyWord,
@@ -589,10 +587,20 @@ const generateSectionsWithRetry = async (
         finetune,
         internalUrlContext
       );
-      return sections;
+
+      // Validate the sections here
+      if (sections && Array.isArray(sections) && sections.length > 0) {
+        return sections;
+      } else {
+        throw new Error(
+          "Invalid response: Sections are incomplete or not an array"
+        );
+      }
     } catch (error) {
       attempt++;
-      if (attempt >= 3) {
+      if (attempt < maxAttempts) {
+        console.warn(`Attempt ${attempt} failed. Retrying...`);
+      } else {
         console.error("Failed to generate sections after 3 attempts:", error);
         throw error;
       }
@@ -646,7 +654,21 @@ const generateArticle = async (
   const constructedSections = [];
   const piecesOfOutline = [];
   for (const section of outline) {
-    if (section.tagName === "h1" || section.tagName === "h2") {
+    if (section.tagName === "h1") {
+      piecesOfOutline.push(section);
+      const promise = generateSectionsWithRetry(
+        piecesOfOutline,
+        keyWord,
+        context,
+        tone,
+        pointOfView,
+        citeSources,
+        finetune,
+        internalUrlContext
+      );
+      piecesOfOutline.length = 0;
+      constructedSections.push(promise);
+    } else if (section.tagName === "h2") {
       if (piecesOfOutline.length > 0) {
         const promise = generateSectionsWithRetry(
           piecesOfOutline,
@@ -661,7 +683,7 @@ const generateArticle = async (
         constructedSections.push(promise);
         piecesOfOutline.length = 0; // Reset for next sections
       }
-      constructedSections.push(section); // Add the h1 or h2 section itself
+      piecesOfOutline.push(section);
     } else if (section.tagName === "h3") {
       piecesOfOutline.push(section); // Collect h3 sections for processing
     }

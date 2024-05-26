@@ -363,7 +363,9 @@ const addToQueue = async (
   isAmazonArticle,
   amazonUrl,
   affiliate,
-  numberOfProducts
+  numberOfProducts,
+  includeIntroduction,
+  includeConclusion
 ) => {
   await admin.firestore().collection("queue").add({
     keyWord,
@@ -380,6 +382,8 @@ const addToQueue = async (
     amazonUrl,
     affiliate,
     numberOfProducts,
+    includeIntroduction,
+    includeConclusion,
     createdAt: Date.now(),
   });
 };

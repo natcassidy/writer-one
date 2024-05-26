@@ -52,10 +52,9 @@ const generateAmazonSection = async (
     fineTuneData && fineTuneData.instructions
       ? `
         ---------------------------
-        Follow the below instructions wrapped in <styleOfWriting></styleOfWriting> tags to capture the style and tone desired.
-        <styleOfWriting>
+        Follow the below instructions to capture the style and tone desired.
+        Style of Writing: 
         ${fineTuneData.instructions}
-        </styleOfWriting>
         ---------------------------
         `
       : "";
@@ -136,8 +135,11 @@ const generateSection = async (
               type: "string",
             },
           },
+          scratchpad: {
+            type: "string",
+          },
         },
-        required: ["paragraphs"],
+        required: ["paragraphs", "scratchpad"],
       },
     },
   ];
@@ -171,10 +173,9 @@ const generateSection = async (
     fineTuneData && fineTuneData.instructions
       ? `
         ---------------------------
-        Follow the below instructions wrapped in <styleOfWriting></styleOfWriting> tags to capture the style and tone desired.
-        <styleOfWriting>
+        Follow the below instructions to capture the style and tone desired.
+        Style of Writing:
         ${fineTuneData.instructions}
-        </styleOfWriting>
         ---------------------------
         `
       : "";
@@ -182,7 +183,7 @@ const generateSection = async (
     ? `Ensure you write with the following tone: ${tone}\n`
     : "";
   const includeCitedSources = citeSources
-    ? `If you choose to use data from the context please include the source in an <a> tag like this example: <a href="https://www.reuters.com/world/us/democratic-candidates-running-us-president-2024-2023-09-18/">Reuters</a>.  Use it naturally in the article if it's appropriate, do not place all of the sources at the end.  Use it to link a specific word or set of words wrapped with the a tag.\n`
+    ? `\nIf you choose to use data from the context please include the source in an <a> tag like this example: <a href="https://www.reuters.com/world/us/democratic-candidates-running-us-president-2024-2023-09-18/">Reuters</a>.  Use it naturally in the paragraphs if it's appropriate, do not place all of the sources at the end.  Use it to link a specific word or set of words wrapped with the a tag.  Have the link naturally included in a sentence, and not awkwardly at the end.  PLEASE LINK ATLEAST 1 SOURCE.\n`
     : "";
   const includePointOfView = pointOfView
     ? `Please write this section using the following point of view: ${pointOfView}\n`
@@ -191,24 +192,30 @@ const generateSection = async (
     ? `Here are some additional context that may be of note to cite. Please include the source in an <a> tag like this example: <a href="https://www.reuters.com/world/us/democratic-candidates-running-us-president-2024-2023-09-18/">Reuters</a>. Use it naturally in the article if it's appropriate, do not place all of the sources at the end.  Use it to link a specific word or set of words wrapped with the <a> tag.  Additional Context is wrapped in <additionalContext></additionalContext> tags below.\n<additionalContext>${internalUrlData}</additionalContext>\n`
     : "";
   const prompt = `
-        Your job is to Generate paragraphs for each subsection provided on this topic wrapped in <topic></topic> tags: <topic>${keyWord}</topic> for the following sections: [${listOfSections}]. DO NOT ADD HEADERS.
+        Your job is to Generate paragraphs for each subsection provided on this topic: ${keyWord}.\n
+        For the following sections: [${listOfSections}]. \n
+        DO NOT ADD HEADERS.
         ${includeFinetune}  
-        Here is relevant context wrapped in <context></context>  tags, to help you with facts and information when writing.
-        <context>
+        ---------------------------
+        Here is relevant context to help you with facts and information when writing.
+        Relevent Context: 
         ${context}.
-        </context>  
-        ${includeCitedSources}
+        ---------------------------
+        
         ${includeInternalUrl}
         DO NOT INCLUDE A HEADER JUST WRITE A PARAGRAPH.
         ${includeTone}
         ${includePointOfView}
         ${notesForArticle}
         \n REMEMBER YOU MUST WRITE ${outline.length} sections. DO NOT INCLUDE THE HEADER ONLY THE PARAGRAPH.  If you do not provide an array of length ${outline.length}, for the sections titled: [${listOfSections}] -- EVERYTHING WILL BREAK.
-        Paragraphs should each be 500 words length each.  The sections should flow together nicely.
+        Paragraphs should each be 500-1000 words length.  The sections should flow together nicely.
         
+        Use the scratchpad in your response to simply gather your thoughts together before actually writing any paragraphs.  This is just to help you get things organized.
         Your paragraphs should not sound AI generated.  Ensure that you write in a way that is indistinguishable from a human.
         Don't use long sentences in your paragraphs, longer sentences tend to appear AI generated.
-        REMEMBER IT IS CRITICAL THAT EACH PARAGRAPH SHOULD BE ATLEAST 500+ words IN LENGTH.  In your response do not include ANY XML tags.  Your response should be plain text ONLY.`;
+        REMEMBER IT IS CRITICAL THAT EACH PARAGRAPH SHOULD EACH BE ATLEAST 500-1000 words IN LENGTH.  In your response do not include ANY XML tags.  Your response should be plain text ONLY.  You can use a newline character to break up the text in your paragraphs.
+        Do not be repetive with your sentence structure or phrases.  Strive to have unique sentences and avoid using lots of the same words in your sentences.  All paragraphs should have a unique feel to them.
+        ${includeCitedSources}`;
 
   console.log("Finished generateSection");
   const chat = model.startChat({
@@ -216,25 +223,23 @@ const generateSection = async (
     generationConfig,
   });
   const result = await chat.sendMessage(prompt);
-  const response = await result.response.candidates[0].content.parts[0]
-    .functionCall.args;
+  const response =
+    result.response.candidates[0].content.parts[0].functionCall.args;
+  console.log("Sections Generated: \n", response);
   return response;
 };
 
 const generateNotesForArticle = (outline) => {
-  let notes = "";
+  let notes =
+    "Here are some general notes to use for structuring the paragraph(s) you are about to write.  Use these notes to help formulate the structure of your writing. DO NOT REFER to the notes directly in your paragraphs, as in directly stating you are referencing notes. \n";
 
   for (let i = 0; i < outline.length; i++) {
     if (outline[i].notes) {
-      notes += `For section #${
+      notes += `  For section #${
         i + 1
-      }, here are some general notes to keep in mind when writing this section wrapped in <section${
-        i + 1
-      }></section${i + 1}> tags.\n <section${i + 1}>${
-        outline[i].notes
-      }</section${
-        i + 1
-      }> \n  DO NOT WRAP YOUR RESPONSE IN TAGS OR <section> tags!`;
+      }, here are some general notes to keep in mind when writing this section \n 
+      Section ${i + 1}: ${outline[i].notes}
+      ---------------------------`;
     }
 
     if (outline[i].clientNotes) {
@@ -468,17 +473,26 @@ function stripToText(html) {
   return $("body").prop("textContent");
 }
 
-async function generateOutline(keyword, sectionCount, context) {
+async function generateOutline(
+  keyword,
+  sectionCount,
+  context,
+  includeIntroduction,
+  includeConclusion
+) {
   console.log("Entering generateOutline");
 
   const generateOutlineFunction = {
     name: "generateOutline",
     description:
-      "Generate an outline for the given keyword using the structure provided. The title section should be the introduction",
+      "Generate an outline for the given keyword using the structure provided. The title section should be the introduction.",
     parameters: {
       type: "object",
       properties: {
         title: {
+          type: "string",
+        },
+        notesForIntroduction: {
           type: "string",
         },
         sections: {
@@ -489,6 +503,9 @@ async function generateOutline(keyword, sectionCount, context) {
               name: {
                 type: "string",
               },
+              notes: {
+                type: "string",
+              },
               subsections: {
                 type: "array",
                 items: {
@@ -497,16 +514,19 @@ async function generateOutline(keyword, sectionCount, context) {
                     name: {
                       type: "string",
                     },
+                    notes: {
+                      type: "string",
+                    },
                   },
-                  required: ["name"],
+                  required: ["name", "notes"],
                 },
               },
             },
-            required: ["name", "subsections"],
+            required: ["name", "subsections", "notes"],
           },
         },
       },
-      required: ["title", "sections"],
+      required: ["title", "sections", "notesForIntroduction"],
     },
   };
 
@@ -528,13 +548,34 @@ async function generateOutline(keyword, sectionCount, context) {
     toolConfig,
   });
 
-  const prompt = `Generate an outline for the keyword: ${keyword}.  Outline should be insightful and make sense to a reader.  Avoid using generic placeholders for headers like Brand 1 or Question 1.  Ensure that there are NO MORE THAN ${sectionCount} sections total. Here is some context and info on the topic: ${context}.  You DO NOT NEED TO HAVE MULTIPLE SUBSECTIONS PER SECTION.  Your subsection names should be consie and to the point.  These are meant to be short subheadings.`;
+  let numberOfSections = sectionCount;
+
+  if (includeIntroduction) {
+    numberOfSections++;
+  }
+
+  if (includeConclusion) {
+    numberOfSections++;
+  }
+
+  const prompt = `Generate an outline for the keyword: ${keyword}.  Outline should be insightful and make sense to a reader.  Avoid using generic placeholders for sections or subsections like Brand 1 or Question 1.  Ensure that there are NO MORE THAN ${numberOfSections} sections total. Here is some context and info on the topic: ${context}.  You DO NOT NEED TO HAVE MULTIPLE SUBSECTIONS PER SECTION.  Your subsection names should be consise and to the point.  notesForIntroduction should include a general guideline for writing an introduction to the article that the outline is for.  Ensure you include notes for the introd. Sections and subsections notes should go in their corresponding notes fields to help direct what the content should be about and ensure flow. DO NOT include markup or xml formatting or prefixes in your json response, only string characters.  DO NOT prefix the fields in your response either.  EACH section must have ATLEAST 1 subsection.  DO NOT INCLUDE a section titled introduction.  The title in the outline serves as the introduction section.`;
+
+  if (includeIntroduction) {
+    prompt += " Include an introduction as one of the sections. ";
+  }
+
+  if (includeConclusion) {
+    numberOfSections++;
+    prompt += " Include a conclusion as one of the sections. ";
+  }
 
   const chat = model.startChat();
   const result = await chat.sendMessage(prompt);
 
   const response = await result.response.candidates[0].content.parts[0]
     .functionCall.args;
+
+  console.log(response);
   return response;
 }
 

@@ -12,7 +12,9 @@ const processBlogArticleFromBulk = async (
   currentUser,
   finetuneChosen,
   sectionCount,
-  citeSources
+  citeSources,
+  includeIntroduction,
+  includeConclusion
 ) => {
   const isWithinArticleCount = await misc.doesUserHaveEnoughArticles(
     currentUser
@@ -53,7 +55,13 @@ const processBlogArticleFromBulk = async (
     context,
     articleType
   );
-  outline = await amazon.generateOutlineClaude(keyWord, sectionCount, context);
+  outline = await amazon.generateOutlineClaude(
+    keyWord,
+    sectionCount,
+    context,
+    includeIntroduction,
+    includeConclusion
+  );
   jobId = await firebaseFunctions.updateFirebaseJob(
     currentUser,
     jobId,

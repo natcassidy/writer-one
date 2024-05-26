@@ -47,6 +47,8 @@ router.post("/process", async (req, res) => {
     jobId,
     finetuneChosen,
     internalUrls,
+    includeIntroduction,
+    includeConclusion,
   } = req.body;
 
   const isWithinArticleCount = await misc.doesUserHaveEnoughArticles(
@@ -123,7 +125,14 @@ router.post("/process", async (req, res) => {
       context,
       articleType
     );
-    outline = await misc.generateOutline(keyWord, sectionCount, context);
+
+    outline = await misc.generateOutline(
+      keyWord,
+      sectionCount,
+      context,
+      includeIntroduction,
+      includeConclusion
+    );
     jobId = await firebaseFunctions.updateFirebaseJob(
       currentUser,
       jobId,
@@ -314,6 +323,8 @@ router.post("/processBulk", async (req, res) => {
     amazonUrl,
     affiliate,
     numberOfProducts,
+    includeIntroduction,
+    includeConclusion,
   } = req.body;
 
   console.log("Processing bulk blog, adding to queue");
@@ -339,7 +350,9 @@ router.post("/processBulk", async (req, res) => {
         isAmazonArticle,
         amazonUrl,
         affiliate,
-        numberOfProducts
+        numberOfProducts,
+        includeIntroduction,
+        includeConclusion
       );
     });
   } catch (e) {
