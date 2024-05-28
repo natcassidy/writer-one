@@ -167,55 +167,103 @@ const generateSection = async (
     toolConfig,
   });
 
+  const sectionList = generateSectionList(outline);
+
   const notesForArticle = generateNotesForArticle(outline);
 
   const includeFinetune =
     fineTuneData && fineTuneData.instructions
       ? `
-        ---------------------------
-        Follow the below instructions to capture the style and tone desired.
-        Style of Writing:
-        ${fineTuneData.instructions}
-        ---------------------------
+          * Style of Writing To Use:
+          ${fineTuneData.instructions}
+
         `
       : "";
   const includeTone = tone
-    ? `Ensure you write with the following tone: ${tone}\n`
+    ? `  * Ensure you write with the following tone: ${tone}\n`
     : "";
   const includeCitedSources = citeSources
-    ? `\nIf you choose to use data from the context please include the source in an <a> tag like this example: <a href="https://www.reuters.com/world/us/democratic-candidates-running-us-president-2024-2023-09-18/">Reuters</a>.  Use it naturally in the paragraphs if it's appropriate, do not place all of the sources at the end.  Use it to link a specific word or set of words wrapped with the a tag.  Have the link naturally included in a sentence, and not awkwardly at the end.  PLEASE LINK ATLEAST 1 SOURCE.\n`
+    ? `  * If you choose to use data from the context the you must include the source in an <a> tag like this example: <a href="https://www.reuters.com/world/us/democratic-candidates-running-us-president-2024-2023-09-18/">Reuters</a>.  Use it naturally in the paragraphs if it's appropriate, do not place all of the sources at the end.  Use it to link a specific word or set of words wrapped with the a tag. 
+         * Include at least 1 source. 
+      `
     : "";
   const includePointOfView = pointOfView
-    ? `Please write this section using the following point of view: ${pointOfView}\n`
+    ? `  * Please write this section using the following point of view: ${pointOfView}`
     : "";
   const includeInternalUrl = internalUrlData
-    ? `Here are some additional context that may be of note to cite. Please include the source in an <a> tag like this example: <a href="https://www.reuters.com/world/us/democratic-candidates-running-us-president-2024-2023-09-18/">Reuters</a>. Use it naturally in the article if it's appropriate, do not place all of the sources at the end.  Use it to link a specific word or set of words wrapped with the <a> tag.  Additional Context is wrapped in <additionalContext></additionalContext> tags below.\n<additionalContext>${internalUrlData}</additionalContext>\n`
+    ? `### Primary Source citing instructions: Please include a source cited in 1 of your sections from the following context. Please include the source in an <a> tag like this example: <a href="https://www.reuters.com/world/us/democratic-candidates-running-us-president-2024-2023-09-18/">Reuters</a>. Use it naturally in the article if it's appropriate, do not place all of the sources at the end.  Use it to link a specific word or set of words wrapped with the <a> tag.
+       Source citing context: \n ${internalUrlData}`
     : "";
   const prompt = `
-        Your job is to Generate paragraphs for each subsection provided on this topic: ${keyWord}.\n
-        For the following sections: [${listOfSections}]. \n
-        DO NOT ADD HEADERS.
-        ${includeFinetune}  
-        ---------------------------
-        Here is relevant context to help you with facts and information when writing.
-        Relevent Context: 
-        ${context}.
-        ---------------------------
-        
-        ${includeInternalUrl}
-        DO NOT INCLUDE A HEADER JUST WRITE A PARAGRAPH.
-        ${includeTone}
-        ${includePointOfView}
-        ${notesForArticle}
-        \n REMEMBER YOU MUST WRITE ${outline.length} sections. DO NOT INCLUDE THE HEADER ONLY THE PARAGRAPH.  If you do not provide an array of length ${outline.length}, for the sections titled: [${listOfSections}] -- EVERYTHING WILL BREAK.
-        Paragraphs should each be 500-1000 words length.  The sections should flow together nicely.
-        
-        Use the scratchpad in your response to simply gather your thoughts together before actually writing any paragraphs.  This is just to help you get things organized.
-        Your paragraphs should not sound AI generated.  Ensure that you write in a way that is indistinguishable from a human.
-        Don't use long sentences in your paragraphs, longer sentences tend to appear AI generated.
-        REMEMBER IT IS CRITICAL THAT EACH PARAGRAPH SHOULD EACH BE ATLEAST 500-1000 words IN LENGTH.  In your response do not include ANY XML tags.  Your response should be plain text ONLY.  You can use a newline character to break up the text in your paragraphs.
-        Do not be repetive with your sentence structure or phrases.  Strive to have unique sentences and avoid using lots of the same words in your sentences.  All paragraphs should have a unique feel to them.
-        ${includeCitedSources}`;
+### System Instruction: You are an expert article writer specializing in generating high-quality, informative content on various topics. You are proficient in JSON formatting and can follow detailed instructions precisely.
+
+### Task: Generate paragraphs for each subsection provided on this topic: ${keyWord}. Ensure each section adheres to the following guidelines:
+* Length: 500-1000 words
+* Structure: Begin with a topic sentence that is unique and engaging, provide supporting details and evidence, conclude with a summary or transition sentence unique to each section.
+* Style: Write in a clear, concise, and engaging style.
+* Flow: Natural flow, avoiding repetitive phrases and sentence structure.
+
+### Sections:
+${sectionList}
+
+### Relevent Task Instructions: 
+${includeTone}
+${includePointOfView}
+${includeCitedSources}
+${includeInternalUrl}
+* Use the scratchpad to think through the task and instructions before beginning writing.
+* Don't repeat the section name or title at the beginning of the paragragh.
+* Don't use markup tags or formatting in your paragragh responses.
+* 1 paragragh per section for a total of ${outline.length} paragraghs.
+
+${notesForArticle}
+
+${includeFinetune}  
+
+### Relevent Context To Use For Article: 
+${context}
+
+### Few-Shot Examples:
+
+Example 1:
+\`\`\`json
+{
+  "scratchpad": "Planned section about benefits of exercise: Cardiovascular health, mental well-being, strength building...",
+  "paragraphs": [
+    "Regular exercise offers a multitude of benefits for both physical and mental health. Cardiovascular health is significantly improved through activities like running, swimming, or cycling, which strengthen the heart and lungs. Exercise also plays a crucial role in mental well-being by reducing stress, anxiety, and depression. Additionally, it helps build and maintain muscle strength, improving overall physical function and quality of life."
+  ]
+}
+\`\`\`
+
+Example 2:
+\`\`\`json
+{
+  "scratchpad": "Intro: AI's growing role. Section 1: AI in healthcare (diagnosis, drug discovery). Section 2: AI in business (automation, customer service)... Counterpoint: Ethical concerns...",
+  "paragraphs": [
+    "Artificial intelligence (AI) is rapidly transforming various sectors, with its applications becoming increasingly sophisticated and widespread. ",
+    "In healthcare, AI is revolutionizing diagnostics through image analysis and pattern recognition, leading to faster and more accurate diagnoses. Moreover, AI-powered drug discovery platforms are accelerating the development of new treatments for diseases.",
+    "The business world is also experiencing significant disruption due to AI. Automation is streamlining processes, improving efficiency, and reducing costs. AI-powered chatbots and virtual assistants are enhancing customer service interactions, providing quick and personalized responses."
+  ]
+}
+\`\`\`
+
+${
+  includeCitedSources &&
+  `
+Example 3:
+\`\`\`json
+{
+  "scratchpad": "Section 1: Climate change causes. Section 2: Impacts on ecosystems. Source: IPCC report...",
+  "paragraphs": [
+    "The primary cause of climate change is the increasing concentration of greenhouse gases in the atmosphere, mainly due to human activities like burning fossil fuels and deforestation. These gases trap heat, leading to a gradual warming of the planet.",
+    "Climate change is already having a significant impact on ecosystems worldwide. According to the <a href=\"https://www.ipcc.ch/report/ar6/wg2/\">IPCC</a>, rising temperatures are causing shifts in plant and animal distributions, leading to changes in species interactions and potential extinctions."
+  ]
+}
+\`\`\`
+`
+}
+
+`;
 
   console.log("Finished generateSection");
   const chat = model.startChat({
@@ -225,25 +273,37 @@ const generateSection = async (
   const result = await chat.sendMessage(prompt);
   const response =
     result.response.candidates[0].content.parts[0].functionCall.args;
-  console.log("Sections Generated: \n", response);
+  console.log("response:\n", response);
+
   return response;
 };
 
+const generateSectionList = (listOfSections) => {
+  let prompt = "\n";
+
+  for (let i = 0; i < listOfSections.length; i++) {
+    // Add asterisk, section name, and colon
+    prompt += `* ${listOfSections[i]}\n`;
+  }
+
+  // Remove trailing newline
+  return prompt.trimEnd();
+};
+
 const generateNotesForArticle = (outline) => {
-  let notes =
-    "Here are some general notes to use for structuring the paragraph(s) you are about to write.  Use these notes to help formulate the structure of your writing. DO NOT REFER to the notes directly in your paragraphs, as in directly stating you are referencing notes. \n";
+  let notes = "\nAdditional Notes For Article Structure:\n\n"; // Changed initial text
 
   for (let i = 0; i < outline.length; i++) {
+    const sectionIndex = i + 1; // Store for readability
+
     if (outline[i].notes) {
-      notes += `  For section #${
-        i + 1
-      }, here are some general notes to keep in mind when writing this section \n 
-      Section ${i + 1}: ${outline[i].notes}
-      ---------------------------`;
+      // Improved formatting for section notes
+      notes += `### Section ${sectionIndex} Notes:\n${outline[i].notes}\n`;
     }
 
     if (outline[i].clientNotes) {
-      notes += `Here are some additional notes to keep in mind when writing this section.\n${outline[i].clientNotes}\n`;
+      // Improved formatting for client notes
+      notes += `### Section ${sectionIndex} Client Notes:\n${outline[i].clientNotes}\n`;
     }
   }
 
@@ -558,7 +618,7 @@ async function generateOutline(
     numberOfSections++;
   }
 
-  const prompt = `Generate an outline for the keyword: ${keyword}.  Outline should be insightful and make sense to a reader.  Avoid using generic placeholders for sections or subsections like Brand 1 or Question 1.  Ensure that there are NO MORE THAN ${numberOfSections} sections total. Here is some context and info on the topic: ${context}.  You DO NOT NEED TO HAVE MULTIPLE SUBSECTIONS PER SECTION.  Your subsection names should be consise and to the point.  notesForIntroduction should include a general guideline for writing an introduction to the article that the outline is for.  Ensure you include notes for the introd. Sections and subsections notes should go in their corresponding notes fields to help direct what the content should be about and ensure flow. DO NOT include markup or xml formatting or prefixes in your json response, only string characters.  DO NOT prefix the fields in your response either.  EACH section must have ATLEAST 1 subsection.  DO NOT INCLUDE a section titled introduction.  The title in the outline serves as the introduction section.`;
+  const prompt = `Generate an outline for the keyword: ${keyword}.  Outline should be insightful and make sense to a reader.  Avoid using generic placeholders for sections or subsections like Brand 1 or Question 1.  Ensure that there are NO MORE THAN ${numberOfSections} sections total. Here is some context and info on the topic: ${context}.  You DO NOT NEED TO HAVE MULTIPLE SUBSECTIONS PER SECTION.  Your subsection names should be consise and to the point.  notesForIntroduction should include a general guideline for writing an introduction to the article that the outline is for.  Ensure you include notes for the introd. Sections and subsections notes should go in their corresponding notes fields to help direct what the content should be about and ensure flow. DO NOT include markup or xml formatting or prefixes in your json response, only string characters.  DO NOT prefix the fields in your response either.  EACH section must have ATLEAST 1 subsection.  DO NOT INCLUDE a section titled introduction.  The title in the outline serves as the introduction section. Max of 4 subsections per section.`;
 
   if (includeIntroduction) {
     prompt += " Include an introduction as one of the sections. ";

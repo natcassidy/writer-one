@@ -364,9 +364,12 @@ const generateContextStringAmazon = (section) => {
 };
 
 const generateContextStringBlog = (title, link, keyPoints) => {
-  let contextString = ` Article Title:${title} \n
-                           Article URL: ${link} \n
-                           Article Context: ${keyPoints} \n`;
+  let contextString = `
+  * Context:
+    - Article Title:${title}
+    - Article URL: ${link}
+    - Article Context: ${keyPoints}
+  `;
 
   return contextString;
 };
@@ -588,6 +591,11 @@ const generateSectionsWithRetry = async (
         internalUrlContext
       );
 
+      let value = 0;
+
+      if (value == 1) {
+        throw new Error("test");
+      }
       // Validate the sections here
       if (sections && Array.isArray(sections) && sections.length > 0) {
         return sections;
@@ -634,11 +642,12 @@ const generateSectionsOfArticle = async (
     for (let i = 0; i < response.paragraphs.length; i++) {
       outlineCopy[i].sectionContent = response.paragraphs[i];
     }
+
+    return outlineCopy;
   } catch (error) {
     console.error("Error generating sections:", error);
     throw new Error(e);
   }
-  return outlineCopy;
 };
 
 const generateArticle = async (

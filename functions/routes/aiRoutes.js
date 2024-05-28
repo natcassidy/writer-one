@@ -160,9 +160,6 @@ router.post("/process", async (req, res) => {
     return res.status(500).send("Error generating article: " + error);
   }
 
-  console.log("article generated now doing gemini article");
-
-  console.log("gemini article generated");
   const updatedArticleCount = await firebaseFunctions.decrementUserArticleCount(
     currentUser
   );

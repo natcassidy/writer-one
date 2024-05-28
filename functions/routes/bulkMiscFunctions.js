@@ -88,9 +88,6 @@ const processBlogArticleFromBulk = async (
     throw new Error(e);
   }
 
-  console.log("article generated now doing gemini article");
-
-  console.log("gemini article generated");
   const updatedArticleCount = await firebaseFunctions.decrementUserArticleCount(
     currentUser
   );
