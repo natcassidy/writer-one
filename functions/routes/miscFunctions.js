@@ -639,8 +639,8 @@ const generateSectionsOfArticle = async (
       internalUrlContext
     );
 
-    for (let i = 0; i < response.paragraphs.length; i++) {
-      outlineCopy[i].sectionContent = response.paragraphs[i];
+    for (let i = 0; i < response.sections.length; i++) {
+      outlineCopy[i].sectionContent = response.sections[i];
     }
 
     return outlineCopy;

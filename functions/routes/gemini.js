@@ -129,7 +129,7 @@ const generateSection = async (
       parameters: {
         type: "object",
         properties: {
-          paragraphs: {
+          sections: {
             type: "array",
             items: {
               type: "string",
@@ -139,7 +139,7 @@ const generateSection = async (
             type: "string",
           },
         },
-        required: ["paragraphs", "scratchpad"],
+        required: ["sections", "scratchpad"],
       },
     },
   ];
@@ -157,7 +157,7 @@ const generateSection = async (
   };
 
   const generationConfig = {
-    maxOutputTokens: 4000,
+    maxOutputTokens: 8000,
     temperature: 0.9,
   };
 
@@ -198,7 +198,7 @@ const generateSection = async (
 ### System Instruction: You are an expert article writer specializing in generating high-quality, informative content on various topics. You are proficient in JSON formatting and can follow detailed instructions precisely.
 
 ### Task: Generate paragraphs for each subsection provided on this topic: ${keyWord}. Ensure each section adheres to the following guidelines:
-* Length: 500-1000 words
+* Length: 500-1000 words per section
 * Structure: Begin with a topic sentence that is unique and engaging, provide supporting details and evidence, conclude with a summary or transition sentence unique to each section.
 * Style: Write in a clear, concise, and engaging style.
 * Flow: Natural flow, avoiding repetitive phrases and sentence structure.
@@ -214,7 +214,10 @@ ${includeInternalUrl}
 * Use the scratchpad to think through the task and instructions before beginning writing.
 * Don't repeat the section name or title at the beginning of the paragragh.
 * Don't use markup tags or formatting in your paragragh responses.
-* 1 paragragh per section for a total of ${outline.length} paragraghs.
+* You need to respond with an array of size ${outline.length} sections.
+* Ensure each section is at minimum 500 words.
+* Wrap your paragraghs in the sections with <p></p> tags.
+* Format your sections with html tags, such as <p>, <b>, <li> etc.
 
 ${notesForArticle}
 
@@ -223,46 +226,11 @@ ${includeFinetune}  
 ### Relevent Context To Use For Article: 
 ${context}
 
-### Few-Shot Examples:
-
-Example 1:
-\`\`\`json
-{
-  "scratchpad": "Planned section about benefits of exercise: Cardiovascular health, mental well-being, strength building...",
-  "paragraphs": [
-    "Regular exercise offers a multitude of benefits for both physical and mental health. Cardiovascular health is significantly improved through activities like running, swimming, or cycling, which strengthen the heart and lungs. Exercise also plays a crucial role in mental well-being by reducing stress, anxiety, and depression. Additionally, it helps build and maintain muscle strength, improving overall physical function and quality of life."
-  ]
-}
-\`\`\`
-
-Example 2:
-\`\`\`json
-{
-  "scratchpad": "Intro: AI's growing role. Section 1: AI in healthcare (diagnosis, drug discovery). Section 2: AI in business (automation, customer service)... Counterpoint: Ethical concerns...",
-  "paragraphs": [
-    "Artificial intelligence (AI) is rapidly transforming various sectors, with its applications becoming increasingly sophisticated and widespread. ",
-    "In healthcare, AI is revolutionizing diagnostics through image analysis and pattern recognition, leading to faster and more accurate diagnoses. Moreover, AI-powered drug discovery platforms are accelerating the development of new treatments for diseases.",
-    "The business world is also experiencing significant disruption due to AI. Automation is streamlining processes, improving efficiency, and reducing costs. AI-powered chatbots and virtual assistants are enhancing customer service interactions, providing quick and personalized responses."
-  ]
-}
-\`\`\`
-
-${
-  includeCitedSources &&
-  `
-Example 3:
-\`\`\`json
-{
-  "scratchpad": "Section 1: Climate change causes. Section 2: Impacts on ecosystems. Source: IPCC report...",
-  "paragraphs": [
-    "The primary cause of climate change is the increasing concentration of greenhouse gases in the atmosphere, mainly due to human activities like burning fossil fuels and deforestation. These gases trap heat, leading to a gradual warming of the planet.",
-    "Climate change is already having a significant impact on ecosystems worldwide. According to the <a href=\"https://www.ipcc.ch/report/ar6/wg2/\">IPCC</a>, rising temperatures are causing shifts in plant and animal distributions, leading to changes in species interactions and potential extinctions."
-  ]
-}
-\`\`\`
-`
-}
-
+### Extremely important to remember:
+* It's critical you begin writing in the scratchpad first to analyse the instructions and plan out how you will write the section(s).
+* Each section must have 500 words.
+* You can have multiple paragraphs in each section, but you must mark them with <p></p> tags.
+* Ensure there is no spaces between the beginning of the <p> tags and the content.
 `;
 
   console.log("Finished generateSection");
@@ -273,8 +241,8 @@ Example 3:
   const result = await chat.sendMessage(prompt);
   const response =
     result.response.candidates[0].content.parts[0].functionCall.args;
-  console.log("response:\n", response);
 
+  console.log("Sections: \n", response);
   return response;
 };
 
@@ -618,7 +586,7 @@ async function generateOutline(
     numberOfSections++;
   }
 
-  const prompt = `Generate an outline for the keyword: ${keyword}.  Outline should be insightful and make sense to a reader.  Avoid using generic placeholders for sections or subsections like Brand 1 or Question 1.  Ensure that there are NO MORE THAN ${numberOfSections} sections total. Here is some context and info on the topic: ${context}.  You DO NOT NEED TO HAVE MULTIPLE SUBSECTIONS PER SECTION.  Your subsection names should be consise and to the point.  notesForIntroduction should include a general guideline for writing an introduction to the article that the outline is for.  Ensure you include notes for the introd. Sections and subsections notes should go in their corresponding notes fields to help direct what the content should be about and ensure flow. DO NOT include markup or xml formatting or prefixes in your json response, only string characters.  DO NOT prefix the fields in your response either.  EACH section must have ATLEAST 1 subsection.  DO NOT INCLUDE a section titled introduction.  The title in the outline serves as the introduction section. Max of 4 subsections per section.`;
+  const prompt = `Generate an outline for the keyword: ${keyword}.  Outline should be insightful and make sense to a reader.  Avoid using generic placeholders for sections or subsections like Brand 1 or Question 1.  Ensure that there are NO MORE THAN ${numberOfSections} sections total. Here is some context and info on the topic: ${context}.  You DO NOT NEED TO HAVE MULTIPLE SUBSECTIONS PER SECTION.  Your subsection names should be consise and to the point.  notesForIntroduction should include a general guideline for writing an introduction to the article that the outline is for.  Ensure you include notes for the introd. Sections and subsections notes should go in their corresponding notes fields to help direct what the content should be about and ensure flow. DO NOT include markup or xml formatting or prefixes in your json response, only string characters.  DO NOT prefix the fields in your response either.  EACH section must have ATLEAST 1 subsection.  DO NOT INCLUDE a section titled introduction.  The title in the outline serves as the introduction section. Max of 2-3 subsections per section.`;
 
   if (includeIntroduction) {
     prompt += " Include an introduction as one of the sections. ";
