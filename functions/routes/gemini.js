@@ -231,6 +231,11 @@ ${context}
 * Each section must have 500 words.
 * You can have multiple paragraphs in each section, but you must mark them with <p></p> tags.
 * Ensure there is no spaces between the beginning of the <p> tags and the content.
+* Favor longer paragraphs over shorter ones.  Paragraphs in <p> tags in sections should be atleast 5 sentences or longer.
+${
+  citeSources &&
+  "* Ensure you cite atleast one source from the context provided."
+}
 `;
 
   console.log("Finished generateSection");
@@ -242,6 +247,9 @@ ${context}
   const response =
     result.response.candidates[0].content.parts[0].functionCall.args;
 
+  console.log("________________________");
+  console.log("Context: \n", context);
+  console.log("________________________");
   console.log("Sections: \n", response);
   return response;
 };
@@ -607,25 +615,60 @@ async function generateOutline(
   return response;
 }
 
-function sanitizeJSON(jsonString) {
-  return jsonString.replace(/[\u0000-\u001F\u007F-\u009F]/g, "");
-}
+const summarizeContent = async (content, keyWord) => {
+  const provideAnalysis = [
+    {
+      name: "provideAnalysis",
+      description:
+        "Extract the most valuable information and points from the content provided, include any relevent or necessary data in the provided content, keep sucinct.",
+      parameters: {
+        type: "object",
+        properties: {
+          keyPoints: {
+            type: "string",
+          },
+        },
+        required: ["keyPoints"],
+      },
+    },
+  ];
 
-function extractJsonFromString(str) {
-  const regex = /{.*}/s;
-  const match = str.match(regex);
+  const tools = [
+    {
+      function_declarations: [provideAnalysis],
+    },
+  ];
 
-  if (match && match.length > 0) {
-    try {
-      return match[0];
-    } catch (error) {
-      console.error("Error parsing JSON:", error);
-      return null;
-    }
-  }
+  const prompt = `
+  Extract the most important and specific information from the provided content that is directly related to the subject: ${keyWord}. Include key details such as:
 
-  return null;
-}
+  Specific brand names, product names, companies, features, ingredients, etc.
+  Precise statistics and data points. Format data as percentages, ratios, rankings, or other concrete metrics where possible.
+  Noteworthy facts, findings, or conclusions from studies or expert sources
+        
+  Organize the extracted information into clear categories or sections based on the content.
+  Aim for a high level of accuracy and avoid any generalizations or filler content. The extracted information will be used as source material for an article, so it's critical that the details are correct and not misleading.
+  For example, if the article is reviewing the best cat foods, the extracted information should include the specific top brands recommended, key features of each food, and any statistics like "70% of vets recommend Brand X".
+  Here is the content to extract information from: ${content}
+  `;
+
+  const toolConfig = {
+    function_calling_config: {
+      mode: "ANY",
+    },
+  };
+
+  const model = genAI.getGenerativeModel({
+    model: "gemini-1.5-pro-latest",
+    tools,
+    toolConfig,
+  });
+
+  const chat = model.startChat();
+  const result = await chat.sendMessage(prompt);
+
+  return await result.response.candidates[0].content.parts[0].functionCall.args;
+};
 
 module.exports = {
   generateFinetune,
@@ -635,4 +678,5 @@ module.exports = {
   saveFinetuneConfig,
   generateFineTuneService,
   testGemini,
+  summarizeContent,
 };

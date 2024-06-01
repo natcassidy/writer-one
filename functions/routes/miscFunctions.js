@@ -225,21 +225,15 @@ const doInternalUrlResearch = async (internalUrls, title) => {
         const promises = chunk.map(async (item) => {
           if (item.status === "good") {
             try {
-              const returnedSummary = await openai.summarizeContent(
+              const returnedSummary = await gemini.summarizeContent(
                 item.data,
                 title
               );
               if (returnedSummary) {
-                const extractedJSON = extractJsonFromString(
-                  returnedSummary.choices[0].message.tool_calls[0].function
-                    .arguments
-                );
-                const sanitizedJSON = sanitizeJSON(extractedJSON);
-                const responseMessage = JSON.parse(sanitizedJSON);
                 let newContext = generateContextStringBlog(
                   item.title,
                   item.link,
-                  responseMessage.keyPoints
+                  returnedSummary.keyPoints
                 );
                 return newContext;
               }
@@ -308,21 +302,15 @@ async function findGoodData(params, keyWord) {
     const promises = chunk.map(async (item) => {
       if (item.status === "good") {
         try {
-          const returnedSummary = await openai.summarizeContent(
+          const returnedSummary = await gemini.summarizeContent(
             item.data,
             params.query
           );
           if (returnedSummary) {
-            const extractedJSON = extractJsonFromString(
-              returnedSummary.choices[0].message.tool_calls[0].function
-                .arguments
-            );
-            const sanitizedJSON = sanitizeJSON(extractedJSON);
-            const responseMessage = JSON.parse(sanitizedJSON);
             let newContext = generateContextStringBlog(
               item.title,
               item.link,
-              responseMessage.keyPoints
+              returnedSummary.keyPoints
             );
             return newContext;
           }
