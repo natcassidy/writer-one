@@ -548,7 +548,22 @@ const parseIp = (req) => {
 };
 
 const generateOutline = async (keyWord, sectionCount, context) => {
-  const response = await gemini.generateOutline(keyWord, sectionCount, context);
+  const maxAttempts = 3;
+  let attempt = 0;
+
+  while (attempt < maxAttempts) {
+    try {
+      return await gemini.generateOutline(keyWord, sectionCount, context);
+    } catch (error) {
+      attempt++;
+      if (attempt < maxAttempts) {
+        console.warn(`Attempt ${attempt} failed. Retrying...`);
+      } else {
+        console.error("Failed to generate sections after 3 attempts:", error);
+        throw error;
+      }
+    }
+  }
   return processAIResponseToHtml(response);
 };
 
@@ -568,7 +583,7 @@ const generateSectionsWithRetry = async (
   while (attempt < maxAttempts) {
     try {
       console.log("Attempt #: ", attempt + 1);
-      const sections = await generateSectionsOfArticle(
+      const article = await generateSectionsOfArticle(
         piecesOfOutline,
         keyWord,
         context,
@@ -579,19 +594,7 @@ const generateSectionsWithRetry = async (
         internalUrlContext
       );
 
-      let value = 0;
-
-      if (value == 1) {
-        throw new Error("test");
-      }
-      // Validate the sections here
-      if (sections && Array.isArray(sections) && sections.length > 0) {
-        return sections;
-      } else {
-        throw new Error(
-          "Invalid response: Sections are incomplete or not an array"
-        );
-      }
+      return article;
     } catch (error) {
       attempt++;
       if (attempt < maxAttempts) {
@@ -627,14 +630,10 @@ const generateSectionsOfArticle = async (
       internalUrlContext
     );
 
-    for (let i = 0; i < response.sections.length; i++) {
-      outlineCopy[i].sectionContent = response.sections[i];
-    }
-
-    return outlineCopy;
+    return response.article;
   } catch (error) {
     console.error("Error generating sections:", error);
-    throw new Error(e);
+    throw new Error(error);
   }
 };
 
@@ -648,66 +647,21 @@ const generateArticle = async (
   finetune,
   internalUrlContext
 ) => {
-  const constructedSections = [];
-  const piecesOfOutline = [];
-  for (const section of outline) {
-    if (section.tagName === "h1") {
-      piecesOfOutline.push(section);
-      const promise = generateSectionsWithRetry(
-        piecesOfOutline,
-        keyWord,
-        context,
-        tone,
-        pointOfView,
-        citeSources,
-        finetune,
-        internalUrlContext
-      );
-      piecesOfOutline.length = 0;
-      constructedSections.push(promise);
-    } else if (section.tagName === "h2") {
-      if (piecesOfOutline.length > 0) {
-        const promise = generateSectionsWithRetry(
-          piecesOfOutline,
-          keyWord,
-          context,
-          tone,
-          pointOfView,
-          citeSources,
-          finetune,
-          internalUrlContext
-        );
-        constructedSections.push(promise);
-        piecesOfOutline.length = 0; // Reset for next sections
-      }
-      piecesOfOutline.push(section);
-    } else if (section.tagName === "h3") {
-      piecesOfOutline.push(section); // Collect h3 sections for processing
-    }
-  }
-  // Handle any remaining pieces after loop
-  if (piecesOfOutline.length > 0) {
-    const promise = generateSectionsWithRetry(
-      piecesOfOutline,
-      keyWord,
-      context,
-      tone,
-      pointOfView,
-      citeSources,
-      finetune
-    );
-    constructedSections.push(promise);
-  }
+  // Directly create an array of promises
+  const sectionPromises = generateSectionsWithRetry(
+    outline,
+    keyWord,
+    context,
+    tone,
+    pointOfView,
+    citeSources,
+    finetune,
+    internalUrlContext
+  );
+
   try {
-    const resolvedSections = await Promise.all(
-      constructedSections.map(async (section) => {
-        if (section instanceof Promise) {
-          return await section;
-        }
-        return section;
-      })
-    );
-    return resolvedSections.flat();
+    // Wait for all promises to resolve
+    return await sectionPromises;
   } catch (error) {
     console.error("Failed to generate article correctly:", error);
     throw new Error("Failed to generate article correctly");

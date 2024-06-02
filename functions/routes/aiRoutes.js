@@ -116,7 +116,7 @@ router.post("/process", async (req, res) => {
       internalUrlContext = misc.doInternalUrlResearch(internalUrls, keyWord);
     }
 
-    context = await misc.doSerpResearch(keyWord, "");
+    // context = await misc.doSerpResearch(keyWord, "");
 
     jobId = await firebaseFunctions.updateFirebaseJob(
       currentUser,
@@ -144,9 +144,9 @@ router.post("/process", async (req, res) => {
   }
 
   console.log("generating article");
-  let updatedOutline = "";
+  let article = "";
   try {
-    updatedOutline = await misc.generateArticle(
+    article = await misc.generateArticle(
       outline,
       keyWord,
       context,
@@ -167,13 +167,13 @@ router.post("/process", async (req, res) => {
   jobId = await firebaseFunctions.updateFirebaseJob(
     currentUser,
     jobId,
-    "outline",
-    updatedOutline
+    "article",
+    article
   );
   //Outline will now contain each section filled in with data
   console.log("Exiting processing of Blog Post");
 
-  res.status(200).send({ article: updatedOutline, updatedArticleCount });
+  res.status(200).send({ article, updatedArticleCount });
 });
 
 router.post("/processFreeTrial", extractIpMiddleware, async (req, res) => {

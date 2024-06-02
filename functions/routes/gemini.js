@@ -116,60 +116,36 @@ const generateSection = async (
 
   console.log("Entering generateSection");
 
-  let listOfSections = "";
-  outline.forEach((section) => {
-    listOfSections += `${section.content}, `;
-  });
-
-  const generateSectionFunction = [
+  const generateArticleFunction = [
     {
-      name: "generateSection",
-      description: `Generate paragraphs based on the information provided for each subsection.  Ensure to include a paragragh for each section: ${listOfSections}.  When calling this function you MUST provide ${outline.length} number of elements in the array.`,
-
+      name: "generateArticle",
+      description: `Generate an article.`,
       parameters: {
         type: "object",
         properties: {
-          sections: {
-            type: "array",
-            items: {
-              type: "string",
-            },
+          article: {
+            type: "string",
           },
           scratchpad: {
             type: "string",
           },
         },
-        required: ["sections", "scratchpad"],
+        required: ["article", "scratchpad"],
       },
     },
   ];
 
-  const tools = [
-    {
-      function_declarations: [generateSectionFunction],
-    },
-  ];
-
-  const toolConfig = {
-    function_calling_config: {
-      mode: "ANY",
-    },
-  };
-
   const generationConfig = {
-    maxOutputTokens: 8000,
+    max_output_tokens: 8000,
     temperature: 0.9,
+    top_p: 0.1,
+    top_k: 16,
   };
 
   const model = genAI.getGenerativeModel({
-    model: "gemini-1.5-pro-latest",
-    tools,
-    toolConfig,
+    model: "gemini-1.5-pro-001",
+    generationConfig,
   });
-
-  const sectionList = generateSectionList(outline);
-
-  const notesForArticle = generateNotesForArticle(outline);
 
   const includeFinetune =
     fineTuneData && fineTuneData.instructions
@@ -188,38 +164,32 @@ const generateSection = async (
       `
     : "";
   const includePointOfView = pointOfView
-    ? `  * Please write this section using the following point of view: ${pointOfView}`
+    ? `  * Please write this article using the following point of view: ${pointOfView}`
     : "";
   const includeInternalUrl = internalUrlData
     ? `### Primary Source citing instructions: Please include a source cited in 1 of your sections from the following context. Please include the source in an <a> tag like this example: <a href="https://www.reuters.com/world/us/democratic-candidates-running-us-president-2024-2023-09-18/">Reuters</a>. Use it naturally in the article if it's appropriate, do not place all of the sources at the end.  Use it to link a specific word or set of words wrapped with the <a> tag.
        Source citing context: \n ${internalUrlData}`
     : "";
   const prompt = `
-### System Instruction: You are an expert article writer specializing in generating high-quality, informative content on various topics. You are proficient in JSON formatting and can follow detailed instructions precisely.
+### System Instruction: You are an expert article writer specializing in generating high-quality, informative content on various topics. You can follow detailed instructions precisely.
 
-### Task: Generate paragraphs for each subsection provided on this topic: ${keyWord}. Ensure each section adheres to the following guidelines:
-* Length: 500-1000 words per section
-* Structure: Begin with a topic sentence that is unique and engaging, provide supporting details and evidence, conclude with a summary or transition sentence unique to each section.
+### Task: Generate an article on this topic: ${keyWord}. Ensure it adheres to the following guidelines:
+* Length: Each h2 section and it's subsections should have 1000 words.
 * Style: Write in a clear, concise, and engaging style.
 * Flow: Natural flow, avoiding repetitive phrases and sentence structure.
+* Structure: Follow the outline provided.  You can use it as a reference to structure your article with
 
-### Sections:
-${sectionList}
+### Outline
 
-### Relevent Task Instructions: 
+${JSON.stringify(outline, null, 2)}
+
+### Relevant Task Instructions: 
 ${includeTone}
 ${includePointOfView}
 ${includeCitedSources}
 ${includeInternalUrl}
 * Use the scratchpad to think through the task and instructions before beginning writing.
-* Don't repeat the section name or title at the beginning of the paragragh.
-* Don't use markup tags or formatting in your paragragh responses.
-* You need to respond with an array of size ${outline.length} sections.
-* Ensure each section is at minimum 500 words.
-* Wrap your paragraghs in the sections with <p></p> tags.
-* Format your sections with html tags, such as <p>, <b>, <li> etc.
-
-${notesForArticle}
+* Don't repeat the section name or title at the beginning of the paragraph.
 
 ${includeFinetune}  
 
@@ -227,11 +197,11 @@ ${includeFinetune}  
 ${context}
 
 ### Extremely important to remember:
-* It's critical you begin writing in the scratchpad first to analyse the instructions and plan out how you will write the section(s).
-* Each section must have 500 words.
-* You can have multiple paragraphs in each section, but you must mark them with <p></p> tags.
-* Ensure there is no spaces between the beginning of the <p> tags and the content.
-* Favor longer paragraphs over shorter ones.  Paragraphs in <p> tags in sections should be atleast 5 sentences or longer.
+* It's critical you begin writing in the *** scratchpad *** first to analyse the instructions and plan out how you will write the section(s).
+* Once you have finished using the *** scratchpad ***, then use the *** article *** section to respond with the article.
+* Each h2 section should have a minumum of 1000 words.
+* Each heading from the outline when you write the article should have 500 words each, h1, h2, h3's
+
 ${
   citeSources &&
   "* Ensure you cite atleast one source from the context provided."
@@ -239,31 +209,31 @@ ${
 `;
 
   console.log("Finished generateSection");
-  const chat = model.startChat({
-    history: [],
-    generationConfig,
-  });
-  const result = await chat.sendMessage(prompt);
-  const response =
-    result.response.candidates[0].content.parts[0].functionCall.args;
+  const result = await model.generateContent(prompt);
+  const response = await result.response;
+  const text = response.text();
 
   console.log("________________________");
-  console.log("Context: \n", context);
+  console.log("prompt: \n", prompt);
   console.log("________________________");
   console.log("Sections: \n", response);
-  return response;
+  console.log("________________________");
+  console.log("Sections: \n", text);
+  return text;
 };
 
-const generateSectionList = (listOfSections) => {
-  let prompt = "\n";
+const articleLengthCalculator = (listOfSections) => {
+  let wordCount = 0;
 
   for (let i = 0; i < listOfSections.length; i++) {
     // Add asterisk, section name, and colon
-    prompt += `* ${listOfSections[i]}\n`;
+    if (listOfSections[i].tagName == "h2") {
+      wordCount += 1000;
+    }
   }
 
   // Remove trailing newline
-  return prompt.trimEnd();
+  return wordCount;
 };
 
 const generateNotesForArticle = (outline) => {
@@ -608,11 +578,16 @@ async function generateOutline(
   const chat = model.startChat();
   const result = await chat.sendMessage(prompt);
 
-  const response = await result.response.candidates[0].content.parts[0]
-    .functionCall.args;
+  try {
+    let response = await result.response.candidates[0].content.parts[0]
+      .functionCall.args;
 
-  console.log(response);
-  return response;
+    console.log(response);
+    return response;
+  } catch (e) {
+    console.log("Exception Outline: ", e);
+    throw new Error(e);
+  }
 }
 
 const summarizeContent = async (content, keyWord) => {
@@ -667,7 +642,7 @@ const summarizeContent = async (content, keyWord) => {
   const chat = model.startChat();
   const result = await chat.sendMessage(prompt);
 
-  return await result.response.candidates[0].content.parts[0].functionCall.args;
+  return result.response.candidates[0].content.parts[0].functionCall.args;
 };
 
 module.exports = {
