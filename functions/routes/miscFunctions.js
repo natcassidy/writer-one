@@ -630,7 +630,7 @@ const generateSectionsOfArticle = async (
       internalUrlContext
     );
 
-    return response.article;
+    return response;
   } catch (error) {
     console.error("Error generating sections:", error);
     throw new Error(error);

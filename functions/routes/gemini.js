@@ -116,25 +116,6 @@ const generateSection = async (
 
   console.log("Entering generateSection");
 
-  const generateArticleFunction = [
-    {
-      name: "generateArticle",
-      description: `Generate an article.`,
-      parameters: {
-        type: "object",
-        properties: {
-          article: {
-            type: "string",
-          },
-          scratchpad: {
-            type: "string",
-          },
-        },
-        required: ["article", "scratchpad"],
-      },
-    },
-  ];
-
   const generationConfig = {
     max_output_tokens: 8000,
     temperature: 0.9,
@@ -188,7 +169,6 @@ ${includeTone}
 ${includePointOfView}
 ${includeCitedSources}
 ${includeInternalUrl}
-* Use the scratchpad to think through the task and instructions before beginning writing.
 * Don't repeat the section name or title at the beginning of the paragraph.
 
 ${includeFinetune}  
@@ -197,8 +177,6 @@ ${includeFinetune}  
 ${context}
 
 ### Extremely important to remember:
-* It's critical you begin writing in the *** scratchpad *** first to analyse the instructions and plan out how you will write the section(s).
-* Once you have finished using the *** scratchpad ***, then use the *** article *** section to respond with the article.
 * Each h2 section should have a minumum of 1000 words.
 * Each heading from the outline when you write the article should have 500 words each, h1, h2, h3's
 
@@ -645,6 +623,47 @@ const summarizeContent = async (content, keyWord) => {
   return result.response.candidates[0].content.parts[0].functionCall.args;
 };
 
+const processRewrite = async (targetSection, instructions) => {
+  const generationConfig = {
+    max_output_tokens: 8000,
+    temperature: 0.9,
+    top_p: 0.1,
+    top_k: 16,
+  };
+
+  const model = genAI.getGenerativeModel({
+    model: "gemini-1.5-pro-001",
+    generationConfig,
+  });
+
+  const prompt = `
+  ### System Prompt: You are the world's foremost article writer, able to handle complex instructions.
+  
+  ### Task: Rewrite the following text based on the user's instructions.
+
+  ### User Instructions: ${instructions} 
+
+  ### Target text to rewrite: 
+  ${targetSection}
+
+  ### Additional Instructions:
+  * Only respond with the rewritten text, don't prefix your response with anything.
+  * Strive to keep the same structure of markdown as the original text UNLESS the *** User Instructions *** specify otherwise.
+  * If no *** User Instructions *** provided, then simply rewrite the provided text.
+  `;
+
+  try {
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+
+    console.log("Rewrite text: \n", text);
+    return text;
+  } catch (e) {
+    throw new Error(e);
+  }
+};
+
 module.exports = {
   generateFinetune,
   generateAmazonSection,
@@ -654,4 +673,5 @@ module.exports = {
   generateFineTuneService,
   testGemini,
   summarizeContent,
+  processRewrite,
 };

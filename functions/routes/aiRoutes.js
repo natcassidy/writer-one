@@ -672,6 +672,18 @@ router.post("/testGemini", async (req, res) => {
   res.status(200).send({ results });
 });
 
+router.post("/processRewrite", async (req, res) => {
+  const targetSection = req.body.text;
+  const instructions = req.body.modelInstructions;
+
+  try {
+    const response = await gemini.processRewrite(targetSection, instructions);
+    res.status(200).send({ rewrittenText: response });
+  } catch (e) {
+    res.status(500).send("Error rewriting article");
+  }
+});
+
 function extractIpMiddleware(req, res, next) {
   req.clientIp = req.headers["x-forwarded-for"] || req.connection.remoteAddress;
   next();
