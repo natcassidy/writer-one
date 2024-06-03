@@ -140,22 +140,22 @@ const generateSection = async (
     ? `  * Ensure you write with the following tone: ${tone}\n`
     : "";
   const includeCitedSources = citeSources
-    ? `  * If you choose to use data from the context the you must include the source in an <a> tag like this example: <a href="https://www.reuters.com/world/us/democratic-candidates-running-us-president-2024-2023-09-18/">Reuters</a>.  Use it naturally in the paragraphs if it's appropriate, do not place all of the sources at the end.  Use it to link a specific word or set of words wrapped with the a tag. 
-         * Include at least 1 source. 
+    ? `  * Link to articles from the context provided.  You should write this article with the intention of linking to other sites throughout it.  Use links naturally in the paragraphs if it's appropriate, do not place all of the links at the end.
+         * Include at least 1 link in this markdown format: [Link Text](URL)
       `
     : "";
   const includePointOfView = pointOfView
     ? `  * Please write this article using the following point of view: ${pointOfView}`
     : "";
   const includeInternalUrl = internalUrlData
-    ? `### Primary Source citing instructions: Please include a source cited in 1 of your sections from the following context. Please include the source in an <a> tag like this example: <a href="https://www.reuters.com/world/us/democratic-candidates-running-us-president-2024-2023-09-18/">Reuters</a>. Use it naturally in the article if it's appropriate, do not place all of the sources at the end.  Use it to link a specific word or set of words wrapped with the <a> tag.
+    ? `### Primary Source citing instructions: Please include a source cited in 1 of your sections from the following context. Use it naturally in the article if it's appropriate, do not place all of the sources at the end. 
        Source citing context: \n ${internalUrlData}`
     : "";
   const prompt = `
 ### System Instruction: You are an expert article writer specializing in generating high-quality, informative content on various topics. You can follow detailed instructions precisely.
 
 ### Task: Generate an article on this topic: ${keyWord}. Ensure it adheres to the following guidelines:
-* Length: Each h2 section and it's subsections should have 1000 words.
+* Length: Each header section and it's subsections should have 1000 words.
 * Style: Write in a clear, concise, and engaging style.
 * Flow: Natural flow, avoiding repetitive phrases and sentence structure.
 * Structure: Follow the outline provided.  You can use it as a reference to structure your article with
@@ -174,15 +174,20 @@ ${includeInternalUrl}
 ${includeFinetune}  
 
 ### Relevent Context To Use For Article: 
+_______________________
 ${context}
+_______________________
 
 ### Extremely important to remember:
 * Each h2 section should have a minumum of 1000 words.
 * Each heading from the outline when you write the article should have 500 words each, h1, h2, h3's
-
+* Respond in Markdown.
 ${
   citeSources &&
-  "* Ensure you cite atleast one source from the context provided."
+  `
+  * Ensure you cite atleast one source from the context provided.  The more sources cited the better.
+  * Cite the source(s), in this markdown format: [Link Text](URL).  Include the link naturally in your article, preferably in a sentence.
+  `
 }
 `;
 
@@ -542,7 +547,8 @@ async function generateOutline(
     numberOfSections++;
   }
 
-  const prompt = `Generate an outline for the keyword: ${keyword}.  Outline should be insightful and make sense to a reader.  Avoid using generic placeholders for sections or subsections like Brand 1 or Question 1.  Ensure that there are NO MORE THAN ${numberOfSections} sections total. Here is some context and info on the topic: ${context}.  You DO NOT NEED TO HAVE MULTIPLE SUBSECTIONS PER SECTION.  Your subsection names should be consise and to the point.  notesForIntroduction should include a general guideline for writing an introduction to the article that the outline is for.  Ensure you include notes for the introd. Sections and subsections notes should go in their corresponding notes fields to help direct what the content should be about and ensure flow. DO NOT include markup or xml formatting or prefixes in your json response, only string characters.  DO NOT prefix the fields in your response either.  EACH section must have ATLEAST 1 subsection.  DO NOT INCLUDE a section titled introduction.  The title in the outline serves as the introduction section. Max of 2-3 subsections per section.`;
+  const prompt = `Generate an outline for the keyword: ${keyword}.  Outline should be insightful and make sense to a reader.  Avoid using generic placeholders for sections or subsections like Brand 1 or Question 1.  Ensure that there are NO MORE THAN ${numberOfSections} sections total. Here is some context and info on the topic: 
+  ${context}.  You DO NOT NEED TO HAVE MULTIPLE SUBSECTIONS PER SECTION.  Your subsection names should be consise and to the point.  notesForIntroduction should include a general guideline for writing an introduction to the article that the outline is for.  Ensure you include notes for the introd. Sections and subsections notes should go in their corresponding notes fields to help direct what the content should be about and ensure flow. DO NOT include markup or xml formatting or prefixes in your json response, only string characters.  DO NOT prefix the fields in your response either.  EACH section must have ATLEAST 1 subsection.  DO NOT INCLUDE a section titled introduction.  The title in the outline serves as the introduction section. Max of 2-3 subsections per section.`;
 
   if (includeIntroduction) {
     prompt += " Include an introduction as one of the sections. ";
@@ -569,28 +575,18 @@ async function generateOutline(
 }
 
 const summarizeContent = async (content, keyWord) => {
-  const provideAnalysis = [
-    {
-      name: "provideAnalysis",
-      description:
-        "Extract the most valuable information and points from the content provided, include any relevent or necessary data in the provided content, keep sucinct.",
-      parameters: {
-        type: "object",
-        properties: {
-          keyPoints: {
-            type: "string",
-          },
-        },
-        required: ["keyPoints"],
-      },
-    },
-  ];
+  console.log("Summarizing content");
+  const generationConfig = {
+    max_output_tokens: 8000,
+    temperature: 0.9,
+    top_p: 0.1,
+    top_k: 16,
+  };
 
-  const tools = [
-    {
-      function_declarations: [provideAnalysis],
-    },
-  ];
+  const model = genAI.getGenerativeModel({
+    model: "gemini-1.5-pro-001",
+    generationConfig,
+  });
 
   const prompt = `
   Extract the most important and specific information from the provided content that is directly related to the subject: ${keyWord}. Include key details such as:
@@ -602,25 +598,16 @@ const summarizeContent = async (content, keyWord) => {
   Organize the extracted information into clear categories or sections based on the content.
   Aim for a high level of accuracy and avoid any generalizations or filler content. The extracted information will be used as source material for an article, so it's critical that the details are correct and not misleading.
   For example, if the article is reviewing the best cat foods, the extracted information should include the specific top brands recommended, key features of each food, and any statistics like "70% of vets recommend Brand X".
-  Here is the content to extract information from: ${content}
+  Here is the content to extract information from: 
+  
+  Article Content:
+  ${content}
   `;
 
-  const toolConfig = {
-    function_calling_config: {
-      mode: "ANY",
-    },
-  };
-
-  const model = genAI.getGenerativeModel({
-    model: "gemini-1.5-pro-latest",
-    tools,
-    toolConfig,
-  });
-
-  const chat = model.startChat();
-  const result = await chat.sendMessage(prompt);
-
-  return result.response.candidates[0].content.parts[0].functionCall.args;
+  const result = await model.generateContent(prompt);
+  const response = await result.response;
+  console.log("Finished Summarizing content");
+  return response.text();
 };
 
 const processRewrite = async (targetSection, instructions) => {

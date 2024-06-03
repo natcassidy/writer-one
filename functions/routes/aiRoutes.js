@@ -116,7 +116,7 @@ router.post("/process", async (req, res) => {
       internalUrlContext = misc.doInternalUrlResearch(internalUrls, keyWord);
     }
 
-    // context = await misc.doSerpResearch(keyWord, "");
+    context = await misc.doSerpResearch(keyWord, "");
 
     jobId = await firebaseFunctions.updateFirebaseJob(
       currentUser,

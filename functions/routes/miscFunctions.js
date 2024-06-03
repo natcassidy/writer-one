@@ -233,7 +233,7 @@ const doInternalUrlResearch = async (internalUrls, title) => {
                 let newContext = generateContextStringBlog(
                   item.title,
                   item.link,
-                  returnedSummary.keyPoints
+                  returnedSummary
                 );
                 return newContext;
               }
@@ -310,7 +310,7 @@ async function findGoodData(params, keyWord) {
             let newContext = generateContextStringBlog(
               item.title,
               item.link,
-              returnedSummary.keyPoints
+              returnedSummary
             );
             return newContext;
           }
