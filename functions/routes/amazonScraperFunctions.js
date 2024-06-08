@@ -1,6 +1,7 @@
 const axios = require("axios");
 require("dotenv").config();
 const OpenAI = require("openai");
+const gemini = require("./gemini");
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
@@ -132,21 +133,25 @@ const generateAmazonArticle = async (
   finetune
 ) => {
   const promises = [];
-  for (const section of outline) {
-    if (section.tagName == "h2") {
-      const contextString = misc.generateContextStringAmazon(section);
-      const promise = generateSectionWithRetry(
-        section,
-        keyWord,
-        contextString,
-        tone,
-        pointOfView,
-        finetune
-      );
-      promises.push(promise);
+  try {
+    for (const section of outline) {
+      if (section.tagName == "h2") {
+        const contextString = misc.generateContextStringAmazon(section);
+        const promise = generateSectionWithRetry(
+          section,
+          keyWord,
+          contextString,
+          tone,
+          pointOfView,
+          finetune
+        );
+        promises.push(promise);
+      }
     }
+    return await Promise.all(promises);
+  } catch (e) {
+    throw new Error(e);
   }
-  return await Promise.all(promises);
 };
 
 const generateSectionWithRetry = async (
@@ -160,7 +165,7 @@ const generateSectionWithRetry = async (
   let attempt = 0;
   while (attempt < 3) {
     try {
-      const completion = await claude.generateAmazonSectionClaude(
+      const completion = await gemini.generateAmazonSection(
         section.content,
         keyWord,
         contextString,
@@ -168,13 +173,7 @@ const generateSectionWithRetry = async (
         pointOfView,
         finetune
       );
-      const extractedJSON = extractJsonFromString(completion.content[0].text);
-      const sanitizedJSON = sanitizeJSON(extractedJSON);
-      let responseMessage = JSON.parse(sanitizedJSON);
-      section.overviewOfProduct = responseMessage.overviewOfProduct;
-      section.pros = responseMessage.pros;
-      section.cons = responseMessage.cons;
-      section.bottomLine = responseMessage.bottomLine;
+      section = completion;
       return; // Exit the function if successful
     } catch (error) {
       attempt++;

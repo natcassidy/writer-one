@@ -343,9 +343,7 @@ const generateContextStringAmazon = (section) => {
   const reviewCount = Math.min(section.reviews.length, maxLoops);
 
   for (let i = 0; i < reviewCount; i++) {
-    contextString += `<review ${i + 1}> ${section.reviews[i].body}</review ${
-      i + 1
-    }>\n`;
+    contextString += `* Review ${i + 1}: ${section.reviews[i].body}\n`;
   }
 
   return contextString;

@@ -31,63 +31,70 @@ const generateAmazonSection = async (
     console.log("Error caught on finetune generating gemini section:", e);
   }
 
-  const anthropic = new Anthropic({
-    apiKey: process.env.CLAUDE_API_KEY,
-  });
+  const generationConfig = {
+    max_output_tokens: 8000,
+    temperature: 0.9,
+    top_p: 0.1,
+    top_k: 16,
+  };
 
-  const toolsForNow = `
-    {
-        "overviewOfProduct": "string",
-        "pros": [
-            {"point": "string"}
-        ],
-        "cons": [
-            {"point": "string"}
-        ],
-        "bottomLine": "string"
-    }
-    `;
+  const model = genAI.getGenerativeModel({
+    model: "gemini-1.5-pro-001",
+    generationConfig,
+  });
 
   const includeFinetune =
     fineTuneData && fineTuneData.instructions
       ? `
-        ---------------------------
-        Follow the below instructions to capture the style and tone desired.
-        Style of Writing: 
-        ${fineTuneData.instructions}
-        ---------------------------
+          * Style of Writing To Use:
+          ${fineTuneData.instructions}
+
         `
       : "";
 
   const includeTone = tone
-    ? `Ensure you write with the following tone: ${tone}\n`
+    ? `  * Ensure you write with the following tone: ${tone}\n`
     : "";
   const includePointOfView = pointOfView
-    ? `Please write this section using the following point of view: ${pointOfView}\n`
+    ? `  * Please write this article using the following point of view: ${pointOfView}`
     : "";
   const prompt = `
-        Generate an word overview of this product: ${keyWord} for a section titled: ${sectionHeader}, DO NOT ADD HEADERS.  
+        ### System Instruction: You are an expert article writer specializing in generating high-quality, informative content on various topics. You can follow detailed instructions precisely.
+
+        ### Task: Generate an word overview of this product: ${keyWord} for a section titled: ${sectionHeader}.
+        * Length: Strive to write 500-1000 words.
+        * Style: Write in a clear, concise, and engaging style.
+        * Flow: Natural flow, avoiding repetitive phrases and sentence structure.
+        * Structure: Structure your section in the following way:
+          - Overview of product
+          - Pro's List
+          - Con's List 
+          - Closing thoughts on product
         ${includeFinetune}
-        Here is relevant context wrapped in <context></context>  tags, to help you with facts and information when writing from the amazon product pages.  Within the context tags are <review></review> tags with individual reviews on the product. 
-        <context>
-        ${context}. 
-        </context>
-        You can use the reviews to shape the paragraph, but do not specifically mention that it was a review that your opinion came from.  ENSURE YOU DO NOT REFERENCE THE REVIEW DIRECTLY.  As in stating something like "After reading this review here's a con about the product" 
-        DO NOT INCLUDE A HEADER JUST WRITE A PARAGRAPH.
         ${includeTone}
         ${includePointOfView}
-        Make sure your opening sentence to the section is unique and doesn't just reiterate the primary keyword.  Avoid using closing statements at the end of the section. 
-        ENSURE your response is in the following JSON format:\n ${toolsForNow} \n
-        YOUR ENTIRE RESPONSE MUST BE IN THE JSON FORMAT ABOVE.  DO NOT INCLUDE ANY TEXT BEFORE OR AFTER THE JSON RESPONSE.  IF IT IS NOT IN THE JSON FORMAT ABOVE IT WILL BREAK.
-        overviewOfProduct: should be 150 words and offer a preview/intro of the product.
-        pros: should be 4 items
-        cons: should be 4 items
-        bottomLine: should be minimum 300 words and provide the user with an summary of the information regarding the product.
+
+        ### Relevent Context on product To Use For writing section: 
+        _______________________
+        ${context}
+        _______________________
+
+        ### Additional Notes on Instructions:
+        * You can use the reviews to shape the paragraph, but do not specifically mention that it was a review that your opinion came from.  ENSURE YOU DO NOT REFERENCE THE REVIEW DIRECTLY.  As in stating something like "After reading this review here's a con about the product" 
+        * Make sure your opening sentence to the section is unique and doesn't just reiterate the primary keyword.  Avoid using closing statements at the end of the section. 
         `;
 
   const result = await model.generateContent(prompt);
   const response = await result.response;
-  return response.text();
+  const text = response.text();
+
+  console.log("________________________");
+  console.log("prompt: \n", prompt);
+  console.log("________________________");
+  console.log("Sections: \n", response);
+  console.log("________________________");
+  console.log("Sections: \n", text);
+  return text;
 };
 
 const generateSection = async (
@@ -575,6 +582,8 @@ async function generateOutline(
 }
 
 const summarizeContent = async (content, keyWord) => {
+  const now = new Date();
+  console.log(now.toLocaleString());
   console.log("Summarizing content");
   const generationConfig = {
     max_output_tokens: 8000,
@@ -606,6 +615,8 @@ const summarizeContent = async (content, keyWord) => {
 
   const result = await model.generateContent(prompt);
   const response = await result.response;
+  const now2 = new Date();
+  console.log(now2.toLocaleString());
   console.log("Finished Summarizing content");
   return response.text();
 };
