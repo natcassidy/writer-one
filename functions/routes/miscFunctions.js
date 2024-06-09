@@ -561,10 +561,12 @@ const parseIp = (req) => {
 const generateOutline = async (keyWord, sectionCount, context) => {
   const maxAttempts = 3;
   let attempt = 0;
+  let response;
 
   while (attempt < maxAttempts) {
     try {
-      return await claude.generateOutlineClaude(keyWord, sectionCount, context);
+      response = await gemini.generateOutline(keyWord, sectionCount, context);
+      break; // Exit the loop if the request is successful
     } catch (error) {
       attempt++;
       if (attempt < maxAttempts) {
@@ -575,6 +577,11 @@ const generateOutline = async (keyWord, sectionCount, context) => {
       }
     }
   }
+
+  if (!response) {
+    throw new Error("Failed to generate a valid response.");
+  }
+
   return processAIResponseToHtml(response);
 };
 
