@@ -564,7 +564,7 @@ const generateOutline = async (keyWord, sectionCount, context) => {
 
   while (attempt < maxAttempts) {
     try {
-      return await gemini.generateOutline(keyWord, sectionCount, context);
+      return await claude.generateOutlineClaude(keyWord, sectionCount, context);
     } catch (error) {
       attempt++;
       if (attempt < maxAttempts) {
@@ -586,7 +586,8 @@ const generateSectionsWithRetry = async (
   pointOfView,
   citeSources,
   finetune,
-  internalUrlContext
+  internalUrlContext,
+  internalUrls
 ) => {
   const maxAttempts = 3;
   let attempt = 0;
@@ -602,7 +603,8 @@ const generateSectionsWithRetry = async (
         pointOfView,
         citeSources,
         finetune,
-        internalUrlContext
+        internalUrlContext,
+        internalUrls
       );
 
       return article;
@@ -626,7 +628,8 @@ const generateSectionsOfArticle = async (
   pointOfView,
   citeSources,
   finetunePromise,
-  internalUrlContext
+  internalUrlContext,
+  iternalUrls
 ) => {
   const outlineCopy = structuredClone(piecesOfOutline);
   try {
@@ -638,7 +641,8 @@ const generateSectionsOfArticle = async (
       pointOfView,
       citeSources,
       finetunePromise,
-      internalUrlContext
+      internalUrlContext,
+      internalUrls
     );
 
     return response;
@@ -656,7 +660,8 @@ const generateArticle = async (
   pointOfView,
   citeSources,
   finetune,
-  internalUrlContext
+  internalUrlContext,
+  internalUrls
 ) => {
   // Directly create an array of promises
   const sectionPromises = generateSectionsWithRetry(

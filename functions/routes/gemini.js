@@ -209,7 +209,8 @@ const generateSection = async (
   pointOfView,
   citeSources,
   finetune,
-  internalUrlContext
+  internalUrlContext,
+  internalUrls
 ) => {
   let fineTuneData = "";
   let internalUrlData;
@@ -259,8 +260,27 @@ const generateSection = async (
     ? `  * Please write this article using the following point of view: ${pointOfView}`
     : "";
   const includeInternalUrl = internalUrlData
-    ? `### Primary Source citing instructions: Please include a source cited in 1 of your sections from the following context. Use it naturally in the article if it's appropriate, do not place all of the sources at the end. 
-       Source citing context: \n ${internalUrlData}`
+    ? `### Primary Source citing instructions: You MUST include a source cited in 1 of your sections from the following context. Use it naturally in the article if it's appropriate, do not place all of the sources at the end. 
+       Source citing context: \n ${internalUrlData}
+       
+       Here is an example of how you should include the source below. Only pay attention to the structure and natural inclusion of the link.  Pay close attention to how the links aren't placed at the end of the sections, but included naturally in the paragraphs.
+       
+       * Example 1:
+       Prince Edward Island (PEI), Canada's smallest province, is a haven of rich cultural experiences, natural beauty, and historic charm. Visitors can immerse themselves in the island's stunning landscapes, with opportunities to explore the red sandstone cliffs and pristine beaches of the PEI National Park. For history enthusiasts, a visit to the Anne of Green Gables Museum offers a nostalgic glimpse into the world of Lucy Maud Montgomery's beloved character. Outdoor adventurers will find the Confederation Trail, a scenic path perfect for cycling and hiking, stretching across the island. Food lovers can indulge in PEI's renowned culinary scene, sampling fresh seafood at one of the many coastal eateries. From serene coastal drives to lively cultural festivals, there is no shortage of activities to enjoy on PEI. For a comprehensive guide to these and other activities, check out the [Tourism PEI website](https://www.tourismpei.com/what-to-do), which provides detailed information on the best things to do on the island.
+       
+       * Example 2: 
+       ### Saving the Climate: Actions for a Sustainable Future
+
+       Tackling climate change is essential as the impacts of rising temperatures and extreme weather events become increasingly severe. A critical step is reducing greenhouse gas emissions by transitioning from fossil fuels to renewable energy sources like wind and solar. Countries such as Germany have made significant strides through their "Energiewende" (energy transition), investing heavily in renewable infrastructure and setting ambitious emission reduction targets [Energiewende Blog](https://energiewende.eu/).
+
+       Another vital strategy is enhancing energy efficiency. Simple actions, like using LED lighting and improving building insulation, can substantially lower energy consumption and emissions. Denmark’s focus on energy efficiency has led to one of the lowest per capita energy consumption rates among industrialized nations [Danish Ministry of Climate, Energy and Utilities](https://en.kefm.dk/).
+
+       Additionally, preserving natural ecosystems plays a crucial role in absorbing CO2. Initiatives like the [Trillion Trees](https://www.trilliontrees.org/) project aim to restore one trillion trees worldwide, demonstrating the potential of nature-based solutions in combating climate change.
+
+       For more insights and practical steps on climate action, organizations like the [United Nations Framework Convention on Climate Change (UNFCCC)](https://unfccc.int/) provide valuable resources.
+        
+       
+       ### Remember you must link to ATLEAST 1 if not more of these url(s): [${internalUrls}]`
     : "";
   const prompt = `
 ### System Instruction: You are an expert article writer specializing in generating high-quality, informative content on various topics. You can follow detailed instructions precisely.
@@ -311,9 +331,9 @@ ${
   console.log("________________________");
   console.log("prompt: \n", prompt);
   console.log("________________________");
-  console.log("Sections: \n", response);
-  console.log("________________________");
-  console.log("Sections: \n", text);
+  // console.log("Sections: \n", response);
+  // console.log("________________________");
+  // console.log("Sections: \n", text);
   return text;
 };
 

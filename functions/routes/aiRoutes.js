@@ -154,7 +154,8 @@ router.post("/process", async (req, res) => {
       pointOfView,
       citeSources,
       finetune,
-      internalUrlContext
+      internalUrlContext,
+      internalUrls
     );
   } catch (error) {
     return res.status(500).send("Error generating article: " + error);
@@ -194,9 +195,11 @@ router.post("/processFreeTrial", extractIpMiddleware, async (req, res) => {
     outline,
     jobId,
     finetuneChosen,
+    internalUrls,
   } = req.body;
 
   let context = "";
+  let internalUrlContext = "";
   if (!jobId) {
     jobId = -1;
   }
@@ -241,7 +244,16 @@ router.post("/processFreeTrial", extractIpMiddleware, async (req, res) => {
         console.log("Error generating finetune ", error);
       }
     }
+
+    if (internalUrls && internalUrls.length > 0) {
+      internalUrlContext = misc.doInternalUrlResearch(internalUrls, keyWord);
+    }
+
+    context = await misc.doSerpResearch(keyWord, "");
   } else {
+    if (internalUrls && internalUrls.length > 0) {
+      internalUrlContext = misc.doInternalUrlResearch(internalUrls, keyWord);
+    }
     context = await misc.doSerpResearch(keyWord, "");
     jobId = await firebaseFunctions.updateFirebaseJobByIp(
       clientIp,
@@ -285,7 +297,8 @@ router.post("/processFreeTrial", extractIpMiddleware, async (req, res) => {
       tone,
       pointOfView,
       citeSources,
-      finetune
+      finetune,
+      internalUrls
     );
   } catch (error) {
     return res.status(500).send("Error generating article: ", error);
