@@ -144,9 +144,9 @@ router.post("/process", async (req, res) => {
   }
 
   console.log("generating article");
-  let updatedOutline = "";
+  let article = "";
   try {
-    updatedOutline = await misc.generateArticle(
+    article = await misc.generateArticle(
       outline,
       keyWord,
       context,
@@ -154,7 +154,8 @@ router.post("/process", async (req, res) => {
       pointOfView,
       citeSources,
       finetune,
-      internalUrlContext
+      internalUrlContext,
+      internalUrls
     );
   } catch (error) {
     return res.status(500).send("Error generating article: " + error);
@@ -167,13 +168,13 @@ router.post("/process", async (req, res) => {
   jobId = await firebaseFunctions.updateFirebaseJob(
     currentUser,
     jobId,
-    "outline",
-    updatedOutline
+    "article",
+    article
   );
   //Outline will now contain each section filled in with data
   console.log("Exiting processing of Blog Post");
 
-  res.status(200).send({ article: updatedOutline, updatedArticleCount });
+  res.status(200).send({ article, updatedArticleCount });
 });
 
 router.post("/processFreeTrial", extractIpMiddleware, async (req, res) => {
@@ -194,9 +195,11 @@ router.post("/processFreeTrial", extractIpMiddleware, async (req, res) => {
     outline,
     jobId,
     finetuneChosen,
+    internalUrls,
   } = req.body;
 
   let context = "";
+  let internalUrlContext = "";
   if (!jobId) {
     jobId = -1;
   }
@@ -241,7 +244,16 @@ router.post("/processFreeTrial", extractIpMiddleware, async (req, res) => {
         console.log("Error generating finetune ", error);
       }
     }
+
+    if (internalUrls && internalUrls.length > 0) {
+      internalUrlContext = misc.doInternalUrlResearch(internalUrls, keyWord);
+    }
+
+    context = await misc.doSerpResearch(keyWord, "");
   } else {
+    if (internalUrls && internalUrls.length > 0) {
+      internalUrlContext = misc.doInternalUrlResearch(internalUrls, keyWord);
+    }
     context = await misc.doSerpResearch(keyWord, "");
     jobId = await firebaseFunctions.updateFirebaseJobByIp(
       clientIp,
@@ -285,7 +297,8 @@ router.post("/processFreeTrial", extractIpMiddleware, async (req, res) => {
       tone,
       pointOfView,
       citeSources,
-      finetune
+      finetune,
+      internalUrls
     );
   } catch (error) {
     return res.status(500).send("Error generating article: ", error);
@@ -441,14 +454,9 @@ router.post("/processAmazon", async (req, res) => {
       finetune
     );
   } catch (e) {
-    return res.status(500).send("Error generating article: ", error);
+    console.log("Error: ", e);
+    return res.status(500).send({ error: e });
   }
-
-  // console.log('article generated now doing gemini article')
-  // const geminiOutline = structuredClone(outline);
-  // await vertex.generateArticleGemini(geminiOutline)
-
-  // console.log('gemini article generated')
   const updatedArticleCount = await firebaseFunctions.decrementUserArticleCount(
     currentUser
   );
@@ -670,6 +678,18 @@ router.post("/testFinetune", async (req, res) => {
 router.post("/testGemini", async (req, res) => {
   const results = await gemini.testGemini();
   res.status(200).send({ results });
+});
+
+router.post("/processRewrite", async (req, res) => {
+  const targetSection = req.body.text;
+  const instructions = req.body.modelInstructions;
+
+  try {
+    const response = await gemini.processRewrite(targetSection, instructions);
+    res.status(200).send({ rewrittenText: response });
+  } catch (e) {
+    res.status(500).send("Error rewriting article");
+  }
 });
 
 function extractIpMiddleware(req, res, next) {

@@ -31,63 +31,174 @@ const generateAmazonSection = async (
     console.log("Error caught on finetune generating gemini section:", e);
   }
 
-  const anthropic = new Anthropic({
-    apiKey: process.env.CLAUDE_API_KEY,
-  });
+  const generationConfig = {
+    max_output_tokens: 8000,
+    temperature: 0.9,
+    top_p: 0.1,
+    top_k: 16,
+  };
 
-  const toolsForNow = `
-    {
-        "overviewOfProduct": "string",
-        "pros": [
-            {"point": "string"}
-        ],
-        "cons": [
-            {"point": "string"}
-        ],
-        "bottomLine": "string"
-    }
-    `;
+  const model = genAI.getGenerativeModel({
+    model: "gemini-1.5-pro-001",
+    generationConfig,
+  });
 
   const includeFinetune =
     fineTuneData && fineTuneData.instructions
       ? `
-        ---------------------------
-        Follow the below instructions to capture the style and tone desired.
-        Style of Writing: 
-        ${fineTuneData.instructions}
-        ---------------------------
+          * Style of Writing To Use:
+          ${fineTuneData.instructions}
+
         `
       : "";
 
   const includeTone = tone
-    ? `Ensure you write with the following tone: ${tone}\n`
+    ? `  * Ensure you write with the following tone: ${tone}\n`
     : "";
   const includePointOfView = pointOfView
-    ? `Please write this section using the following point of view: ${pointOfView}\n`
+    ? `  * Please write this article using the following point of view: ${pointOfView}`
     : "";
   const prompt = `
-        Generate an word overview of this product: ${keyWord} for a section titled: ${sectionHeader}, DO NOT ADD HEADERS.  
+        ### System Instruction: You are an expert article writer specializing in generating high-quality, informative content on various topics. You can follow detailed instructions precisely.
+
+        ### Task: Generate an overview of this product: ${keyWord} for a section titled: ${sectionHeader}.
+        * Length: Strive to write 1000 words.
+        * Style: Write in a clear, concise, and engaging style.
+        * Flow: Natural flow, avoiding repetitive phrases and sentence structure.
+        * Structure: Structure your section in the following way:
+          - Detailed overview of product
+          - Pro's List
+          - Con's List 
+          - Detailed closing thoughts on product based on pro's and con's
         ${includeFinetune}
-        Here is relevant context wrapped in <context></context>  tags, to help you with facts and information when writing from the amazon product pages.  Within the context tags are <review></review> tags with individual reviews on the product. 
-        <context>
-        ${context}. 
-        </context>
-        You can use the reviews to shape the paragraph, but do not specifically mention that it was a review that your opinion came from.  ENSURE YOU DO NOT REFERENCE THE REVIEW DIRECTLY.  As in stating something like "After reading this review here's a con about the product" 
-        DO NOT INCLUDE A HEADER JUST WRITE A PARAGRAPH.
         ${includeTone}
         ${includePointOfView}
-        Make sure your opening sentence to the section is unique and doesn't just reiterate the primary keyword.  Avoid using closing statements at the end of the section. 
-        ENSURE your response is in the following JSON format:\n ${toolsForNow} \n
-        YOUR ENTIRE RESPONSE MUST BE IN THE JSON FORMAT ABOVE.  DO NOT INCLUDE ANY TEXT BEFORE OR AFTER THE JSON RESPONSE.  IF IT IS NOT IN THE JSON FORMAT ABOVE IT WILL BREAK.
-        overviewOfProduct: should be 150 words and offer a preview/intro of the product.
-        pros: should be 4 items
-        cons: should be 4 items
-        bottomLine: should be minimum 300 words and provide the user with an summary of the information regarding the product.
+
+        ### Relevent Context on product To Use For writing section: 
+        _______________________
+        ${context}
+        _______________________
+
+        ### Here is an example article, only pay attention to the structure and formatting, not the topic.  This is here to show you how to structure your output:
+
+        ***
+        The Amazon Basics Two-Door, Hard-Sided Pet Travel Carrier is a practical and affordable option for pet owners seeking a reliable carrier for vet visits, travel, or other outings.  This model, in particular, is a gray and blue carrier with dimensions of 22.8"L x 15.0"W x 13.0"H.  The hard-sided design offers several advantages over soft-sided carriers, particularly in terms of security, durability, and ease of cleaning. 
+
+        ### Pro's List
+        * **Durable Construction:**  The carrier is constructed from sturdy, hard plastic that can withstand scratching, clawing, and moderate impacts. 
+        * **Dual-Door Design:**  The two-door design, with both front and top entry points, provides convenient access for placing pets inside and taking them out.  This is especially helpful for cats who may be hesitant to enter through a front-facing door. 
+        * **Secure Locking Mechanism:** The carrier features a secure locking mechanism on both doors, ensuring that pets cannot escape during transit. 
+        * **Easy to Clean:** The hard plastic surfaces of the carrier can be easily wiped down with soap and water, making it simple to maintain hygiene and remove any accidents. 
+        * **Good Ventilation:**  The carrier is designed with ventilation slits that allow for adequate airflow, preventing pets from overheating or feeling suffocated. 
+        * **Spacious Interior:**  The carrier offers ample space for most cats or small dogs to comfortably stand up, turn around, and lie down. 
+        * **Affordable Price Point:**  The Amazon Basics carrier is competitively priced, making it an attractive option for budget-conscious pet owners. 
+
+        ### Con's List
+        * **Handle Durability:**  While the handle is generally adequate for carrying the carrier, some users have expressed concerns about its long-term durability, particularly when transporting heavier pets. 
+        * **Potential for Noise:**  The locking mechanisms on the doors can be a bit noisy, which might startle some pets. 
+        * **Lack of Seatbelt Strap:**  The carrier does not come equipped with a built-in seatbelt strap for securing it in a vehicle. 
+
+        The Amazon Basics Two-Door, Hard-Sided Pet Travel Carrier offers a compelling combination of practicality, affordability, and essential features, making it a solid choice for pet owners.  While there are a few minor drawbacks, the carrier's strengths outweigh its weaknesses, making it a worthwhile investment for ensuring the safe and comfortable transport of your furry companion. 
+
+        ***
+
+        ### Additional Notes on Instructions:
+        * You can use the reviews to shape the paragraph, but do not specifically mention that it was a review that your opinion came from.  ENSURE YOU DO NOT REFERENCE THE REVIEW DIRECTLY.  As in stating something like "After reading this review here's a con about the product" 
+        * Make sure your opening sentence to the section is unique and doesn't just reiterate the primary keyword.  Avoid using closing statements at the end of the section. 
+        * Use Markdown for format the bullet points
+        * Don't include an h1 or h2 at the beginning with the name of the product, simply start your section off in a paragraph.  Like the example provided above.
         `;
 
   const result = await model.generateContent(prompt);
   const response = await result.response;
-  return response.text();
+  const text = response.text();
+
+  console.log("________________________");
+  console.log("prompt: \n", prompt);
+  console.log("________________________");
+  console.log("Sections: \n", response);
+  console.log("________________________");
+  console.log("Sections: \n", text);
+  return text;
+};
+
+const generateAmazonIntro = async (
+  sectionHeader,
+  keyWord,
+  context,
+  tone,
+  pointOfView,
+  finetunePromise
+) => {
+  console.log("Entering generateAmazonSection");
+  let fineTuneData = "";
+
+  try {
+    fineTuneData = await finetunePromise;
+  } catch (e) {
+    console.log("Error caught on finetune generating gemini section:", e);
+  }
+
+  const generationConfig = {
+    max_output_tokens: 8000,
+    temperature: 0.9,
+    top_p: 0.1,
+    top_k: 16,
+  };
+
+  const model = genAI.getGenerativeModel({
+    model: "gemini-1.5-pro-001",
+    generationConfig,
+  });
+
+  const includeFinetune =
+    fineTuneData && fineTuneData.instructions
+      ? `
+          * Style of Writing To Use:
+          ${fineTuneData.instructions}
+
+        `
+      : "";
+
+  const includeTone = tone
+    ? `  * Ensure you write with the following tone: ${tone}\n`
+    : "";
+  const includePointOfView = pointOfView
+    ? `  * Please write this article using the following point of view: ${pointOfView}`
+    : "";
+  const prompt = `
+        ### System Instruction: You are an expert article writer specializing in generating high-quality, informative content on various topics. You can follow detailed instructions precisely.
+
+        ### Task: Generate an introduction for an article review this product: ${keyWord}
+        * Length: Strive to write 500-1000 words.
+        * Style: Write in a clear, concise, and engaging style.
+        * Flow: Natural flow, avoiding repetitive phrases and sentence structure.
+        ${includeFinetune}
+        ${includeTone}
+        ${includePointOfView}
+
+        ### Relevent Context on product To Use For writing the introduction: 
+        _______________________
+        ${context}
+        _______________________
+
+        ### Additional Notes on Instructions:
+        * You can use the reviews to shape the paragraph, but do not specifically mention that it was a review that your opinion came from.  ENSURE YOU DO NOT REFERENCE THE REVIEW DIRECTLY.  As in stating something like "After reading this review here's a con about the product" 
+        * Make sure your opening sentence to the section is unique and doesn't just reiterate the primary keyword.  Avoid using closing statements at the end of the section. 
+        * Use Markdown for format the bullet points if you choose to include bullet points (you don't have to)
+        `;
+
+  const result = await model.generateContent(prompt);
+  const response = await result.response;
+  const text = response.text();
+
+  console.log("________________________");
+  console.log("prompt: \n", prompt);
+  console.log("________________________");
+  console.log("Sections: \n", response);
+  console.log("________________________");
+  console.log("Sections: \n", text);
+  return text;
 };
 
 const generateSection = async (
@@ -98,7 +209,8 @@ const generateSection = async (
   pointOfView,
   citeSources,
   finetune,
-  internalUrlContext
+  internalUrlContext,
+  internalUrls
 ) => {
   let fineTuneData = "";
   let internalUrlData;
@@ -116,60 +228,17 @@ const generateSection = async (
 
   console.log("Entering generateSection");
 
-  let listOfSections = "";
-  outline.forEach((section) => {
-    listOfSections += `${section.content}, `;
-  });
-
-  const generateSectionFunction = [
-    {
-      name: "generateSection",
-      description: `Generate paragraphs based on the information provided for each subsection.  Ensure to include a paragragh for each section: ${listOfSections}.  When calling this function you MUST provide ${outline.length} number of elements in the array.`,
-
-      parameters: {
-        type: "object",
-        properties: {
-          sections: {
-            type: "array",
-            items: {
-              type: "string",
-            },
-          },
-          scratchpad: {
-            type: "string",
-          },
-        },
-        required: ["sections", "scratchpad"],
-      },
-    },
-  ];
-
-  const tools = [
-    {
-      function_declarations: [generateSectionFunction],
-    },
-  ];
-
-  const toolConfig = {
-    function_calling_config: {
-      mode: "ANY",
-    },
-  };
-
   const generationConfig = {
-    maxOutputTokens: 8000,
+    max_output_tokens: 8000,
     temperature: 0.9,
+    top_p: 0.1,
+    top_k: 16,
   };
 
   const model = genAI.getGenerativeModel({
-    model: "gemini-1.5-pro-latest",
-    tools,
-    toolConfig,
+    model: "gemini-1.5-pro-001",
+    generationConfig,
   });
-
-  const sectionList = generateSectionList(outline);
-
-  const notesForArticle = generateNotesForArticle(outline);
 
   const includeFinetune =
     fineTuneData && fineTuneData.instructions
@@ -183,107 +252,89 @@ const generateSection = async (
     ? `  * Ensure you write with the following tone: ${tone}\n`
     : "";
   const includeCitedSources = citeSources
-    ? `  * If you choose to use data from the context the you must include the source in an <a> tag like this example: <a href="https://www.reuters.com/world/us/democratic-candidates-running-us-president-2024-2023-09-18/">Reuters</a>.  Use it naturally in the paragraphs if it's appropriate, do not place all of the sources at the end.  Use it to link a specific word or set of words wrapped with the a tag. 
-         * Include at least 1 source. 
+    ? `  * Link to articles from the context provided.  You should write this article with the intention of linking to other sites throughout it.  Use links naturally in the paragraphs if it's appropriate, do not place all of the links at the end.
+         * Include at least 1 link in this markdown format: [Link Text](URL)
       `
     : "";
   const includePointOfView = pointOfView
-    ? `  * Please write this section using the following point of view: ${pointOfView}`
+    ? `  * Please write this article using the following point of view: ${pointOfView}`
     : "";
   const includeInternalUrl = internalUrlData
-    ? `### Primary Source citing instructions: Please include a source cited in 1 of your sections from the following context. Please include the source in an <a> tag like this example: <a href="https://www.reuters.com/world/us/democratic-candidates-running-us-president-2024-2023-09-18/">Reuters</a>. Use it naturally in the article if it's appropriate, do not place all of the sources at the end.  Use it to link a specific word or set of words wrapped with the <a> tag.
-       Source citing context: \n ${internalUrlData}`
+    ? `### Primary Source citing instructions: You MUST include a source cited in 1 of your sections from the following context. Use it naturally in the article if it's appropriate, do not place all of the sources at the end. 
+       Source citing context: \n ${internalUrlData}
+       
+       Here is an example of how you should include the source below. Only pay attention to the structure and natural inclusion of the link.  Pay close attention to how the links aren't placed at the end of the sections, but included naturally in the paragraphs.
+       
+       * Example 1:
+       Prince Edward Island (PEI), Canada's smallest province, is a haven of rich cultural experiences, natural beauty, and historic charm. Visitors can immerse themselves in the island's stunning landscapes, with opportunities to explore the red sandstone cliffs and pristine beaches of the PEI National Park. For history enthusiasts, a visit to the Anne of Green Gables Museum offers a nostalgic glimpse into the world of Lucy Maud Montgomery's beloved character. Outdoor adventurers will find the Confederation Trail, a scenic path perfect for cycling and hiking, stretching across the island. Food lovers can indulge in PEI's renowned culinary scene, sampling fresh seafood at one of the many coastal eateries. From serene coastal drives to lively cultural festivals, there is no shortage of activities to enjoy on PEI. For a comprehensive guide to these and other activities, check out the [Tourism PEI website](https://www.tourismpei.com/what-to-do), which provides detailed information on the best things to do on the island.
+       
+       * Example 2: 
+       ### Saving the Climate: Actions for a Sustainable Future
+
+       Tackling climate change is essential as the impacts of rising temperatures and extreme weather events become increasingly severe. A critical step is reducing greenhouse gas emissions by transitioning from fossil fuels to renewable energy sources like wind and solar. Countries such as Germany have made significant strides through their "Energiewende" (energy transition), investing heavily in renewable infrastructure and setting ambitious emission reduction targets [Energiewende Blog](https://energiewende.eu/).
+
+       Another vital strategy is enhancing energy efficiency. Simple actions, like using LED lighting and improving building insulation, can substantially lower energy consumption and emissions. Denmark’s focus on energy efficiency has led to one of the lowest per capita energy consumption rates among industrialized nations [Danish Ministry of Climate, Energy and Utilities](https://en.kefm.dk/).
+
+       Additionally, preserving natural ecosystems plays a crucial role in absorbing CO2. Initiatives like the [Trillion Trees](https://www.trilliontrees.org/) project aim to restore one trillion trees worldwide, demonstrating the potential of nature-based solutions in combating climate change.
+
+       For more insights and practical steps on climate action, organizations like the [United Nations Framework Convention on Climate Change (UNFCCC)](https://unfccc.int/) provide valuable resources.
+        
+       
+       ### Remember you must link to ATLEAST 1 if not more of these url(s): [${internalUrls}]`
     : "";
   const prompt = `
-### System Instruction: You are an expert article writer specializing in generating high-quality, informative content on various topics. You are proficient in JSON formatting and can follow detailed instructions precisely.
+### System Instruction: You are an expert article writer specializing in generating high-quality, informative content on various topics. You can follow detailed instructions precisely.
 
-### Task: Generate paragraphs for each subsection provided on this topic: ${keyWord}. Ensure each section adheres to the following guidelines:
-* Length: 500-1000 words per section
-* Structure: Begin with a topic sentence that is unique and engaging, provide supporting details and evidence, conclude with a summary or transition sentence unique to each section.
+### Task: Generate an article on this topic: ${keyWord}. Ensure it adheres to the following guidelines:
+* Length: Each header section and it's subsections should have 1000 words.
 * Style: Write in a clear, concise, and engaging style.
 * Flow: Natural flow, avoiding repetitive phrases and sentence structure.
+* Structure: Follow the outline provided.  You can use it as a reference to structure your article with
 
-### Sections:
-${sectionList}
+### Outline
 
-### Relevent Task Instructions: 
+${JSON.stringify(outline, null, 2)}
+
+### Relevant Task Instructions: 
 ${includeTone}
 ${includePointOfView}
 ${includeCitedSources}
 ${includeInternalUrl}
-* Use the scratchpad to think through the task and instructions before beginning writing.
-* Don't repeat the section name or title at the beginning of the paragragh.
-* Don't use markup tags or formatting in your paragragh responses.
-* You need to respond with an array of size ${outline.length} sections.
-* Ensure each section is at minimum 500 words.
-* Wrap your paragraghs in the sections with <p></p> tags.
-* Format your sections with html tags, such as <p>, <b>, <li> etc.
-
-${notesForArticle}
+* Don't repeat the section name or title at the beginning of the paragraph.
 
 ${includeFinetune}  
 
 ### Relevent Context To Use For Article: 
+_______________________
 ${context}
+_______________________
 
 ### Extremely important to remember:
-* It's critical you begin writing in the scratchpad first to analyse the instructions and plan out how you will write the section(s).
-* Each section must have 500 words.
-* You can have multiple paragraphs in each section, but you must mark them with <p></p> tags.
-* Ensure there is no spaces between the beginning of the <p> tags and the content.
-* Favor longer paragraphs over shorter ones.  Paragraphs in <p> tags in sections should be atleast 5 sentences or longer.
+* Each h2 section should have a minumum of 1000 words.
+* Each heading from the outline when you write the article should have 500 words each, h1, h2, h3's
+* Respond in Markdown.
+* If writing a list, ensure there is not an empty blank line between items.
 ${
   citeSources &&
-  "* Ensure you cite atleast one source from the context provided."
+  `
+  * Ensure you cite atleast one source from the context provided.  The more sources cited the better.
+  * Cite the source(s), in this markdown format: [Link Text](URL).  Include the link naturally in your article, preferably in a sentence.
+  `
 }
 `;
 
   console.log("Finished generateSection");
-  const chat = model.startChat({
-    history: [],
-    generationConfig,
-  });
-  const result = await chat.sendMessage(prompt);
-  const response =
-    result.response.candidates[0].content.parts[0].functionCall.args;
+  const result = await model.generateContent(prompt);
+  const response = await result.response;
+  const text = response.text();
 
   console.log("________________________");
-  console.log("Context: \n", context);
+  console.log("prompt: \n", prompt);
   console.log("________________________");
-  console.log("Sections: \n", response);
-  return response;
-};
-
-const generateSectionList = (listOfSections) => {
-  let prompt = "\n";
-
-  for (let i = 0; i < listOfSections.length; i++) {
-    // Add asterisk, section name, and colon
-    prompt += `* ${listOfSections[i]}\n`;
-  }
-
-  // Remove trailing newline
-  return prompt.trimEnd();
-};
-
-const generateNotesForArticle = (outline) => {
-  let notes = "\nAdditional Notes For Article Structure:\n\n"; // Changed initial text
-
-  for (let i = 0; i < outline.length; i++) {
-    const sectionIndex = i + 1; // Store for readability
-
-    if (outline[i].notes) {
-      // Improved formatting for section notes
-      notes += `### Section ${sectionIndex} Notes:\n${outline[i].notes}\n`;
-    }
-
-    if (outline[i].clientNotes) {
-      // Improved formatting for client notes
-      notes += `### Section ${sectionIndex} Client Notes:\n${outline[i].clientNotes}\n`;
-    }
-  }
-
-  return notes;
+  // console.log("Sections: \n", response);
+  // console.log("________________________");
+  // console.log("Sections: \n", text);
+  return text;
 };
 
 const saveFinetuneConfig = async (currentUser, urls, textInputs, name) => {
@@ -594,7 +645,8 @@ async function generateOutline(
     numberOfSections++;
   }
 
-  const prompt = `Generate an outline for the keyword: ${keyword}.  Outline should be insightful and make sense to a reader.  Avoid using generic placeholders for sections or subsections like Brand 1 or Question 1.  Ensure that there are NO MORE THAN ${numberOfSections} sections total. Here is some context and info on the topic: ${context}.  You DO NOT NEED TO HAVE MULTIPLE SUBSECTIONS PER SECTION.  Your subsection names should be consise and to the point.  notesForIntroduction should include a general guideline for writing an introduction to the article that the outline is for.  Ensure you include notes for the introd. Sections and subsections notes should go in their corresponding notes fields to help direct what the content should be about and ensure flow. DO NOT include markup or xml formatting or prefixes in your json response, only string characters.  DO NOT prefix the fields in your response either.  EACH section must have ATLEAST 1 subsection.  DO NOT INCLUDE a section titled introduction.  The title in the outline serves as the introduction section. Max of 2-3 subsections per section.`;
+  const prompt = `Generate an outline for the keyword: ${keyword}.  Outline should be insightful and make sense to a reader.  Avoid using generic placeholders for sections or subsections like Brand 1 or Question 1.  Ensure that there are NO MORE THAN ${numberOfSections} sections total. Here is some context and info on the topic: 
+  ${context}.  You DO NOT NEED TO HAVE MULTIPLE SUBSECTIONS PER SECTION.  Your subsection names should be consise and to the point.  notesForIntroduction should include a general guideline for writing an introduction to the article that the outline is for.  Ensure you include notes for the introd. Sections and subsections notes should go in their corresponding notes fields to help direct what the content should be about and ensure flow. DO NOT include markup or xml formatting or prefixes in your json response, only string characters.  DO NOT prefix the fields in your response either.  EACH section must have ATLEAST 1 subsection.  DO NOT INCLUDE a section titled introduction.  The title in the outline serves as the introduction section. Max of 2-3 subsections per section.`;
 
   if (includeIntroduction) {
     prompt += " Include an introduction as one of the sections. ";
@@ -608,36 +660,33 @@ async function generateOutline(
   const chat = model.startChat();
   const result = await chat.sendMessage(prompt);
 
-  const response = await result.response.candidates[0].content.parts[0]
-    .functionCall.args;
+  try {
+    let response = await result.response.candidates[0].content.parts[0]
+      .functionCall.args;
 
-  console.log(response);
-  return response;
+    console.log(response);
+    return response;
+  } catch (e) {
+    console.log("Exception Outline: ", e);
+    throw new Error(e);
+  }
 }
 
 const summarizeContent = async (content, keyWord) => {
-  const provideAnalysis = [
-    {
-      name: "provideAnalysis",
-      description:
-        "Extract the most valuable information and points from the content provided, include any relevent or necessary data in the provided content, keep sucinct.",
-      parameters: {
-        type: "object",
-        properties: {
-          keyPoints: {
-            type: "string",
-          },
-        },
-        required: ["keyPoints"],
-      },
-    },
-  ];
+  const now = new Date();
+  console.log(now.toLocaleString());
+  console.log("Summarizing content");
+  const generationConfig = {
+    max_output_tokens: 8000,
+    temperature: 0.9,
+    top_p: 0.1,
+    top_k: 16,
+  };
 
-  const tools = [
-    {
-      function_declarations: [provideAnalysis],
-    },
-  ];
+  const model = genAI.getGenerativeModel({
+    model: "gemini-1.5-pro-001",
+    generationConfig,
+  });
 
   const prompt = `
   Extract the most important and specific information from the provided content that is directly related to the subject: ${keyWord}. Include key details such as:
@@ -649,34 +698,70 @@ const summarizeContent = async (content, keyWord) => {
   Organize the extracted information into clear categories or sections based on the content.
   Aim for a high level of accuracy and avoid any generalizations or filler content. The extracted information will be used as source material for an article, so it's critical that the details are correct and not misleading.
   For example, if the article is reviewing the best cat foods, the extracted information should include the specific top brands recommended, key features of each food, and any statistics like "70% of vets recommend Brand X".
-  Here is the content to extract information from: ${content}
+  Here is the content to extract information from: 
+  
+  Article Content:
+  ${content}
   `;
 
-  const toolConfig = {
-    function_calling_config: {
-      mode: "ANY",
-    },
+  const result = await model.generateContent(prompt);
+  const response = await result.response;
+  const now2 = new Date();
+  console.log(now2.toLocaleString());
+  console.log("Finished Summarizing content");
+  return response.text();
+};
+
+const processRewrite = async (targetSection, instructions) => {
+  const generationConfig = {
+    max_output_tokens: 8000,
+    temperature: 0.9,
+    top_p: 0.1,
+    top_k: 16,
   };
 
   const model = genAI.getGenerativeModel({
-    model: "gemini-1.5-pro-latest",
-    tools,
-    toolConfig,
+    model: "gemini-1.5-pro-001",
+    generationConfig,
   });
 
-  const chat = model.startChat();
-  const result = await chat.sendMessage(prompt);
+  const prompt = `
+  ### System Prompt: You are the world's foremost article writer, able to handle complex instructions.
+  
+  ### Task: Rewrite the following text based on the user's instructions.
 
-  return await result.response.candidates[0].content.parts[0].functionCall.args;
+  ### User Instructions: ${instructions} 
+
+  ### Target text to rewrite: 
+  ${targetSection}
+
+  ### Additional Instructions:
+  * Only respond with the rewritten text, don't prefix your response with anything.
+  * Strive to keep the same structure of markdown as the original text UNLESS the *** User Instructions *** specify otherwise.
+  * If no *** User Instructions *** provided, then simply rewrite the provided text.
+  `;
+
+  try {
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+
+    console.log("Rewrite text: \n", text);
+    return text;
+  } catch (e) {
+    throw new Error(e);
+  }
 };
 
 module.exports = {
   generateFinetune,
   generateAmazonSection,
+  generateAmazonIntro,
   generateSection,
   generateOutline,
   saveFinetuneConfig,
   generateFineTuneService,
   testGemini,
   summarizeContent,
+  processRewrite,
 };

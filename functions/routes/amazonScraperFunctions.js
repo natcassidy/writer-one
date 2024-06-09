@@ -1,6 +1,7 @@
 const axios = require("axios");
 require("dotenv").config();
 const OpenAI = require("openai");
+const gemini = require("./gemini");
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
@@ -132,21 +133,51 @@ const generateAmazonArticle = async (
   finetune
 ) => {
   const promises = [];
-  for (const section of outline) {
-    if (section.tagName == "h2") {
-      const contextString = misc.generateContextStringAmazon(section);
-      const promise = generateSectionWithRetry(
-        section,
-        keyWord,
-        contextString,
-        tone,
-        pointOfView,
-        finetune
-      );
+  try {
+    let introContextString = "";
+    for (const section of outline) {
+      if (section.tagName == "h2") {
+        introContextString += misc.generateContextStringAmazonIntro(section);
+      }
+    }
+
+    for (const section of outline) {
+      let contextString = "";
+      let sectionType = "";
+      let promise;
+      if (section.tagName == "h1") {
+        sectionType = "intro";
+        promise = generateSectionWithRetry(
+          section,
+          keyWord,
+          introContextString,
+          tone,
+          pointOfView,
+          finetune,
+          sectionType
+        );
+      } else if (section.tagName == "h2") {
+        contextString = misc.generateContextStringAmazon(section);
+        sectionType = "section";
+        promise = generateSectionWithRetry(
+          section,
+          keyWord,
+          contextString,
+          tone,
+          pointOfView,
+          finetune,
+          sectionType
+        );
+      } else {
+        sectionType = "conclusion";
+      }
       promises.push(promise);
     }
+    return await Promise.all(promises);
+  } catch (e) {
+    console.log("Error: ", e);
+    throw new Error(e);
   }
-  return await Promise.all(promises);
 };
 
 const generateSectionWithRetry = async (
@@ -155,27 +186,46 @@ const generateSectionWithRetry = async (
   contextString,
   tone,
   pointOfView,
-  finetune
+  finetune,
+  sectionType
 ) => {
   let attempt = 0;
   while (attempt < 3) {
     try {
-      const completion = await claude.generateAmazonSectionClaude(
-        section.content,
-        keyWord,
-        contextString,
-        tone,
-        pointOfView,
-        finetune
-      );
-      const extractedJSON = extractJsonFromString(completion.content[0].text);
-      const sanitizedJSON = sanitizeJSON(extractedJSON);
-      let responseMessage = JSON.parse(sanitizedJSON);
-      section.overviewOfProduct = responseMessage.overviewOfProduct;
-      section.pros = responseMessage.pros;
-      section.cons = responseMessage.cons;
-      section.bottomLine = responseMessage.bottomLine;
-      return; // Exit the function if successful
+      if (sectionType === "intro") {
+        const completion = await gemini.generateAmazonIntro(
+          section.content,
+          keyWord,
+          contextString,
+          tone,
+          pointOfView,
+          finetune
+        );
+        section.summary = completion;
+        return; // Exit the function if successful
+      } else if (sectionType === "section") {
+        const completion = await gemini.generateAmazonSection(
+          section.content,
+          keyWord,
+          contextString,
+          tone,
+          pointOfView,
+          finetune
+        );
+        section.summary = completion;
+        return; // Exit the function if successful
+      } else {
+        // const completion = await gemini.generateAmazonConclusion(
+        //   section.content,
+        //   keyWord,
+        //   contextString,
+        //   tone,
+        //   pointOfView,
+        //   finetune
+        // );
+        // section.summary = completion;
+        return; // Exit the function if successful
+      }
     } catch (error) {
       attempt++;
       if (attempt >= 3) {
