@@ -349,6 +349,19 @@ const generateContextStringAmazon = (section) => {
   return contextString;
 };
 
+const generateContextStringAmazonIntro = (section) => {
+  let contextString = `Product description: ${section.content}\n`;
+
+  const maxLoops = 3;
+  const reviewCount = Math.min(section.reviews.length, maxLoops);
+
+  for (let i = 0; i < reviewCount; i++) {
+    contextString += `* Review ${i + 1}: ${section.reviews[i].body}\n`;
+  }
+
+  return contextString;
+};
+
 const generateContextStringBlog = (title, link, keyPoints) => {
   let contextString = `
   * Context:
@@ -677,6 +690,7 @@ module.exports = {
   doesUserHaveEnoughArticles,
   doSerpResearch,
   generateContextStringAmazon,
+  generateContextStringAmazonIntro,
   parseKeyWords,
   parseIp,
   doInternalUrlResearch,

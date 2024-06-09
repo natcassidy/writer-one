@@ -61,7 +61,7 @@ const generateAmazonSection = async (
   const prompt = `
         ### System Instruction: You are an expert article writer specializing in generating high-quality, informative content on various topics. You can follow detailed instructions precisely.
 
-        ### Task: Generate an word overview of this product: ${keyWord} for a section titled: ${sectionHeader}.
+        ### Task: Generate an overview of this product: ${keyWord} for a section titled: ${sectionHeader}.
         * Length: Strive to write 1000 words.
         * Style: Write in a clear, concise, and engaging style.
         * Flow: Natural flow, avoiding repetitive phrases and sentence structure.
@@ -107,6 +107,85 @@ const generateAmazonSection = async (
         * Make sure your opening sentence to the section is unique and doesn't just reiterate the primary keyword.  Avoid using closing statements at the end of the section. 
         * Use Markdown for format the bullet points
         * Don't include an h1 or h2 at the beginning with the name of the product, simply start your section off in a paragraph.  Like the example provided above.
+        `;
+
+  const result = await model.generateContent(prompt);
+  const response = await result.response;
+  const text = response.text();
+
+  console.log("________________________");
+  console.log("prompt: \n", prompt);
+  console.log("________________________");
+  console.log("Sections: \n", response);
+  console.log("________________________");
+  console.log("Sections: \n", text);
+  return text;
+};
+
+const generateAmazonIntro = async (
+  sectionHeader,
+  keyWord,
+  context,
+  tone,
+  pointOfView,
+  finetunePromise
+) => {
+  console.log("Entering generateAmazonSection");
+  let fineTuneData = "";
+
+  try {
+    fineTuneData = await finetunePromise;
+  } catch (e) {
+    console.log("Error caught on finetune generating gemini section:", e);
+  }
+
+  const generationConfig = {
+    max_output_tokens: 8000,
+    temperature: 0.9,
+    top_p: 0.1,
+    top_k: 16,
+  };
+
+  const model = genAI.getGenerativeModel({
+    model: "gemini-1.5-pro-001",
+    generationConfig,
+  });
+
+  const includeFinetune =
+    fineTuneData && fineTuneData.instructions
+      ? `
+          * Style of Writing To Use:
+          ${fineTuneData.instructions}
+
+        `
+      : "";
+
+  const includeTone = tone
+    ? `  * Ensure you write with the following tone: ${tone}\n`
+    : "";
+  const includePointOfView = pointOfView
+    ? `  * Please write this article using the following point of view: ${pointOfView}`
+    : "";
+  const prompt = `
+        ### System Instruction: You are an expert article writer specializing in generating high-quality, informative content on various topics. You can follow detailed instructions precisely.
+
+        ### Task: Generate an introduction for an article review this product: ${keyWord}
+        * Length: Strive to write 500-1000 words.
+        * Style: Write in a clear, concise, and engaging style.
+        * Flow: Natural flow, avoiding repetitive phrases and sentence structure.
+        ${includeFinetune}
+        ${includeTone}
+        ${includePointOfView}
+
+        ### Relevent Context on product To Use For writing the introduction: 
+        _______________________
+        ${context}
+        _______________________
+
+        ### Additional Notes on Instructions:
+        * You can use the reviews to shape the paragraph, but do not specifically mention that it was a review that your opinion came from.  ENSURE YOU DO NOT REFERENCE THE REVIEW DIRECTLY.  As in stating something like "After reading this review here's a con about the product" 
+        * Make sure your opening sentence to the section is unique and doesn't just reiterate the primary keyword.  Avoid using closing statements at the end of the section. 
+        * Use Markdown for format the bullet points if you choose to include bullet points (you don't have to)
         `;
 
   const result = await model.generateContent(prompt);
@@ -214,6 +293,7 @@ _______________________
 * Each h2 section should have a minumum of 1000 words.
 * Each heading from the outline when you write the article should have 500 words each, h1, h2, h3's
 * Respond in Markdown.
+* If writing a list, ensure there is not an empty blank line between items.
 ${
   citeSources &&
   `
@@ -235,40 +315,6 @@ ${
   console.log("________________________");
   console.log("Sections: \n", text);
   return text;
-};
-
-const articleLengthCalculator = (listOfSections) => {
-  let wordCount = 0;
-
-  for (let i = 0; i < listOfSections.length; i++) {
-    // Add asterisk, section name, and colon
-    if (listOfSections[i].tagName == "h2") {
-      wordCount += 1000;
-    }
-  }
-
-  // Remove trailing newline
-  return wordCount;
-};
-
-const generateNotesForArticle = (outline) => {
-  let notes = "\nAdditional Notes For Article Structure:\n\n"; // Changed initial text
-
-  for (let i = 0; i < outline.length; i++) {
-    const sectionIndex = i + 1; // Store for readability
-
-    if (outline[i].notes) {
-      // Improved formatting for section notes
-      notes += `### Section ${sectionIndex} Notes:\n${outline[i].notes}\n`;
-    }
-
-    if (outline[i].clientNotes) {
-      // Improved formatting for client notes
-      notes += `### Section ${sectionIndex} Client Notes:\n${outline[i].clientNotes}\n`;
-    }
-  }
-
-  return notes;
 };
 
 const saveFinetuneConfig = async (currentUser, urls, textInputs, name) => {
@@ -690,6 +736,7 @@ const processRewrite = async (targetSection, instructions) => {
 module.exports = {
   generateFinetune,
   generateAmazonSection,
+  generateAmazonIntro,
   generateSection,
   generateOutline,
   saveFinetuneConfig,

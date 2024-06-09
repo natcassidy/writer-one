@@ -441,7 +441,8 @@ router.post("/processAmazon", async (req, res) => {
       finetune
     );
   } catch (e) {
-    return res.status(500).send("Error generating article: ", error);
+    console.log("Error: ", e);
+    return res.status(500).send({ error: e });
   }
   const updatedArticleCount = await firebaseFunctions.decrementUserArticleCount(
     currentUser
