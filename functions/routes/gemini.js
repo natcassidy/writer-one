@@ -62,14 +62,14 @@ const generateAmazonSection = async (
         ### System Instruction: You are an expert article writer specializing in generating high-quality, informative content on various topics. You can follow detailed instructions precisely.
 
         ### Task: Generate an word overview of this product: ${keyWord} for a section titled: ${sectionHeader}.
-        * Length: Strive to write 500-1000 words.
+        * Length: Strive to write 1000 words.
         * Style: Write in a clear, concise, and engaging style.
         * Flow: Natural flow, avoiding repetitive phrases and sentence structure.
         * Structure: Structure your section in the following way:
-          - Overview of product
+          - Detailed overview of product
           - Pro's List
           - Con's List 
-          - Closing thoughts on product
+          - Detailed closing thoughts on product based on pro's and con's
         ${includeFinetune}
         ${includeTone}
         ${includePointOfView}
@@ -79,9 +79,34 @@ const generateAmazonSection = async (
         ${context}
         _______________________
 
+        ### Here is an example article, only pay attention to the structure and formatting, not the topic.  This is here to show you how to structure your output:
+
+        ***
+        The Amazon Basics Two-Door, Hard-Sided Pet Travel Carrier is a practical and affordable option for pet owners seeking a reliable carrier for vet visits, travel, or other outings.  This model, in particular, is a gray and blue carrier with dimensions of 22.8"L x 15.0"W x 13.0"H.  The hard-sided design offers several advantages over soft-sided carriers, particularly in terms of security, durability, and ease of cleaning. 
+
+        ### Pro's List
+        * **Durable Construction:**  The carrier is constructed from sturdy, hard plastic that can withstand scratching, clawing, and moderate impacts. 
+        * **Dual-Door Design:**  The two-door design, with both front and top entry points, provides convenient access for placing pets inside and taking them out.  This is especially helpful for cats who may be hesitant to enter through a front-facing door. 
+        * **Secure Locking Mechanism:** The carrier features a secure locking mechanism on both doors, ensuring that pets cannot escape during transit. 
+        * **Easy to Clean:** The hard plastic surfaces of the carrier can be easily wiped down with soap and water, making it simple to maintain hygiene and remove any accidents. 
+        * **Good Ventilation:**  The carrier is designed with ventilation slits that allow for adequate airflow, preventing pets from overheating or feeling suffocated. 
+        * **Spacious Interior:**  The carrier offers ample space for most cats or small dogs to comfortably stand up, turn around, and lie down. 
+        * **Affordable Price Point:**  The Amazon Basics carrier is competitively priced, making it an attractive option for budget-conscious pet owners. 
+
+        ### Con's List
+        * **Handle Durability:**  While the handle is generally adequate for carrying the carrier, some users have expressed concerns about its long-term durability, particularly when transporting heavier pets. 
+        * **Potential for Noise:**  The locking mechanisms on the doors can be a bit noisy, which might startle some pets. 
+        * **Lack of Seatbelt Strap:**  The carrier does not come equipped with a built-in seatbelt strap for securing it in a vehicle. 
+
+        The Amazon Basics Two-Door, Hard-Sided Pet Travel Carrier offers a compelling combination of practicality, affordability, and essential features, making it a solid choice for pet owners.  While there are a few minor drawbacks, the carrier's strengths outweigh its weaknesses, making it a worthwhile investment for ensuring the safe and comfortable transport of your furry companion. 
+
+        ***
+
         ### Additional Notes on Instructions:
         * You can use the reviews to shape the paragraph, but do not specifically mention that it was a review that your opinion came from.  ENSURE YOU DO NOT REFERENCE THE REVIEW DIRECTLY.  As in stating something like "After reading this review here's a con about the product" 
         * Make sure your opening sentence to the section is unique and doesn't just reiterate the primary keyword.  Avoid using closing statements at the end of the section. 
+        * Use Markdown for format the bullet points
+        * Don't include an h1 or h2 at the beginning with the name of the product, simply start your section off in a paragraph.  Like the example provided above.
         `;
 
   const result = await model.generateContent(prompt);

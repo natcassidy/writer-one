@@ -173,7 +173,7 @@ const generateSectionWithRetry = async (
         pointOfView,
         finetune
       );
-      section = completion;
+      section.summary = completion;
       return; // Exit the function if successful
     } catch (error) {
       attempt++;

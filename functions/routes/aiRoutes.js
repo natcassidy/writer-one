@@ -443,12 +443,6 @@ router.post("/processAmazon", async (req, res) => {
   } catch (e) {
     return res.status(500).send("Error generating article: ", error);
   }
-
-  // console.log('article generated now doing gemini article')
-  // const geminiOutline = structuredClone(outline);
-  // await vertex.generateArticleGemini(geminiOutline)
-
-  // console.log('gemini article generated')
   const updatedArticleCount = await firebaseFunctions.decrementUserArticleCount(
     currentUser
   );
