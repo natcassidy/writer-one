@@ -313,7 +313,7 @@ _______________________
 * Each h2 section should have a minumum of 1000 words.
 * Each heading from the outline when you write the article should have 500 words each, h1, h2, h3's
 * Respond in Markdown.
-* If writing a list, ensure there is not an empty blank line between items.
+* If writing a list, ensure there is not an empty blank line between items.  Exactly like there are no empty spaces in this instruction list of important things to remember.
 ${
   citeSources &&
   `

@@ -150,6 +150,51 @@ function flattenJsonToHtmlList(json) {
   return resultList;
 }
 
+function htmlListToJson(flatList) {
+  const result = {
+    sections: [],
+    title: "",
+    notesForIntroduction: "",
+  };
+
+  let currentSection = null;
+  let currentSubsection = null;
+
+  flatList.forEach((item) => {
+    const { tagName, content, notes } = item;
+
+    if (tagName === "h1") {
+      result.title = content;
+      result.notesForIntroduction = notes;
+    } else if (tagName === "h2") {
+      if (currentSection) {
+        result.sections.push(currentSection);
+      }
+      currentSection = {
+        name: content,
+        notes: notes,
+        subsections: [],
+      };
+    } else if (tagName === "h3") {
+      if (currentSection) {
+        currentSection.subsections.push({
+          name: content,
+          notes: notes,
+        });
+      } else {
+        console.error("Found h3 tag without a parent h2 tag");
+      }
+    }
+  });
+
+  // Push the last section if it exists
+  if (currentSection) {
+    result.sections.push(currentSection);
+  }
+
+  return result;
+}
+
 const doesUserHaveEnoughArticles = async (currentUser) => {
   if (!currentUser) {
     throw new Error("No user defined");
@@ -636,7 +681,7 @@ const generateSectionsOfArticle = async (
   citeSources,
   finetunePromise,
   internalUrlContext,
-  iternalUrls
+  internalUrls
 ) => {
   const outlineCopy = structuredClone(piecesOfOutline);
   try {
@@ -679,7 +724,8 @@ const generateArticle = async (
     pointOfView,
     citeSources,
     finetune,
-    internalUrlContext
+    internalUrlContext,
+    internalUrls
   );
 
   try {
@@ -708,4 +754,5 @@ module.exports = {
   doInternalUrlResearch,
   generateOutline,
   generateArticle,
+  htmlListToJson,
 };

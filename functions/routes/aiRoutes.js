@@ -99,6 +99,8 @@ router.post("/process", async (req, res) => {
     }
 
     context = await misc.doSerpResearch(keyWord, "");
+
+    outline = misc.htmlListToJson(outline);
   } else {
     if (
       finetuneChosen.textInputs &&
@@ -126,13 +128,16 @@ router.post("/process", async (req, res) => {
       articleType
     );
 
-    outline = await misc.generateOutline(
+    const outlineFlat = await misc.generateOutline(
       keyWord,
       sectionCount,
       context,
       includeIntroduction,
       includeConclusion
     );
+
+    outline = misc.htmlListToJson(outlineFlat);
+
     jobId = await firebaseFunctions.updateFirebaseJob(
       currentUser,
       jobId,
@@ -250,6 +255,8 @@ router.post("/processFreeTrial", extractIpMiddleware, async (req, res) => {
     }
 
     context = await misc.doSerpResearch(keyWord, "");
+
+    outline = misc.htmlListToJson(outline);
   } else {
     if (internalUrls && internalUrls.length > 0) {
       internalUrlContext = misc.doInternalUrlResearch(internalUrls, keyWord);
@@ -285,6 +292,16 @@ router.post("/processFreeTrial", extractIpMiddleware, async (req, res) => {
         console.log("Error generating finetune ", error);
       }
     }
+
+    const outlineFlat = await misc.generateOutline(
+      keyWord,
+      sectionCount,
+      context,
+      includeIntroduction,
+      includeConclusion
+    );
+
+    outline = misc.htmlListToJson(outlineFlat);
   }
 
   console.log("generating article");
