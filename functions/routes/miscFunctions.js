@@ -155,17 +155,19 @@ function htmlListToJson(flatList) {
     sections: [],
     title: "",
     notesForIntroduction: "",
+    clientNotes: "",
   };
 
   let currentSection = null;
   let currentSubsection = null;
 
   flatList.forEach((item) => {
-    const { tagName, content, notes } = item;
+    const { tagName, content, notes, clientNotes } = item;
 
     if (tagName === "h1") {
       result.title = content;
       result.notesForIntroduction = notes;
+      result.clientNotes = clientNotes;
     } else if (tagName === "h2") {
       if (currentSection) {
         result.sections.push(currentSection);
@@ -173,6 +175,7 @@ function htmlListToJson(flatList) {
       currentSection = {
         name: content,
         notes: notes,
+        clientNotes: clientNotes,
         subsections: [],
       };
     } else if (tagName === "h3") {
@@ -180,6 +183,7 @@ function htmlListToJson(flatList) {
         currentSection.subsections.push({
           name: content,
           notes: notes,
+          clientNotes: clientNotes,
         });
       } else {
         console.error("Found h3 tag without a parent h2 tag");
