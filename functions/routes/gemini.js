@@ -684,7 +684,7 @@ const summarizeContent = async (content, keyWord) => {
   };
 
   const model = genAI.getGenerativeModel({
-    model: "gemini-1.5-pro-001",
+    model: "gemini-1.5-flash-001",
     generationConfig,
   });
 
