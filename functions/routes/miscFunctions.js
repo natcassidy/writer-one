@@ -708,6 +708,38 @@ const generateSectionsOfArticle = async (
   }
 };
 
+const generateSections = async (
+  section,
+  keyWord,
+  context,
+  tone,
+  pointOfView,
+  citeSources,
+  finetune,
+  internalUrlContext,
+  internalUrls
+) => {
+  try {
+    return await generateSectionsWithRetry(
+      section,
+      keyWord,
+      context,
+      tone,
+      pointOfView,
+      citeSources,
+      finetune,
+      internalUrlContext,
+      internalUrls
+    );
+  } catch (error) {
+    console.error(
+      `Failed to generate section content for section: ${section}`,
+      error
+    );
+    throw error;
+  }
+};
+
 const generateArticle = async (
   outline,
   keyWord,
@@ -719,22 +751,73 @@ const generateArticle = async (
   internalUrlContext,
   internalUrls
 ) => {
-  // Directly create an array of promises
-  const sectionPromises = generateSectionsWithRetry(
-    outline,
-    keyWord,
-    context,
-    tone,
-    pointOfView,
-    citeSources,
-    finetune,
-    internalUrlContext,
-    internalUrls
-  );
-
   try {
-    // Wait for all promises to resolve
-    return await sectionPromises;
+    if (!outline || !outline.sections || outline.sections.length === 0) {
+      throw new Error("Invalid outline provided");
+    }
+
+    let sections = outline.sections;
+    let sectionPromises = [];
+
+    if (sections.length <= 3) {
+      // Include all sections in a single call with the full outline
+      sectionPromises.push(
+        generateSections(
+          outline,
+          keyWord,
+          context,
+          tone,
+          pointOfView,
+          citeSources,
+          finetune,
+          internalUrlContext,
+          internalUrls
+        )
+      );
+    } else {
+      // Split the outline into two parts
+      let firstThreeSectionsOutline = {
+        ...outline,
+        sections: sections.slice(0, 3),
+      };
+      let remainingSections = {
+        sections: sections.slice(3),
+      };
+
+      sectionPromises.push(
+        generateSections(
+          firstThreeSectionsOutline,
+          keyWord,
+          context,
+          tone,
+          pointOfView,
+          citeSources,
+          finetune,
+          internalUrlContext,
+          internalUrls
+        )
+      );
+
+      sectionPromises.push(
+        generateSections(
+          remainingSections,
+          keyWord,
+          context,
+          tone,
+          pointOfView,
+          citeSources,
+          finetune,
+          internalUrlContext,
+          internalUrls
+        )
+      );
+    }
+
+    let resolvedSections = await Promise.all(sectionPromises);
+
+    let fullArticle = resolvedSections.join("\n");
+
+    return fullArticle;
   } catch (error) {
     console.error("Failed to generate article correctly:", error);
     throw new Error("Failed to generate article correctly");
