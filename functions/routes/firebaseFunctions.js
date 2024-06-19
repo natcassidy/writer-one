@@ -364,28 +364,32 @@ const addToQueue = async (
   amazonUrl,
   affiliate,
   numberOfProducts,
-  includeIntroduction,
-  includeConclusion
+  includeIntroduction = true,
+  includeConclusion = false
 ) => {
-  await admin.firestore().collection("queue").add({
-    keyWord,
-    internalUrls,
-    tone,
-    pointOfView,
-    includeFAQs,
-    currentUser,
-    finetuneChosen,
-    status: "pending",
-    sectionCount,
-    citeSources,
-    isAmazonArticle,
-    amazonUrl,
-    affiliate,
-    numberOfProducts,
-    includeIntroduction,
-    includeConclusion,
-    createdAt: Date.now(),
-  });
+  try {
+    await admin.firestore().collection("queue").add({
+      keyWord,
+      internalUrls,
+      tone,
+      pointOfView,
+      includeFAQs,
+      currentUser,
+      finetuneChosen,
+      status: "pending",
+      sectionCount,
+      citeSources,
+      isAmazonArticle,
+      amazonUrl,
+      affiliate,
+      numberOfProducts,
+      includeIntroduction,
+      includeConclusion,
+      createdAt: Date.now(),
+    });
+  } catch (e) {
+    throw new Error(e);
+  }
 };
 
 const getNextItemFirebase = async () => {

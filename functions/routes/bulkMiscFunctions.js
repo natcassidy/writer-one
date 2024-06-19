@@ -21,7 +21,11 @@ const processBlogArticleFromBulk = async (
   );
 
   if (!isWithinArticleCount) {
-    return res.status(500).send("Article Count Limit Hit");
+    throw new Error("Article Count Limit Hit");
+  }
+
+  if (sectionCount > 6) {
+    throw new Error("Error Generating Article");
   }
 
   let jobId;
@@ -35,9 +39,13 @@ const processBlogArticleFromBulk = async (
   let finetune;
   let internalUrlContext;
 
-  if (finetuneChosen.textInputs) {
+  if (
+    finetuneChosen.textInputs &&
+    finetuneChosen.textInputs.length != 0 &&
+    finetuneChosen.textInputs[0].body != ""
+  ) {
     try {
-      finetune = claude.generateFineTuneService(finetuneChosen.textInputs);
+      finetune = gemini.generateFineTuneService(finetuneChosen.textInputs);
     } catch (error) {
       console.log("Error generating finetune ", error);
     }
@@ -48,6 +56,7 @@ const processBlogArticleFromBulk = async (
   }
 
   context = await misc.doSerpResearch(keyWord, "");
+
   jobId = await firebaseFunctions.updateFirebaseJob(
     currentUser,
     jobId,
@@ -55,13 +64,16 @@ const processBlogArticleFromBulk = async (
     context,
     articleType
   );
-  outline = await amazon.generateOutlineClaude(
+  const outlineFlat = await misc.generateOutline(
     keyWord,
     sectionCount,
     context,
     includeIntroduction,
     includeConclusion
   );
+
+  outline = misc.htmlListToJson(outlineFlat);
+
   jobId = await firebaseFunctions.updateFirebaseJob(
     currentUser,
     jobId,
@@ -72,9 +84,9 @@ const processBlogArticleFromBulk = async (
   console.log("outline: \n", outline);
 
   console.log("generating article");
-  let updatedOutline;
+  let article;
   try {
-    updatedOutline = await misc.generateArticle(
+    article = await misc.generateArticle(
       outline,
       keyWord,
       context,
@@ -82,7 +94,8 @@ const processBlogArticleFromBulk = async (
       pointOfView,
       citeSources,
       finetune,
-      internalUrlContext
+      internalUrlContext,
+      internalUrls
     );
   } catch (e) {
     throw new Error(e);
@@ -95,11 +108,11 @@ const processBlogArticleFromBulk = async (
   jobId = await firebaseFunctions.updateFirebaseJob(
     currentUser,
     jobId,
-    "outline",
-    updatedOutline
+    "article",
+    article
   );
   //Outline will now contain each section filled in with data
-  return updatedOutline;
+  return article;
 };
 
 const processAmazonArticleFromBulk = async (
@@ -123,7 +136,7 @@ const processAmazonArticleFromBulk = async (
   );
 
   if (!isWithinArticleCount) {
-    return res.status(500).send("Word Count Limit Hit");
+    throw new Error("Article Count Limit Hit");
   }
 
   let jobId;
@@ -135,10 +148,17 @@ const processAmazonArticleFromBulk = async (
   const articleType = "amazon";
 
   let finetune = "";
-  try {
-    finetune = claude.generateFineTuneService(finetuneChosen.textInputs);
-  } catch (error) {
-    console.log("Error generating finetune ", error);
+  if (
+    finetuneChosen.textInputs &&
+    finetuneChosen.textInputs.length != 0 &&
+    finetuneChosen.textInputs[0].body != "" &&
+    finetuneChosen.textInputs[0].body != ""
+  ) {
+    try {
+      finetune = gemini.generateFineTuneService(finetuneChosen.textInputs);
+    } catch (error) {
+      console.log("Error generating finetune ", error);
+    }
   }
 
   context = await amazon.performSearch(
