@@ -313,7 +313,8 @@ _______________________
 * Each h2 section should have a minumum of 1000 words.
 * Each heading from the outline when you write the article should have 500 words each, h1, h2, h3's
 * Respond in Markdown.
-* If writing a list, ensure there is not an empty blank line between items.  Exactly like there are no empty spaces in this instruction list of important things to remember.
+* If writing a list, ensure there is not an empty blank line between items.  Exactly like there are no empty spaces in this instruction list of important things to remember. Remember NO EMPTY Lines between list items.  YOU DO NOT NEED TO INCLUDE A LIST IN YOUR ARTICLE.
+
 ${
   citeSources &&
   `
@@ -637,25 +638,35 @@ async function generateOutline(
 
   let numberOfSections = sectionCount;
 
-  if (includeIntroduction) {
-    numberOfSections++;
-  }
+  const prompt = `
+  ### System Prompt: You are an expert at analyzing data and producing well-formatted JSON responses for generating article outlines.
 
-  if (includeConclusion) {
-    numberOfSections++;
-  }
+  ### User Prompt: Generate an outline for the keyword: ${keyword}.
+  
+  ### Additional Instructions:
+  * Use specific, informative names for sections and subsections.
+  * Ensure there are EXACTLY ${sectionCount} sections in the outline (excluding the introduction).
+  * Each section must have at least 1 subsection (max of 2-3).
+  * The 'title' field serves as the introduction.
+  * 'notesForIntroduction' should guide writing the introduction.
+  * Section and subsection 'notes' should guide the content.
 
-  const prompt = `Generate an outline for the keyword: ${keyword}.  Outline should be insightful and make sense to a reader.  Avoid using generic placeholders for sections or subsections like Brand 1 or Question 1.  Ensure that there are NO MORE THAN ${numberOfSections} sections total. Here is some context and info on the topic: 
-  ${context}.  You DO NOT NEED TO HAVE MULTIPLE SUBSECTIONS PER SECTION.  Your subsection names should be consise and to the point.  notesForIntroduction should include a general guideline for writing an introduction to the article that the outline is for.  Ensure you include notes for the introd. Sections and subsections notes should go in their corresponding notes fields to help direct what the content should be about and ensure flow. DO NOT include markup or xml formatting or prefixes in your json response, only string characters.  DO NOT prefix the fields in your response either.  EACH section must have ATLEAST 1 subsection.  DO NOT INCLUDE a section titled introduction.  The title in the outline serves as the introduction section. Max of 2-3 subsections per section.`;
+  ### Additional Context:
+  ${context}
 
-  if (includeIntroduction) {
-    prompt += " Include an introduction as one of the sections. ";
+  ### JSON Response Format:
+  {
+    "title": "...", 
+    "notesForIntroduction": "...",
+    "sections": [
+      { "name": "...", "notes": "...", "subsections": [
+        { "name": "...", "notes": "..." }, 
+        // ... (up to 2 more subsections)
+      ]},
+      // ... (more sections)
+    ]
   }
-
-  if (includeConclusion) {
-    numberOfSections++;
-    prompt += " Include a conclusion as one of the sections. ";
-  }
+  `;
 
   const chat = model.startChat();
   const result = await chat.sendMessage(prompt);

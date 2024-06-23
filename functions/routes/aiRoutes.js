@@ -461,8 +461,9 @@ router.post("/processAmazon", async (req, res) => {
 
   console.log("generating article");
 
+  let finishedArticle = "";
   try {
-    await amazon.generateAmazonArticle(
+    finishedArticle = await amazon.generateAmazonArticle(
       outline,
       keyWord,
       context,
@@ -480,14 +481,14 @@ router.post("/processAmazon", async (req, res) => {
   jobId = await firebaseFunctions.updateFirebaseJob(
     currentUser,
     jobId,
-    "outline",
-    outline,
+    "article",
+    finishedArticle,
     articleType
   );
   console.log("word count: ", updatedArticleCount);
   //Outline will now contain each section filled in with data
-  console.log("outline:\n", outline);
-  res.status(200).send({ article: outline, updatedArticleCount });
+  console.log("finished article:\n", finishedArticle);
+  res.status(200).send({ article: finishedArticle, updatedArticleCount });
 });
 
 router.post("/processAmazonFreeTrial", async (req, res) => {
@@ -703,6 +704,7 @@ router.post("/processRewrite", async (req, res) => {
 
   try {
     const response = await gemini.processRewrite(targetSection, instructions);
+    console.log("Response: \n", response);
     res.status(200).send({ rewrittenText: response });
   } catch (e) {
     res.status(500).send("Error rewriting article");

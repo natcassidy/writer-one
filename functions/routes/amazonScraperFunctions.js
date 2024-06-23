@@ -173,11 +173,32 @@ const generateAmazonArticle = async (
       }
       promises.push(promise);
     }
-    return await Promise.all(promises);
+
+    await Promise.all(promises);
+
+    const markdownArticle = generateMarkDown(outline);
+
+    return markdownArticle;
   } catch (e) {
     console.log("Error: ", e);
     throw new Error(e);
   }
+};
+
+const generateMarkDown = (resolvedSections) => {
+  let finalArticle = "";
+  for (const section of resolvedSections) {
+    if (section.tagName == "h1") {
+      finalArticle += `# ${section.content}\n`;
+      finalArticle += `${section.summary}\n`;
+    } else if (section.tagName == "h2") {
+      finalArticle += `![${section.content}](${section.imageUrl} "${section.content}")\n`;
+      finalArticle += `[${section.content}](${section.link})\n`;
+      finalArticle += `${section.summary}\n`;
+    }
+  }
+
+  return finalArticle;
 };
 
 const generateSectionWithRetry = async (
