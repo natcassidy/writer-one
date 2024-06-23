@@ -695,6 +695,14 @@ router.get("/debug-sentry", (req, res) => {
   throw new Error("My first Sentry error!");
 });
 
+router.post("/addArticleToNewUser", async (req, res) => {
+  let { user } = req.body;
+
+  await firebaseFunctions.addArticleFieldToUserDocument(user);
+
+  res.status(200).send("Success");
+});
+
 router.get("/testIP", extractIpMiddleware, (req, res) => {
   res.status(200).send(req.clientIp);
 });

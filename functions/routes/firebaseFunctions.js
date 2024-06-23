@@ -505,6 +505,51 @@ async function updateIpFreeArticle(ipAddress) {
   }
 }
 
+async function addArticleFieldToUserDocument(user) {
+  console.log("Adding field for article.: ", user.uid);
+  const maxRetries = 5;
+  const delayMs = 2000; // 2 seconds
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      // Wait for a short period
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+
+      const docRef = admin.firestore().collection("customers").doc(user.uid);
+      const doc = await docRef.get();
+
+      if (doc.exists) {
+        const data = doc.data();
+        if ("articles" in data) {
+          console.log(
+            `Articles field already exists for ${user.uid}. No action taken.`
+          );
+          return;
+        }
+
+        await docRef.update({ articles: 1 });
+        console.log(`Article field added to customer document for ${user.uid}`);
+        return;
+      } else {
+        console.log(`Customer document for ${user.uid} not found. Retrying...`);
+      }
+    } catch (error) {
+      console.error(
+        `Attempt ${
+          attempt + 1
+        }: Error checking/adding article field to customer document for ${
+          user.uid
+        }:`,
+        error
+      );
+    }
+  }
+
+  console.error(
+    `Failed to check/add article field after ${maxRetries} attempts for ${user.uid}`
+  );
+}
+
 module.exports = {
   updateFirebaseJob,
   getContextFromDb,
@@ -519,4 +564,5 @@ module.exports = {
   validateIpHasFreeArticle,
   updateIpFreeArticle,
   updateFirebaseJobByIp,
+  addArticleFieldToUserDocument,
 };
