@@ -111,6 +111,13 @@ const processBlogArticleFromBulk = async (
     "article",
     article
   );
+
+  jobId = await firebaseFunctions.updateFirebaseJob(
+    currentUser,
+    jobId,
+    "title",
+    keyWord
+  );
   //Outline will now contain each section filled in with data
   return article;
 };
@@ -174,8 +181,9 @@ const processAmazonArticleFromBulk = async (
 
   console.log("generating article");
 
+  let finishedArticle = "";
   try {
-    await amazon.generateAmazonArticle(
+    finishedArticle = await amazon.generateAmazonArticle(
       outline,
       keyWord,
       context,
@@ -194,13 +202,20 @@ const processAmazonArticleFromBulk = async (
   jobId = await firebaseFunctions.updateFirebaseJob(
     currentUser,
     jobId,
-    "outline",
-    outline,
+    "article",
+    finishedArticle,
     articleType
   );
-  //Outline will now contain each section filled in with data
-  console.log("outline:\n", outline);
-  return outline;
+
+  jobId = await firebaseFunctions.updateFirebaseJob(
+    currentUser,
+    jobId,
+    "title",
+    keyWord,
+    articleType
+  );
+
+  return finishedArticle;
 };
 
 const processNextItem = async () => {

@@ -176,6 +176,13 @@ router.post("/process", async (req, res) => {
     "article",
     article
   );
+
+  jobId = await firebaseFunctions.updateFirebaseJob(
+    currentUser,
+    jobId,
+    "title",
+    keyWord
+  );
   //Outline will now contain each section filled in with data
   console.log("Exiting processing of Blog Post");
 
@@ -258,29 +265,6 @@ router.post("/processFreeTrial", extractIpMiddleware, async (req, res) => {
 
     outline = misc.htmlListToJson(outline);
   } else {
-    if (internalUrls && internalUrls.length > 0) {
-      internalUrlContext = misc.doInternalUrlResearch(internalUrls, keyWord);
-    }
-    context = await misc.doSerpResearch(keyWord, "");
-    jobId = await firebaseFunctions.updateFirebaseJobByIp(
-      clientIp,
-      jobId,
-      "context",
-      context,
-      articleType
-    );
-    outline = await amazon.generateOutlineClaude(
-      keyWord,
-      sectionCount,
-      context
-    );
-    jobId = await firebaseFunctions.updateFirebaseJobByIp(
-      clientIp,
-      jobId,
-      "outline",
-      outline,
-      articleType
-    );
     if (
       finetuneChosen.textInputs &&
       finetuneChosen.textInputs.length != 0 &&
@@ -293,6 +277,18 @@ router.post("/processFreeTrial", extractIpMiddleware, async (req, res) => {
       }
     }
 
+    if (internalUrls && internalUrls.length > 0) {
+      internalUrlContext = misc.doInternalUrlResearch(internalUrls, keyWord);
+    }
+
+    context = await misc.doSerpResearch(keyWord, "");
+    jobId = await firebaseFunctions.updateFirebaseJobByIp(
+      clientIp,
+      jobId,
+      "context",
+      context,
+      articleType
+    );
     const outlineFlat = await misc.generateOutline(
       keyWord,
       sectionCount,
@@ -302,6 +298,14 @@ router.post("/processFreeTrial", extractIpMiddleware, async (req, res) => {
     );
 
     outline = misc.htmlListToJson(outlineFlat);
+
+    jobId = await firebaseFunctions.updateFirebaseJobByIp(
+      clientIp,
+      jobId,
+      "outline",
+      outline,
+      articleType
+    );
   }
 
   console.log("generating article");
@@ -324,8 +328,15 @@ router.post("/processFreeTrial", extractIpMiddleware, async (req, res) => {
   jobId = await firebaseFunctions.updateFirebaseJobByIp(
     clientIp,
     jobId,
-    "outline",
-    updatedOutline
+    "article",
+    article
+  );
+
+  jobId = await firebaseFunctions.updateFirebaseJob(
+    clientIp,
+    jobId,
+    "title",
+    keyWord
   );
   //Outline will now contain each section filled in with data
   console.log("Exiting processing of Blog Post");
@@ -485,6 +496,14 @@ router.post("/processAmazon", async (req, res) => {
     finishedArticle,
     articleType
   );
+
+  jobId = await firebaseFunctions.updateFirebaseJob(
+    currentUser,
+    jobId,
+    "title",
+    keyWord,
+    articleType
+  );
   console.log("word count: ", updatedArticleCount);
   //Outline will now contain each section filled in with data
   console.log("finished article:\n", finishedArticle);
@@ -528,6 +547,19 @@ router.post("/processAmazonFreeTrial", async (req, res) => {
   }
 
   const articleType = "amazon";
+  let finetune = "";
+  if (
+    finetuneChosen.textInputs &&
+    finetuneChosen.textInputs.length != 0 &&
+    finetuneChosen.textInputs[0].body != "" &&
+    finetuneChosen.textInputs[0].body != ""
+  ) {
+    try {
+      finetune = gemini.generateFineTuneService(finetuneChosen.textInputs);
+    } catch (error) {
+      console.log("Error generating finetune ", error);
+    }
+  }
 
   context = await amazon.performSearch(
     keyWord,
@@ -540,22 +572,11 @@ router.post("/processAmazonFreeTrial", async (req, res) => {
   // jobId = await firebaseFunctions.updateFirebaseJob(currentUser, jobId, "outline", outline, articleType)
   console.log("outline generated");
 
-  let finetune = "";
-
-  finetuneChosen.textInputs.forEach((input) => {
-    finetune += input.body;
-  });
-
-  try {
-    finetune += await gemini.generateFineTuneService(finetuneChosen.urls);
-  } catch (error) {
-    console.log("Error generating finetune ", error);
-  }
-
   console.log("generating article");
 
+  let finishedArticle = "";
   try {
-    await amazon.generateAmazonArticle(
+    finishedArticle = await amazon.generateAmazonArticle(
       outline,
       keyWord,
       context,
@@ -570,10 +591,19 @@ router.post("/processAmazonFreeTrial", async (req, res) => {
   jobId = await firebaseFunctions.updateFirebaseJobByIp(
     clientIp,
     jobId,
-    "outline",
-    outline,
+    "article",
+    finishedArticle,
     articleType
   );
+
+  jobId = await firebaseFunctions.updateFirebaseJob(
+    clientIp,
+    jobId,
+    "title",
+    keyWord,
+    articleType
+  );
+
   await firebaseFunctions.updateIpFreeArticle(clientIp);
 
   res.status(200).send({ article: outline });
