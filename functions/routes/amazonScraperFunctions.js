@@ -192,7 +192,7 @@ const generateMarkDown = (resolvedSections) => {
       finalArticle += `# ${section.content}\n`;
       finalArticle += `${section.summary}\n`;
     } else if (section.tagName == "h2") {
-      finalArticle += `![${section.content}](${section.imageUrl} "${section.content}")\n`;
+      finalArticle += `![${section.content}](${section.imageUrl} '${section.content}')\n`;
       finalArticle += `[${section.content}](${section.link})\n`;
       finalArticle += `${section.summary}\n`;
     }
