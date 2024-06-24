@@ -226,6 +226,13 @@ const generateSection = async (
     console.log("Error caught on internalUrl generating  section:", e);
   }
 
+  if (internalUrls && !internalUrlData) {
+    internalUrlData = `
+    ${internalUrls}
+    Try to determine a title or name for the url(s) above and reference the name when linking to it.
+    \n`;
+  }
+
   console.log("Entering generateSection");
 
   const generationConfig = {
@@ -260,10 +267,10 @@ const generateSection = async (
     ? `  * Please write this article using the following point of view: ${pointOfView}`
     : "";
   const includeInternalUrl = internalUrlData
-    ? `### Primary Source citing instructions: You MUST include a source cited in 1 of your sections from the following context. Use it naturally in the article if it's appropriate, DO NOT ADD SOURCES TO THE END OF THE ARTICLE. 
-       Source citing context: \n ${internalUrlData}
+    ? `### Primary Source linking instructions: You MUST include a link in 1 of your sections from the following context. Use it naturally in the article if it's appropriate, DO NOT ADD LINKS TO THE END OF THE ARTICLE. 
+       Link context: \n ${internalUrlData}
        
-       Here is an example of how you should include the source below. Only pay attention to the structure and natural inclusion of the link.  Pay close attention to how the links aren't placed at the end of the sections, but included naturally in the paragraphs.
+       Here is an example of how you should include the link below. Only pay attention to the structure and natural inclusion of the link.  Pay close attention to how the links aren't placed at the end of the sections, but included naturally in the paragraphs.
        
        * Example 1:
        Prince Edward Island (PEI), Canada's smallest province, is a haven of rich cultural experiences, natural beauty, and historic charm. Visitors can immerse themselves in the island's stunning landscapes, with opportunities to explore the red sandstone cliffs and pristine beaches of the PEI National Park. For history enthusiasts, a visit to the Anne of Green Gables Museum offers a nostalgic glimpse into the world of Lucy Maud Montgomery's beloved character. Outdoor adventurers will find the Confederation Trail, a scenic path perfect for cycling and hiking, stretching across the island. Food lovers can indulge in PEI's renowned culinary scene, sampling fresh seafood at one of the many coastal eateries. From serene coastal drives to lively cultural festivals, there is no shortage of activities to enjoy on PEI. For a comprehensive guide to these and other activities, check out the [Tourism PEI website](https://www.tourismpei.com/what-to-do), which provides detailed information on the best things to do on the island.
@@ -289,7 +296,8 @@ const generateSection = async (
 * Length: Each header section and it's subsections should have 1000 words.
 * Style: Write in a clear, concise, and engaging style.
 * Flow: Natural flow, avoiding repetitive phrases and sentence structure.
-* Structure: Follow the outline provided.  You can use it as a reference to structure your article with
+* Structure: Follow the outline provided.  You can use it as a reference to structure your article with. 
+* The notes in the outline are only meant as a reference to help you determine key info to include in the sections that you must write.
 
 ### Outline
 
@@ -316,12 +324,12 @@ _______________________
 * DO NOT MAKE LISTS, always prefer a paragraph.
 * Strive to write larger more complete paragraphs and sections, avoiding smaller sections.
 * 1000 words per h2 section and subsections.
+* THE NOTES IN THE OUTLINE ARE MEANT TO BE A REFERENCE AND GUIDELINE FOR WRITING THE SECTION(S).  YOU MUST WRITE YOUR OWN VERSION OF THE SECTION(S).
 
 ${
-  citeSources &&
+  internalUrls &&
   `
-  * Ensure you cite atleast one source from the context provided.  The more sources cited the better.
-  * Cite the source(s), in this markdown format: [Link Text](URL).  Include the link naturally in your article, preferably in a sentence.
+  * Remember you MUST link to these url(s): ${internalUrls}
   `
 }
 `;
