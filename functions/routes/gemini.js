@@ -39,7 +39,7 @@ const generateAmazonSection = async (
   };
 
   const model = genAI.getGenerativeModel({
-    model: "gemini-1.5-pro-001",
+    model: process.env.GEMINI_MODEL,
     generationConfig,
   });
 
@@ -147,7 +147,7 @@ const generateAmazonIntro = async (
   };
 
   const model = genAI.getGenerativeModel({
-    model: "gemini-1.5-pro-001",
+    model: process.env.GEMINI_MODEL,
     generationConfig,
   });
 
@@ -236,7 +236,7 @@ const generateSection = async (
   };
 
   const model = genAI.getGenerativeModel({
-    model: "gemini-1.5-pro-001",
+    model: process.env.GEMINI_MODEL,
     generationConfig,
   });
 
@@ -260,7 +260,7 @@ const generateSection = async (
     ? `  * Please write this article using the following point of view: ${pointOfView}`
     : "";
   const includeInternalUrl = internalUrlData
-    ? `### Primary Source citing instructions: You MUST include a source cited in 1 of your sections from the following context. Use it naturally in the article if it's appropriate, do not place all of the sources at the end. 
+    ? `### Primary Source citing instructions: You MUST include a source cited in 1 of your sections from the following context. Use it naturally in the article if it's appropriate, DO NOT ADD SOURCES TO THE END OF THE ARTICLE. 
        Source citing context: \n ${internalUrlData}
        
        Here is an example of how you should include the source below. Only pay attention to the structure and natural inclusion of the link.  Pay close attention to how the links aren't placed at the end of the sections, but included naturally in the paragraphs.
@@ -280,7 +280,7 @@ const generateSection = async (
        For more insights and practical steps on climate action, organizations like the [United Nations Framework Convention on Climate Change (UNFCCC)](https://unfccc.int/) provide valuable resources.
         
        
-       ### Remember you must link to ATLEAST 1 if not more of these url(s): [${internalUrls}]`
+       ### Remember you must link to ATLEAST 1 if not more of these url(s): [${internalUrls}], AND MUST LINK THEM THROUGHOUT THE ARTICLE USING THE MARKDOWN FORMAT.`
     : "";
   const prompt = `
 ### System Instruction: You are an expert article writer specializing in generating high-quality, informative content on various topics. You can follow detailed instructions precisely.
@@ -310,10 +310,12 @@ ${context}
 _______________________
 
 ### Extremely important to remember:
-* Each h2 section should have a minumum of 1000 words.
+* Each h2 section and subsections should have a minumum of 1000 words.
 * Each heading from the outline when you write the article should have 500 words each, h1, h2, h3's
 * Respond in Markdown.
-* If writing a list, ensure there is not an empty blank line between items.  Exactly like there are no empty spaces in this instruction list of important things to remember. Remember NO EMPTY Lines between list items.  YOU DO NOT NEED TO INCLUDE A LIST IN YOUR ARTICLE.
+* DO NOT MAKE LISTS, always prefer a paragraph.
+* Strive to write larger more complete paragraphs and sections, avoiding smaller sections.
+* 1000 words per h2 section and subsections.
 
 ${
   citeSources &&
@@ -455,7 +457,7 @@ const generateFinetune = (articles) => {
       };
 
       const model = genAI.getGenerativeModel({
-        model: "gemini-1.5-pro-latest",
+        model: process.env.GEMINI_MODEL,
         tools,
         toolConfig,
       });
@@ -500,7 +502,7 @@ const createScrapeConfig = (countryCode) => ({
     port: "22225",
     auth: {
       username: `${process.env.BRIGHTDATA_DC_USERNAME}${countryCode}`,
-      password: process.env.BRIGHTDATA_DC_PASSWORD,
+      password: GEMINI_MODELBRIGHTDATA_DC_PASSWORD,
     },
   },
 });
@@ -631,7 +633,7 @@ async function generateOutline(
   };
 
   const model = genAI.getGenerativeModel({
-    model: "gemini-1.5-pro-latest",
+    model: process.env.GEMINI_MODEL_PRO,
     tools,
     toolConfig,
   });
@@ -695,7 +697,7 @@ const summarizeContent = async (content, keyWord) => {
   };
 
   const model = genAI.getGenerativeModel({
-    model: "gemini-1.5-flash-001",
+    model: process.env.GEMINI_MODEL_FLASH,
     generationConfig,
   });
 
@@ -732,7 +734,7 @@ const processRewrite = async (targetSection, instructions) => {
   };
 
   const model = genAI.getGenerativeModel({
-    model: "gemini-1.5-pro-001",
+    model: process.env.GEMINI_MODEL,
     generationConfig,
   });
 

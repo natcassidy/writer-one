@@ -287,7 +287,7 @@ const doInternalUrlResearch = async (internalUrls, title) => {
                 return newContext;
               }
             } catch (e) {
-              console.log("Error retrieving data summary", e);
+              console.log("Error retrieving data summary for internalUrl", e);
             }
           }
           return null;
