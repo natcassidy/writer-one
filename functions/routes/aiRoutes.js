@@ -17,6 +17,7 @@ const gemini = require("./gemini");
 const firebaseFunctions = require("./firebaseFunctions");
 const bulkMiscFunctions = require("./bulkMiscFunctions");
 const fs = require("node:fs");
+const { P } = require("pdf-parse/lib/pdf.js/v1.10.100/build/pdf");
 
 // const logger = pino({
 //   transport: {
@@ -186,7 +187,9 @@ router.post("/process", async (req, res) => {
   //Outline will now contain each section filled in with data
   console.log("Exiting processing of Blog Post");
 
-  res.status(200).send({ article, updatedArticleCount });
+  res
+    .status(200)
+    .send({ article, updatedArticleCount, title: keyWord, id: jobId });
 });
 
 router.post("/processFreeTrial", extractIpMiddleware, async (req, res) => {
@@ -343,7 +346,7 @@ router.post("/processFreeTrial", extractIpMiddleware, async (req, res) => {
 
   await firebaseFunctions.updateIpFreeArticle(clientIp);
 
-  res.status(200).send({ article: updatedOutline });
+  res.status(200).send({ article, title: keyWord, id: jobId });
 });
 
 router.post("/processBulk", async (req, res) => {
@@ -507,7 +510,12 @@ router.post("/processAmazon", async (req, res) => {
   console.log("word count: ", updatedArticleCount);
   //Outline will now contain each section filled in with data
   console.log("finished article:\n", finishedArticle);
-  res.status(200).send({ article: finishedArticle, updatedArticleCount });
+  res.status(200).send({
+    article: finishedArticle,
+    updatedArticleCount,
+    title: keyWord,
+    id: jobId,
+  });
 });
 
 router.post("/processAmazonFreeTrial", async (req, res) => {
@@ -606,7 +614,7 @@ router.post("/processAmazonFreeTrial", async (req, res) => {
 
   await firebaseFunctions.updateIpFreeArticle(clientIp);
 
-  res.status(200).send({ article: outline });
+  res.status(200).send({ article: finishedArticle, title: keyWord, id: jobId });
 });
 
 // Route handler
@@ -699,6 +707,19 @@ router.post("/addArticleToNewUser", async (req, res) => {
   let { user } = req.body;
 
   await firebaseFunctions.addArticleFieldToUserDocument(user);
+
+  res.status(200).send("Success");
+});
+
+router.put("/saveArticle", async (req, res) => {
+  let { user, id, article } = req.body;
+
+  console.log("Saving article");
+  try {
+    await firebaseFunctions.updateFirebaseJob(user, id, "article", article);
+  } catch (error) {
+    res.status(500).send("Error saving article");
+  }
 
   res.status(200).send("Success");
 });
