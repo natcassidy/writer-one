@@ -325,11 +325,12 @@ _______________________
 * Strive to write larger more complete paragraphs and sections, avoiding smaller sections.
 * 1000 words per h2 section and subsections.
 * THE NOTES IN THE OUTLINE ARE MEANT TO BE A REFERENCE AND GUIDELINE FOR WRITING THE SECTION(S).  YOU MUST WRITE YOUR OWN VERSION OF THE SECTION(S).
-
+* ONLY USE THE SECTIONS IN THE OUTLINE, DO NOT ADD ADDITIONAL HEADERS OR SECTIONS.
+* DO NOT ADD A TITLE UNLESS THERE IS AN INTRO SECTION IN THE OUTLINE
 ${
   internalUrls &&
-  internalUrls !=
-    ""`
+  internalUrls != "" &&
+  `
   * Remember you MUST link to these url(s): ${internalUrls}
   `
 }
