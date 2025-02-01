@@ -113,12 +113,6 @@ const generateAmazonSection = async (
   const response = await result.response;
   const text = response.text();
 
-  console.log("________________________");
-  console.log("prompt: \n", prompt);
-  console.log("________________________");
-  console.log("Sections: \n", response);
-  console.log("________________________");
-  console.log("Sections: \n", text);
   return text;
 };
 
@@ -336,17 +330,10 @@ ${
 }
 `;
 
-  console.log("Finished generateSection");
   const result = await model.generateContent(prompt);
   const response = await result.response;
   const text = response.text();
 
-  console.log("________________________");
-  console.log("prompt: \n", prompt);
-  console.log("________________________");
-  // console.log("Sections: \n", response);
-  // console.log("________________________");
-  // console.log("Sections: \n", text);
   return text;
 };
 
@@ -478,9 +465,8 @@ async function processUrlForFinetune(url, scrapeConfig) {
   try {
     const response = await axios.get(url, scrapeConfig);
     let body = stripToText(response.data);
-    body = body.replace(/\s+/g, " "); // Assign the result back to body
+    body = body.replace(/\s+/g, " ");
     if (body.length > 10000) {
-      // Truncate the text to 10,000 characters
       body = body.substring(0, 10000);
     }
     return {
@@ -516,7 +502,6 @@ function stripToText(html) {
   $("canvas").remove();
   $("embed").remove();
 
-  //remove html comments
   $("*")
     .contents()
     .each(function () {
@@ -525,8 +510,6 @@ function stripToText(html) {
       }
     });
 
-  // return $('body').prop('innerText');
-  // return $('body').prop('innerHTML');
   return $("body").prop("textContent");
 }
 

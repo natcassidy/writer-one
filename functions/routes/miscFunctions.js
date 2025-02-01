@@ -86,25 +86,6 @@ const checkIfStore = (string) => {
   }
 };
 
-const removeBadTagsRegex = (string) => {
-  string = string.replace(/<img[^>]*>/g, ""); // images
-  string = string.replace(/<script[^>]*>/g, ""); // script
-  string = string.replace(/<style[^>]*>/g, ""); // style
-  string = string.replace(/<svg[^>]*>/g, ""); // svg
-  string = string.replace(/<iframe[^>]*>/g, ""); // iframe
-  string = string.replace(/<form[^>]*>/g, ""); // form
-  string = string.replace(/<input[^>]*>/g, ""); // input
-  string = string.replace(/<button[^>]*>/g, ""); // button
-  string = string.replace(/<select[^>]*>/g, ""); // select
-  string = string.replace(/<textarea[^>]*>/g, ""); // textarea
-  string = string.replace(/<audio[^>]*>/g, ""); // audio
-  string = string.replace(/<video[^>]*>/g, ""); // video
-  string = string.replace(/<canvas[^>]*>/g, ""); // canvas
-  string = string.replace(/<embed[^>]*>/g, ""); // embed
-  string = string.replace(/<!--[^>]*-->/g, ""); // html comments
-  return;
-};
-
 const stripDotDotDotItems = (string) => {
   // return string.replace(/\.{3}[A-z]{,25}\.{3}/g, '...');
   return;
@@ -246,14 +227,6 @@ const doSerpResearch = async (keyWord, countryCode) => {
 
   try {
     context = await findGoodData(params);
-    // const furtherKeyWordResearch = await misc.determineIfMoreDataNeeded(questions, context, keyWord)
-
-    // params.query = furtherKeyWordResearch.searchQuery
-    // const additionalData = await getSerpResuts(params);
-    // const slicedAdditionalData = additionalData.slice(0,2)
-    // newContext = misc.generateContextString(slicedAdditionalData)
-    // context += newContext
-    // jobId = await misc.updateFirebaseJob(currentUser, jobId, "context", newContext)
   } catch (e) {
     throw e;
   }
@@ -330,12 +303,9 @@ const getSerpResultsForInternalUrls = async (internalUrls) => {
       item.status === "fulfilled" ? item.value : item.reason
     );
     // Improved logging for debugging
-    console.log(`Processed ${trimmed.length} items.`);
-    console.log("Finished getSerpResultsForInternalUrls");
     return trimmed;
   } catch (err) {
     console.error("Error in getSerpResultsForInternalUrls:", err.message);
-    // Log more detailed error information if necessary
     return []; // Return an empty array or appropriate error response
   }
 };
@@ -454,7 +424,6 @@ const apiAbleDomains = [
   //"wikimedia.",
 ];
 
-const getCountryCode = (query) => query.countryCode || "";
 const createParamsSerializer = () => (params) =>
   qs.stringify(params, { arrayFormat: "brackets" });
 
@@ -572,26 +541,6 @@ async function processElement(el, scrapeConfig) {
       };
     }
   }
-}
-
-function sanitizeJSON(jsonString) {
-  return jsonString.replace(/[\u0000-\u001F\u007F-\u009F]/g, "");
-}
-
-function extractJsonFromString(str) {
-  const regex = /{.*}/s;
-  const match = str.match(regex);
-
-  if (match && match.length > 0) {
-    try {
-      return match[0];
-    } catch (error) {
-      console.error("Error parsing JSON:", error);
-      return null;
-    }
-  }
-
-  return null;
 }
 
 const parseKeyWords = (keyWords) => {

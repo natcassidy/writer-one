@@ -433,7 +433,6 @@ const generateSectionsWithRetry = async (
   }
 };
 
-//NEED TO HANDLE ERRORS HERE
 const generateSectionsOfArticle = async (
   piecesOfOutline,
   keyWord,
