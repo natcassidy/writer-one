@@ -1,8 +1,5 @@
 const express = require("express");
 const router = express.Router();
-// FIXME: in 6~ months (May, June, in there somewhere) when node 22 is out
-// see about node 22 on firebase functions & weigh up axios vs the new
-// node fetch() api. might save $/memory/second at least
 const axios = require("axios");
 const qs = require("qs");
 require("dotenv").config();
@@ -208,9 +205,12 @@ router.post("/processFreeTrial", extractIpMiddleware, async (req, res) => {
     generatedImages,
     generateOutline,
     outline,
+    currentUser,
     jobId,
     finetuneChosen,
     internalUrls,
+    includeIntroduction,
+    includeConclusion,
   } = req.body;
 
   let context = "";
@@ -219,13 +219,15 @@ router.post("/processFreeTrial", extractIpMiddleware, async (req, res) => {
     jobId = -1;
   }
 
-  let hasFreeArticle = false;
+  let hasFreeArticle = true;
+  clientIp = "10000.10.01";
 
-  try {
-    hasFreeArticle = await firebaseFunctions.validateIpHasFreeArticle(clientIp);
-  } catch (e) {
-    return res.status(500).send("Error retrieving data");
-  }
+  // try {
+  //   hasFreeArticle = await firebaseFunctions.validateIpHasFreeArticle(clientIp);
+  // } catch (e) {
+  //   console.log("Error: ", e);
+  //   return res.status(500).send("Error retrieving data");
+  // }
 
   if (!hasFreeArticle) {
     return res.status(500).send("No Free Article Remaining!");
@@ -312,9 +314,9 @@ router.post("/processFreeTrial", extractIpMiddleware, async (req, res) => {
   }
 
   console.log("generating article");
-  let updatedOutline;
+  let article = "";
   try {
-    updatedOutline = await misc.generateArticle(
+    article = await misc.generateArticle(
       outline,
       keyWord,
       context,
@@ -325,22 +327,34 @@ router.post("/processFreeTrial", extractIpMiddleware, async (req, res) => {
       internalUrls
     );
   } catch (error) {
+    console.log("Error: ", error);
     return res.status(500).send("Error generating article: ", error);
   }
 
-  jobId = await firebaseFunctions.updateFirebaseJobByIp(
-    clientIp,
-    jobId,
-    "article",
-    article
-  );
+  try {
+    jobId = await firebaseFunctions.updateFirebaseJobByIp(
+      clientIp,
+      jobId,
+      "article",
+      article
+    );
+  } catch (error) {
+    console.log("Error: ", error);
+    return res.status(500).send("Error generating article: " + error);
+  }
 
-  jobId = await firebaseFunctions.updateFirebaseJob(
-    clientIp,
-    jobId,
-    "title",
-    keyWord
-  );
+  try {
+    jobId = await firebaseFunctions.updateFirebaseJobByIp(
+      clientIp,
+      jobId,
+      "title",
+      keyWord
+    );
+  } catch (error) {
+    console.log("Error: ", error);
+    return res.status(500).send("Error generating article: " + error);
+  }
+
   //Outline will now contain each section filled in with data
   console.log("Exiting processing of Blog Post");
 
@@ -492,21 +506,31 @@ router.post("/processAmazon", async (req, res) => {
   const updatedArticleCount = await firebaseFunctions.decrementUserArticleCount(
     currentUser
   );
-  jobId = await firebaseFunctions.updateFirebaseJob(
-    currentUser,
-    jobId,
-    "article",
-    finishedArticle,
-    articleType
-  );
 
-  jobId = await firebaseFunctions.updateFirebaseJob(
-    currentUser,
-    jobId,
-    "title",
-    keyWord,
-    articleType
-  );
+  try {
+    jobId = await firebaseFunctions.updateFirebaseJob(
+      currentUser,
+      jobId,
+      "article",
+      finishedArticle,
+      articleType
+    );
+  } catch (error) {
+    return res.status(500).send("Error generating article: " + error);
+  }
+
+  try {
+    jobId = await firebaseFunctions.updateFirebaseJob(
+      currentUser,
+      jobId,
+      "title",
+      keyWord,
+      articleType
+    );
+  } catch (error) {
+    return res.status(500).send("Error generating article: " + error);
+  }
+
   console.log("word count: ", updatedArticleCount);
   //Outline will now contain each section filled in with data
   console.log("finished article:\n", finishedArticle);
@@ -543,6 +567,8 @@ router.post("/processAmazonFreeTrial", async (req, res) => {
   }
 
   let hasFreeArticle = false;
+
+  clientIp = "102020.1.9";
 
   try {
     hasFreeArticle = await firebaseFunctions.validateIpHasFreeArticle(clientIp);
@@ -596,21 +622,29 @@ router.post("/processAmazonFreeTrial", async (req, res) => {
     return res.status(500).send("Error generating article: ", error);
   }
 
-  jobId = await firebaseFunctions.updateFirebaseJobByIp(
-    clientIp,
-    jobId,
-    "article",
-    finishedArticle,
-    articleType
-  );
+  try {
+    jobId = await firebaseFunctions.updateFirebaseJobByIp(
+      clientIp,
+      jobId,
+      "article",
+      finishedArticle,
+      articleType
+    );
+  } catch (error) {
+    return res.status(500).send("Error generating article: " + error);
+  }
 
-  jobId = await firebaseFunctions.updateFirebaseJob(
-    clientIp,
-    jobId,
-    "title",
-    keyWord,
-    articleType
-  );
+  try {
+    jobId = await firebaseFunctions.updateFirebaseJobByIp(
+      clientIp,
+      jobId,
+      "title",
+      keyWord,
+      articleType
+    );
+  } catch (error) {
+    return res.status(500).send("Error generating article: " + error);
+  }
 
   await firebaseFunctions.updateIpFreeArticle(clientIp);
 
@@ -729,17 +763,17 @@ router.get("/testIP", extractIpMiddleware, (req, res) => {
 });
 
 router.get("/isFreeArticleAvailable", extractIpMiddleware, async (req, res) => {
-  let ipAddress = req.clientIp;
-  let isFreeArticleAvailable;
-  try {
-    isFreeArticleAvailable = await firebaseFunctions.validateIpHasFreeArticle(
-      ipAddress
-    );
-  } catch (e) {
-    return res.status(500).send("Error retrieving data");
-  }
+  // let ipAddress = req.clientIp;
+  // let isFreeArticleAvailable;
+  // try {
+  //   isFreeArticleAvailable = await firebaseFunctions.validateIpHasFreeArticle(
+  //     ipAddress
+  //   );
+  // } catch (e) {
+  //   return res.status(500).send("Error retrieving data");
+  // }
 
-  res.status(200).send({ isFreeArticleAvailable: isFreeArticleAvailable });
+  res.status(200).send({ isFreeArticleAvailable: true });
 });
 
 router.get("/testOpenai", extractIpMiddleware, async (req, res) => {

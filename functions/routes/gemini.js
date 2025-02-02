@@ -284,51 +284,51 @@ const generateSection = async (
        ### Remember you must link to ATLEAST 1 if not more of these url(s): [${internalUrls}], AND MUST LINK THEM THROUGHOUT THE ARTICLE USING THE MARKDOWN FORMAT.`
     : "";
   const prompt = `
-### System Instruction: You are an expert article writer specializing in generating high-quality, informative content on various topics. You can follow detailed instructions precisely.
+    ### System Instruction: You are an expert article writer specializing in generating high-quality, informative content on various topics. You can follow detailed instructions precisely.
 
-### Task: Generate an article on this topic: ${keyWord}. Ensure it adheres to the following guidelines:
-* Length: Each header section and it's subsections should have 1000 words.
-* Style: Write in a clear, concise, and engaging style.
-* Flow: Natural flow, avoiding repetitive phrases and sentence structure.
-* Structure: Follow the outline provided.  You can use it as a reference to structure your article with. 
-* The notes in the outline are only meant as a reference to help you determine key info to include in the sections that you must write.
+    ### Task: Generate an article on this topic: ${keyWord}. Ensure it adheres to the following guidelines:
+    * Length: Each header section and it's subsections should have 1000 words.
+    * Style: Write in a clear, concise, and engaging style.
+    * Flow: Natural flow, avoiding repetitive phrases and sentence structure.
+    * Structure: Follow the outline provided.  You can use it as a reference to structure your article with. 
+    * The notes in the outline are only meant as a reference to help you determine key info to include in the sections that you must write.
 
-### Outline
+    ### Outline
 
-${JSON.stringify(outline, null, 2)}
+    ${JSON.stringify(outline, null, 2)}
 
-### Relevant Task Instructions: 
-${includeTone}
-${includePointOfView}
-${includeCitedSources}
-${includeInternalUrl}
-* Don't repeat the section name or title at the beginning of the paragraph.
+    ### Relevant Task Instructions: 
+    ${includeTone}
+    ${includePointOfView}
+    ${includeCitedSources}
+    ${includeInternalUrl}
+    * Don't repeat the section name or title at the beginning of the paragraph.
 
-${includeFinetune}  
+    ${includeFinetune}  
 
-### Relevent Context To Use For Article: 
-_______________________
-${context}
-_______________________
+    ### Relevent Context To Use For Article: 
+    _______________________
+    ${context}
+    _______________________
 
-### Extremely important to remember:
-* Each h2 section and subsections should have a minumum of 1000 words.
-* Each heading from the outline when you write the article should have 500 words each, h1, h2, h3's
-* Respond in Markdown.
-* DO NOT MAKE LISTS, always prefer a paragraph.
-* Strive to write larger more complete paragraphs and sections, avoiding smaller sections.
-* 1000 words per h2 section and subsections.
-* THE NOTES IN THE OUTLINE ARE MEANT TO BE A REFERENCE AND GUIDELINE FOR WRITING THE SECTION(S).  YOU MUST WRITE YOUR OWN VERSION OF THE SECTION(S).
-* ONLY USE THE SECTIONS IN THE OUTLINE, DO NOT ADD ADDITIONAL HEADERS OR SECTIONS.
-* DO NOT ADD A TITLE UNLESS THERE IS AN INTRO SECTION IN THE OUTLINE
-${
-  internalUrls &&
-  internalUrls != "" &&
-  `
-  * Remember you MUST link to these url(s): ${internalUrls}
-  `
-}
-`;
+    ### Extremely important to remember:
+    * Each h2 section and subsections should have a minumum of 1000 words.
+    * Each heading from the outline when you write the article should have 500 words each, h1, h2, h3's
+    * Respond in Markdown.
+    * DO NOT MAKE LISTS, always prefer a paragraph.
+    * Strive to write larger more complete paragraphs and sections, avoiding smaller sections.
+    * 1000 words per h2 section and subsections.
+    * THE NOTES IN THE OUTLINE ARE MEANT TO BE A REFERENCE AND GUIDELINE FOR WRITING THE SECTION(S).  YOU MUST WRITE YOUR OWN VERSION OF THE SECTION(S).
+    * ONLY USE THE SECTIONS IN THE OUTLINE, DO NOT ADD ADDITIONAL HEADERS OR SECTIONS.
+    * DO NOT ADD A TITLE UNLESS THERE IS AN INTRO SECTION IN THE OUTLINE
+    ${
+      internalUrls &&
+      internalUrls != "" &&
+      `
+      * Remember you MUST link to these url(s): ${internalUrls}
+      `
+    }
+    `;
 
   const result = await model.generateContent(prompt);
   const response = await result.response;
