@@ -6,37 +6,11 @@ require("dotenv").config();
 const claude = require("./claudeFunctions");
 const openai = require("./openai");
 const gemini = require("./gemini");
-// const pino = require('pino');
-// const path = require('path');
-
-// const logger = pino({
-//     transport: {
-//         target: "pino-pretty",
-//         options: {
-//             ignore: "pid,hostname",
-//             destination: path.join(__dirname, 'logger-output.log'),
-//             colorize: false
-//         }
-//     }
-// })
 
 const stripEscapeChars = (string) => {
-  // TODO: Check this regex to make sure it doesn't break anything.
-  // I got it from the BrightData scraper and it clearly filters out
-  // junk but I'm not sure if it'll cause a problem.
   let junkRegex = /([:\u200F\u200E\f\n\r\t\v]| {2,})/g;
   string = string.replace(junkRegex, "");
-  // return string.replace(/[\x00-\x1F\x7F-\x9F]/g, '');
-
-  // why was I dumb enough to replace the dumb stuff with .'s when I
-  // could have used something I wouldn't have to worry about confusing
-  // with the actual data?
-
-  // TODO: check the use of <?> instead of . later to make sure it fixes the problem
-  // what is something else I could use that would be even less problematic?
   string = string.replace(/[\x00-\x1F\x7F-\x9F]/g, "<?>");
-  // string = string.replace(/<?>{4,}/g, '<?>'); // FIXME: make sure this works
-  // return string.replace(/[<?>\s]{5,}/g, '<?> '); // FIXME: make sure this works
 };
 
 function stripToText(html) {
@@ -61,7 +35,6 @@ function stripToText(html) {
   $("canvas").remove();
   $("embed").remove();
 
-  //remove html comments
   $("*")
     .contents()
     .each(function () {
@@ -70,8 +43,6 @@ function stripToText(html) {
       }
     });
 
-  // return $('body').prop('innerText');
-  // return $('body').prop('innerHTML');
   return $("body").prop("textContent");
 }
 
@@ -84,19 +55,6 @@ const checkIfStore = (string) => {
   } else {
     return false;
   }
-};
-
-const stripDotDotDotItems = (string) => {
-  // return string.replace(/\.{3}[A-z]{,25}\.{3}/g, '...');
-  return;
-};
-
-const removeKnownGremlins = (string) => {
-  string = string.replace(/’/g, "'");
-  string = string.replace(/–/g, "-");
-  string = string.replace(/[“”]/g, '"');
-  string = string.replace(/⁄/g, "/");
-  return string;
 };
 
 function flattenJsonToHtmlList(json) {
@@ -392,37 +350,24 @@ const generateContextStringBlog = (title, link, keyPoints) => {
   return contextString;
 };
 
-// This is required for the scraping to work through the proxy
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 
-// TODO: label each of these as these doNotScrape or tryBetterProxy or something
-// TODO: add known stores as discovered
-// TODO: prevent stores with blogs from getting forbidden...just only scrape the blog
 const forbiddenDomains = [
   "youtube.com",
   "pizzahut.com",
   "blazepizza.com",
   "dominos.com",
   "littlecaesars.com",
-  "doi.gov", //setup alternate scraper
-
-  /* FIXME: move these to apiAbleDomains once they can be handled specially */
-  // "amazon.com",
-  // "amazon.ca",
-  // "usatoday.com",
-  // "consumerreports.org",
-
-  "all-clad.com", // store
-  "calphalon.com", // store
-  "cuisinart.com", // store
-  "walmart.com", // store
-  "target.com", // store
-  "walgreens.com", // store
+  "doi.gov",
+  "all-clad.com",
+  "calphalon.com",
+  "cuisinart.com",
+  "walmart.com",
+  "target.com",
+  "walgreens.com",
 ];
-const apiAbleDomains = [
-  "wikipedia.",
-  //"wikimedia.",
-];
+
+const apiAbleDomains = ["wikipedia."];
 
 const createParamsSerializer = () => (params) =>
   qs.stringify(params, { arrayFormat: "brackets" });
@@ -777,8 +722,6 @@ module.exports = {
   stripEscapeChars,
   stripToText,
   checkIfStore,
-  removeKnownGremlins,
-  stripDotDotDotItems,
   flattenJsonToHtmlList,
   processAIResponseToHtml,
   doesUserHaveEnoughArticles,

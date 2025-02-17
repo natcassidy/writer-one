@@ -9,320 +9,33 @@ const amazon = require("./amazonScraperFunctions");
 const claude = require("./claudeFunctions");
 const openai = require("./openai");
 const gemini = require("./gemini");
+const processFunctions = require("./process");
 const firebaseFunctions = require("./firebaseFunctions");
+const firebaseFunctionsByIp = require("./firebaseFunctionsNotSignedIn");
 const bulkMiscFunctions = require("./bulkMiscFunctions");
 const fs = require("node:fs");
 const { P } = require("pdf-parse/lib/pdf.js/v1.10.100/build/pdf");
 
 router.post("/process", async (req, res) => {
-  console.log("Entering processing of Blog Post");
-  let {
-    keyWord,
-    sectionCount,
-    tone,
-    pointOfView,
-    citeSources,
-    outline,
-    currentUser,
-    jobId,
-    finetuneChosen,
-    internalUrls,
-    includeIntroduction,
-    includeConclusion,
-  } = req.body;
-
-  const isWithinArticleCount = await misc.doesUserHaveEnoughArticles(
-    currentUser
-  );
-
-  if (!isWithinArticleCount) {
-    return res.status(500).send("Article Count Limit Hit");
-  }
-
-  if (sectionCount > 6) {
-    return res.status(500).send("Error Generating Article");
-  }
-
-  let context = "";
-  if (!jobId) {
-    jobId = -1;
-  }
-
-  const articleType = "blog";
-
-  let finetune;
-  let internalUrlContext;
-
-  if (outline.length != 0) {
-    jobId = await firebaseFunctions.updateFirebaseJob(
-      currentUser,
-      jobId,
-      "outline",
-      outline,
-      articleType
-    );
-    console.log("outline generated");
-
-    if (
-      finetuneChosen.textInputs &&
-      finetuneChosen.textInputs.length != 0 &&
-      finetuneChosen.textInputs[0].body != ""
-    ) {
-      try {
-        finetune = gemini.generateFineTuneService(finetuneChosen.textInputs);
-      } catch (error) {
-        console.log("Error generating finetune ", error);
-      }
-    }
-    if (internalUrls && internalUrls.length > 0) {
-      internalUrlContext = misc.doInternalUrlResearch(internalUrls, keyWord);
-    }
-
-    context = await misc.doSerpResearch(keyWord, "");
-
-    outline = misc.htmlListToJson(outline);
-  } else {
-    if (
-      finetuneChosen.textInputs &&
-      finetuneChosen.textInputs.length != 0 &&
-      finetuneChosen.textInputs[0].body != ""
-    ) {
-      try {
-        finetune = gemini.generateFineTuneService(finetuneChosen.textInputs);
-      } catch (error) {
-        console.log("Error generating finetune ", error);
-      }
-    }
-
-    if (internalUrls && internalUrls.length > 0) {
-      internalUrlContext = misc.doInternalUrlResearch(internalUrls, keyWord);
-    }
-
-    context = await misc.doSerpResearch(keyWord, "");
-
-    jobId = await firebaseFunctions.updateFirebaseJob(
-      currentUser,
-      jobId,
-      "context",
-      context,
-      articleType
-    );
-
-    const outlineFlat = await misc.generateOutline(
-      keyWord,
-      sectionCount,
-      context,
-      includeIntroduction,
-      includeConclusion
-    );
-
-    outline = misc.htmlListToJson(outlineFlat);
-
-    jobId = await firebaseFunctions.updateFirebaseJob(
-      currentUser,
-      jobId,
-      "outline",
-      outline,
-      articleType
-    );
-    console.log("outline: \n", outline);
-  }
-
-  console.log("generating article");
-  let article = "";
   try {
-    article = await misc.generateArticle(
-      outline,
-      keyWord,
-      context,
-      tone,
-      pointOfView,
-      citeSources,
-      finetune,
-      internalUrlContext,
-      internalUrls
-    );
-  } catch (error) {
+    let { article, updatedArticleCount, title, id } =
+      processFunctions.process(firebaseFunctions, req);
+  } catch (e) {
     return res.status(500).send("Error generating article: " + error);
   }
 
-  const updatedArticleCount = await firebaseFunctions.decrementUserArticleCount(
-    currentUser
-  );
-
-  jobId = await firebaseFunctions.updateFirebaseJob(
-    currentUser,
-    jobId,
-    "article",
-    article
-  );
-
-  jobId = await firebaseFunctions.updateFirebaseJob(
-    currentUser,
-    jobId,
-    "title",
-    keyWord
-  );
-
-  res
-    .status(200)
-    .send({ article, updatedArticleCount, title: keyWord, id: jobId });
+  res.status(200).send({ article, updatedArticleCount, title, id });
 });
 
 router.post("/processFreeTrial", extractIpMiddleware, async (req, res) => {
-  let clientIp = req.clientIp;
-
-  console.log("Entering processing of Blog Post");
-  let {
-    keyWord,
-    sectionCount,
-    tone,
-    pointOfView,
-    citeSources,
-    outline,
-    jobId,
-    finetuneChosen,
-    internalUrls,
-    includeIntroduction,
-    includeConclusion,
-  } = req.body;
-
-  let context = "";
-  if (!jobId) {
-    jobId = -1;
-  }
-
-  let hasFreeArticle = true;
-
-  if (!hasFreeArticle) {
-    return res.status(500).send("No Free Article Remaining!");
-  }
-
-  if (sectionCount > 2) {
-    return res.status(500).send("Error Generating Article");
-  }
-
-  const articleType = "blog";
-  let finetune = "";
-
-  if (outline.length != 0) {
-    jobId = await firebaseFunctions.updateFirebaseJobByIp(
-      clientIp,
-      jobId,
-      "outline",
-      outline,
-      articleType
-    );
-    console.log("outline generated");
-
-    if (
-      finetuneChosen.textInputs &&
-      finetuneChosen.textInputs.length != 0 &&
-      finetuneChosen.textInputs[0].body != ""
-    ) {
-      try {
-        finetune = gemini.generateFineTuneService(finetuneChosen.textInputs);
-      } catch (error) {
-        console.log("Error generating finetune ", error);
-      }
-    }
-
-    if (internalUrls && internalUrls.length > 0) {
-      internalUrlContext = misc.doInternalUrlResearch(internalUrls, keyWord);
-    }
-
-    context = await misc.doSerpResearch(keyWord, "");
-
-    outline = misc.htmlListToJson(outline);
-  } else {
-    if (
-      finetuneChosen.textInputs &&
-      finetuneChosen.textInputs.length != 0 &&
-      finetuneChosen.textInputs[0].body != ""
-    ) {
-      try {
-        finetune = gemini.generateFineTuneService(finetuneChosen.textInputs);
-      } catch (error) {
-        console.log("Error generating finetune ", error);
-      }
-    }
-
-    if (internalUrls && internalUrls.length > 0) {
-      internalUrlContext = misc.doInternalUrlResearch(internalUrls, keyWord);
-    }
-
-    context = await misc.doSerpResearch(keyWord, "");
-    jobId = await firebaseFunctions.updateFirebaseJobByIp(
-      clientIp,
-      jobId,
-      "context",
-      context,
-      articleType
-    );
-    const outlineFlat = await misc.generateOutline(
-      keyWord,
-      sectionCount,
-      context,
-      includeIntroduction,
-      includeConclusion
-    );
-
-    outline = misc.htmlListToJson(outlineFlat);
-
-    jobId = await firebaseFunctions.updateFirebaseJobByIp(
-      clientIp,
-      jobId,
-      "outline",
-      outline,
-      articleType
-    );
-  }
-
-  console.log("generating article");
-  let article = "";
   try {
-    article = await misc.generateArticle(
-      outline,
-      keyWord,
-      context,
-      tone,
-      pointOfView,
-      citeSources,
-      finetune,
-      internalUrls
-    );
-  } catch (error) {
-    console.log("Error: ", error);
-    return res.status(500).send("Error generating article: ", error);
-  }
-
-  try {
-    jobId = await firebaseFunctions.updateFirebaseJobByIp(
-      clientIp,
-      jobId,
-      "article",
-      article
-    );
-  } catch (error) {
-    console.log("Error: ", error);
+    let { article, updatedArticleCount, title, id } =
+        processFunctions.processFreeTrial(firebaseFunctionsByIp, req);
+  } catch (e) {
     return res.status(500).send("Error generating article: " + error);
   }
 
-  try {
-    jobId = await firebaseFunctions.updateFirebaseJobByIp(
-      clientIp,
-      jobId,
-      "title",
-      keyWord
-    );
-  } catch (error) {
-    console.log("Error: ", error);
-    return res.status(500).send("Error generating article: " + error);
-  }
-
-  await firebaseFunctions.updateIpFreeArticle(clientIp);
-
-  res.status(200).send({ article, title: keyWord, id: jobId });
+  res.status(200).send({ article, title: keyWord, id: id });
 });
 
 router.post("/processBulk", async (req, res) => {
@@ -649,11 +362,6 @@ router.post("/finetune", async (req, res) => {
   } catch (error) {
     res.status(500).send(`Error: ${error}`);
   }
-});
-
-router.get("/testGemini", async (req, res) => {
-  const data = await vertex.healthCheckGemini();
-  res.status(200).send(data.candidates[0].content.parts[0].text);
 });
 
 router.get("/testAmazonScraper", async (req, res) => {
