@@ -6,6 +6,7 @@ yarn-debug.log*
 yarn-error.log*
 firebase-debug.log*
 firebase-debug.*.log*
+writeeasy-675b2-firebase-adminsdk-zvuvo-1042963464.json
 
 .env.dev
 .env.prod

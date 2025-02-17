@@ -10,21 +10,6 @@ const bulMiscFunctions = require("./routes/bulkMiscFunctions");
 const Sentry = require("@sentry/node");
 const { nodeProfilingIntegration } = require("@sentry/profiling-node");
 
-Sentry.init({
-  dsn: "https://9f7a30c7c86d183a065533c692431141@o4507031402840064.ingest.us.sentry.io/4507031404806144",
-  integrations: [
-    // enable HTTP calls tracing
-    new Sentry.Integrations.Http({ tracing: true }),
-    // enable Express.js middleware tracing
-    new Sentry.Integrations.Express({ app }),
-    nodeProfilingIntegration(),
-  ],
-  // Performance Monitoring
-  tracesSampleRate: 1.0, //  Capture 100% of the transactions
-  // Set sampling rate for profiling - this is relative to tracesSampleRate
-  profilesSampleRate: 1.0,
-});
-
 const corsOptions = {
   origin: [
     "https://chat.openai.com",

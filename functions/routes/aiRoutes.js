@@ -3,8 +3,6 @@ const router = express.Router();
 const axios = require("axios");
 const qs = require("qs");
 require("dotenv").config();
-// const pino = require('pino');
-// const path = require('path');
 const misc = require("./miscFunctions");
 const vertex = require("./vertexAiFunctions");
 const amazon = require("./amazonScraperFunctions");
@@ -16,30 +14,14 @@ const bulkMiscFunctions = require("./bulkMiscFunctions");
 const fs = require("node:fs");
 const { P } = require("pdf-parse/lib/pdf.js/v1.10.100/build/pdf");
 
-// const logger = pino({
-//   transport: {
-//     target: "pino-pretty",
-//     options: {
-//       ignore: "pid,hostname",
-//       destination: path.join(__dirname, 'logger-output.log'),
-//       colorize: false
-//     }
-//   }
-// })
-
 router.post("/process", async (req, res) => {
   console.log("Entering processing of Blog Post");
   let {
     keyWord,
-    internalUrl,
     sectionCount,
     tone,
     pointOfView,
-    realTimeResearch,
     citeSources,
-    includeFAQs,
-    generatedImages,
-    generateOutline,
     outline,
     currentUser,
     jobId,
@@ -181,8 +163,6 @@ router.post("/process", async (req, res) => {
     "title",
     keyWord
   );
-  //Outline will now contain each section filled in with data
-  console.log("Exiting processing of Blog Post");
 
   res
     .status(200)
@@ -195,17 +175,11 @@ router.post("/processFreeTrial", extractIpMiddleware, async (req, res) => {
   console.log("Entering processing of Blog Post");
   let {
     keyWord,
-    internalUrl,
     sectionCount,
     tone,
     pointOfView,
-    realTimeResearch,
     citeSources,
-    includeFAQs,
-    generatedImages,
-    generateOutline,
     outline,
-    currentUser,
     jobId,
     finetuneChosen,
     internalUrls,
@@ -214,20 +188,11 @@ router.post("/processFreeTrial", extractIpMiddleware, async (req, res) => {
   } = req.body;
 
   let context = "";
-  let internalUrlContext = "";
   if (!jobId) {
     jobId = -1;
   }
 
   let hasFreeArticle = true;
-  clientIp = "10000.10.01";
-
-  // try {
-  //   hasFreeArticle = await firebaseFunctions.validateIpHasFreeArticle(clientIp);
-  // } catch (e) {
-  //   console.log("Error: ", e);
-  //   return res.status(500).send("Error retrieving data");
-  // }
 
   if (!hasFreeArticle) {
     return res.status(500).send("No Free Article Remaining!");
@@ -355,9 +320,6 @@ router.post("/processFreeTrial", extractIpMiddleware, async (req, res) => {
     return res.status(500).send("Error generating article: " + error);
   }
 
-  //Outline will now contain each section filled in with data
-  console.log("Exiting processing of Blog Post");
-
   await firebaseFunctions.updateIpFreeArticle(clientIp);
 
   res.status(200).send({ article, title: keyWord, id: jobId });
@@ -435,12 +397,9 @@ router.post("/manuallyTriggerBulkQueue", async (req, res) => {
 router.post("/processAmazon", async (req, res) => {
   let {
     keyWord,
-    internalUrl,
     tone,
     numberOfProducts,
     pointOfView,
-    includeFAQs,
-    generatedImages,
     outline,
     currentUser,
     jobId,
@@ -448,6 +407,7 @@ router.post("/processAmazon", async (req, res) => {
     affiliate,
     finetuneChosen,
   } = req.body;
+
   const isWithinArticleCount = await misc.doesUserHaveEnoughArticles(
     currentUser
   );
@@ -482,12 +442,8 @@ router.post("/processAmazon", async (req, res) => {
     numberOfProducts,
     affiliate
   );
-  // jobId = await firebaseFunctions.updateFirebaseJob(currentUser, jobId, "context", context, articleType)
-  outline = await amazon.generateOutlineAmazon(keyWord, context);
-  // jobId = await firebaseFunctions.updateFirebaseJob(currentUser, jobId, "outline", outline, articleType)
-  console.log("outline generated");
 
-  console.log("generating article");
+  outline = await amazon.generateOutlineAmazon(keyWord, context);
 
   let finishedArticle = "";
   try {
@@ -531,9 +487,6 @@ router.post("/processAmazon", async (req, res) => {
     return res.status(500).send("Error generating article: " + error);
   }
 
-  console.log("word count: ", updatedArticleCount);
-  //Outline will now contain each section filled in with data
-  console.log("finished article:\n", finishedArticle);
   res.status(200).send({
     article: finishedArticle,
     updatedArticleCount,
@@ -545,14 +498,10 @@ router.post("/processAmazon", async (req, res) => {
 router.post("/processAmazonFreeTrial", async (req, res) => {
   let {
     keyWord,
-    internalUrl,
     tone,
     numberOfProducts,
     pointOfView,
-    includeFAQs,
-    generatedImages,
     outline,
-    currentUser,
     jobId,
     amazonUrl,
     affiliate,
@@ -567,8 +516,6 @@ router.post("/processAmazonFreeTrial", async (req, res) => {
   }
 
   let hasFreeArticle = false;
-
-  clientIp = "102020.1.9";
 
   try {
     hasFreeArticle = await firebaseFunctions.validateIpHasFreeArticle(clientIp);
@@ -601,12 +548,8 @@ router.post("/processAmazonFreeTrial", async (req, res) => {
     numberOfProducts,
     affiliate
   );
-  // jobId = await firebaseFunctions.updateFirebaseJob(currentUser, jobId, "context", context, articleType)
-  outline = await amazon.generateOutlineAmazon(keyWord, context);
-  // jobId = await firebaseFunctions.updateFirebaseJob(currentUser, jobId, "outline", outline, articleType)
-  console.log("outline generated");
 
-  console.log("generating article");
+  outline = await amazon.generateOutlineAmazon(keyWord, context);
 
   let finishedArticle = "";
   try {
@@ -651,7 +594,6 @@ router.post("/processAmazonFreeTrial", async (req, res) => {
   res.status(200).send({ article: finishedArticle, title: keyWord, id: jobId });
 });
 
-// Route handler
 router.post("/outline", async (req, res) => {
   let { keyWord, sectionCount, currentUser } = req.body;
 
@@ -733,10 +675,6 @@ router.get("/testClaudeOutline", async (req, res) => {
   res.status(200).send(data);
 });
 
-router.get("/debug-sentry", (req, res) => {
-  throw new Error("My first Sentry error!");
-});
-
 router.post("/addArticleToNewUser", async (req, res) => {
   let { user } = req.body;
 
@@ -763,32 +701,17 @@ router.get("/testIP", extractIpMiddleware, (req, res) => {
 });
 
 router.get("/isFreeArticleAvailable", extractIpMiddleware, async (req, res) => {
-  // let ipAddress = req.clientIp;
-  // let isFreeArticleAvailable;
-  // try {
-  //   isFreeArticleAvailable = await firebaseFunctions.validateIpHasFreeArticle(
-  //     ipAddress
-  //   );
-  // } catch (e) {
-  //   return res.status(500).send("Error retrieving data");
-  // }
+  let ipAddress = req.clientIp;
+  let isFreeArticleAvailable;
+  try {
+    isFreeArticleAvailable = await firebaseFunctions.validateIpHasFreeArticle(
+      ipAddress
+    );
+  } catch (e) {
+    return res.status(500).send("Error retrieving data");
+  }
 
   res.status(200).send({ isFreeArticleAvailable: true });
-});
-
-router.get("/testOpenai", extractIpMiddleware, async (req, res) => {
-  const heartBeat = await openai.healthCheck();
-  res.status(200).send({ isAlive: heartBeat });
-});
-
-router.post("/testFinetune", async (req, res) => {
-  const results = await gemini.generateFineTuneService(req.body.articles);
-  res.status(200).send({ results });
-});
-
-router.post("/testGemini", async (req, res) => {
-  const results = await gemini.testGemini();
-  res.status(200).send({ results });
 });
 
 router.post("/processRewrite", async (req, res) => {
