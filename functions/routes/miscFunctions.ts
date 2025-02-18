@@ -1,11 +1,9 @@
-const cheerio = require("cheerio");
-const axios = require("axios");
-const qs = require("qs");
-const admin = require("firebase-admin");
-require("dotenv").config();
-const claude = require("./claudeFunctions");
-const openai = require("./openai");
-const gemini = require("./gemini");
+import cheerio from "cheerio";
+import axios from "axios";
+import qs from "qs";
+import admin from "firebase-admin";
+import 'dotenv/config';
+import * as gemini from "./gemini";
 
 const stripEscapeChars = (string) => {
   let junkRegex = /([:\u200F\u200E\f\n\r\t\v]| {2,})/g;
@@ -45,17 +43,6 @@ function stripToText(html) {
 
   return $("body").prop("textContent");
 }
-
-const checkIfStore = (string) => {
-  lString = string.toLowerCase();
-  if (lString.includes("add to cart")) {
-    return true;
-  } else if (lString.includes("free shipping on orders over")) {
-    return true;
-  } else {
-    return false;
-  }
-};
 
 function flattenJsonToHtmlList(json) {
   // Initialize the result array and a variable to keep track of ids
@@ -718,20 +705,14 @@ const generateArticle = async (
   }
 };
 
-module.exports = {
-  stripEscapeChars,
-  stripToText,
-  checkIfStore,
-  flattenJsonToHtmlList,
-  processAIResponseToHtml,
-  doesUserHaveEnoughArticles,
-  doSerpResearch,
-  generateContextStringAmazon,
-  generateContextStringAmazonIntro,
-  parseKeyWords,
-  parseIp,
-  doInternalUrlResearch,
-  generateOutline,
-  generateArticle,
-  htmlListToJson,
-};
+export { stripEscapeChars };
+export { doesUserHaveEnoughArticles };
+export { doSerpResearch };
+export { generateContextStringAmazon };
+export { generateContextStringAmazonIntro };
+export { parseKeyWords };
+export { parseIp };
+export { doInternalUrlResearch };
+export { generateOutline };
+export { generateArticle };
+export { htmlListToJson };

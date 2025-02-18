@@ -1,4 +1,4 @@
-const admin = require("firebase-admin");
+import admin from "firebase-admin";
 
 const updateFirebaseJob = async (
     ipAddress,
@@ -78,6 +78,4 @@ const addJobIdToIpFirebase = async (ipAddress, jobId) => {
     }
 };
 
-module.exports = {
-    updateFirebaseJob
-};
+export { updateFirebaseJob };

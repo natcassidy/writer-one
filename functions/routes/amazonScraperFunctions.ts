@@ -1,14 +1,8 @@
-const axios = require("axios");
-require("dotenv").config();
-const OpenAI = require("openai");
-const gemini = require("./gemini");
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-const Anthropic = require("@anthropic-ai/sdk");
-
-const claude = require("./claudeFunctions");
-const misc = require("./miscFunctions");
+import axios from 'axios'; // Changed from require
+import 'dotenv/config'; // Changed from require and adjusted for ESM
+import * as gemini from './gemini'; // Changed from require
+import * as misc from './miscFunctions'; // Changed from require
+import * as Anthropic from '@anthropic-ai/sdk'; // Changed from require
 
 const getProduct = async (asin) => {
   const params = {
@@ -476,12 +470,10 @@ const generateSectionsOfArticle = async (
   return outlineCopy;
 };
 
-module.exports = {
-  performSearch,
-  generateOutlineAmazon,
-  generateAmazonArticle,
-  determineArticleLength,
-  testClaude,
-  generateOutlineClaude,
-  generateArticleClaude,
-};
+export { performSearch };
+export { generateOutlineAmazon };
+export { generateAmazonArticle };
+export { determineArticleLength };
+export { testClaude };
+export { generateOutlineClaude };
+export { generateArticleClaude };

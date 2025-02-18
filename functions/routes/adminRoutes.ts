@@ -257,4 +257,4 @@ const findOldSubscriptionId = (subscriptions, oldPlanId) => {
   return subscriptionIdToUpgrade;
 };
 
-module.exports = router;
+export default router;

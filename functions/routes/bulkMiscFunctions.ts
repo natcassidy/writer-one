@@ -1,7 +1,6 @@
-const firebaseFunctions = require("./firebaseFunctions");
-const misc = require("./miscFunctions");
-const amazon = require("./amazonScraperFunctions");
-const claude = require("./claudeFunctions");
+import * as firebaseFunctions from "./firebaseFunctions";
+import * as misc from './miscFunctions';
+import * as amazon from "./amazonScraperFunctions";
 
 const processBlogArticleFromBulk = async (
   keyWord,
@@ -72,7 +71,7 @@ const processBlogArticleFromBulk = async (
     includeConclusion
   );
 
-  outline = misc.htmlListToJson(outlineFlat);
+  const outline = misc.htmlListToJson(outlineFlat);
 
   jobId = await firebaseFunctions.updateFirebaseJob(
     currentUser,
@@ -175,7 +174,7 @@ const processAmazonArticleFromBulk = async (
     affiliate
   );
   // jobId = await firebaseFunctions.updateFirebaseJob(currentUser, jobId, "context", context, articleType)
-  outline = await amazon.generateOutlineAmazon(keyWord, context);
+  const outline = await amazon.generateOutlineAmazon(keyWord, context);
   // jobId = await firebaseFunctions.updateFirebaseJob(currentUser, jobId, "outline", outline, articleType)
   console.log("outline generated");
 
@@ -280,6 +279,4 @@ const processNextItem = async () => {
   }
 };
 
-module.exports = {
-  processNextItem,
-};
+export { processNextItem };

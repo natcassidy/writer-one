@@ -1,8 +1,8 @@
-const axios = require("axios");
-const cheerio = require("cheerio");
-require("dotenv").config();
-const { GoogleGenerativeAI } = require("@google/generative-ai");
-const firebaseFunctions = require("./firebaseFunctions");
+import axios from 'axios'; // Changed from require
+import cheerio from 'cheerio'; // Changed from require
+import 'dotenv/config'; // Changed from require and adjusted for ESM
+import { GoogleGenerativeAI } from '@google/generative-ai'; // Changed from require and kept destructuring
+import * as firebaseFunctions from './firebaseFunctions'; // Changed from require and added .mjs extension, assuming firebaseFunctions.js was renamed to firebaseFunctions.ts
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_KEY);
 
@@ -716,15 +716,13 @@ const processRewrite = async (targetSection, instructions) => {
   }
 };
 
-module.exports = {
-  generateFinetune,
-  generateAmazonSection,
-  generateAmazonIntro,
-  generateSection,
-  generateOutline,
-  saveFinetuneConfig,
-  generateFineTuneService,
-  testGemini,
-  summarizeContent,
-  processRewrite,
-};
+export { generateFinetune };
+export { generateAmazonSection };
+export { generateAmazonIntro };
+export { generateSection };
+export { generateOutline };
+export { saveFinetuneConfig };
+export { generateFineTuneService };
+export { testGemini };
+export { summarizeContent };
+export { processRewrite };

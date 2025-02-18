@@ -1,5 +1,7 @@
-const misc = require("./miscFunctions");
-const gemini = require("./gemini");
+import * as misc from "./miscFunctions";
+import * as gemini from "./gemini";
+import * as firebaseFunctions from "./firebaseFunctions";
+import * as firebaseFunctionsNotSignedIn from "./firebaseFunctions";
 
 function generateFinetune(finetuneChosen, finetune) {
   if (
@@ -16,7 +18,7 @@ function generateFinetune(finetuneChosen, finetune) {
   return finetune;
 }
 
-const processFreeTrial = (firebaseFunctions, data) => {
+const processFreeTrial = (isFreeTrial, data) => {
   data.currentUser = data.clientIp;
 
   let hasFreeArticle = true;
@@ -32,7 +34,8 @@ const processFreeTrial = (firebaseFunctions, data) => {
   return process(firebaseFunctions, data)
 }
 
-const process = async (firebaseFunctions, data) => {
+const processArticle = async (isFreeTrial, data) => {
+  console.log("processing article now");
   let {
     keyWord,
     sectionCount,
@@ -97,15 +100,21 @@ const process = async (firebaseFunctions, data) => {
 
   const updatedArticleCount =
       await firebaseFunctions.decrementUserArticleCount(currentUser);
-  await firebaseFunctions.updateFirebaseJob(currentUser,jobId,"context",context, "blog")
-  await firebaseFunctions.updateFirebaseJob(currentUser,jobId,"outline",outline, "blog");
-  await firebaseFunctions.updateFirebaseJob(currentUser,jobId,"article",article, "blog");
-  await firebaseFunctions.updateFirebaseJob(currentUser,jobId,"title",keyWord, "blog");
+
+  if(isFreeTrial) {
+    await firebaseFunctionsNotSignedIn.updateFirebaseJob(currentUser,jobId,"context",context, "blog")
+    await firebaseFunctions.updateFirebaseJob(currentUser,jobId,"outline",outline, "blog");
+    await firebaseFunctions.updateFirebaseJob(currentUser,jobId,"article",article, "blog");
+    await firebaseFunctions.updateFirebaseJob(currentUser,jobId,"title",keyWord, "blog");
+  } else {
+    await firebaseFunctions.updateFirebaseJob(currentUser,jobId,"context",context, "blog")
+    await firebaseFunctions.updateFirebaseJob(currentUser,jobId,"outline",outline, "blog");
+    await firebaseFunctions.updateFirebaseJob(currentUser,jobId,"article",article, "blog");
+    await firebaseFunctions.updateFirebaseJob(currentUser,jobId,"title",keyWord, "blog");
+  }
 
   return { article, updatedArticleCount, title: keyWord, id: jobId };
 };
 
-module.exports = {
-  process,
-  processFreeTrial
-}
+export { processArticle };
+export { processFreeTrial };

@@ -1,27 +1,28 @@
-const express = require("express");
+import express from "express";
+
 const router = express.Router();
-const axios = require("axios");
-const qs = require("qs");
-require("dotenv").config();
-const misc = require("./miscFunctions");
-const vertex = require("./vertexAiFunctions");
-const amazon = require("./amazonScraperFunctions");
-const claude = require("./claudeFunctions");
-const openai = require("./openai");
-const gemini = require("./gemini");
-const processFunctions = require("./process");
-const firebaseFunctions = require("./firebaseFunctions");
-const firebaseFunctionsByIp = require("./firebaseFunctionsNotSignedIn");
-const bulkMiscFunctions = require("./bulkMiscFunctions");
-const fs = require("node:fs");
-const { P } = require("pdf-parse/lib/pdf.js/v1.10.100/build/pdf");
+import 'dotenv/config';
+import {doesUserHaveEnoughArticles, doSerpResearch, parseKeyWords} from "./miscFunctions";
+import {
+  addArticleFieldToUserDocument,
+  addToQueue,
+  decrementUserArticleCount,
+  updateFirebaseJob, updateIpFreeArticle,
+  validateIpHasFreeArticle
+} from "./firebaseFunctions";
+import {processNextItem} from "./bulkMiscFunctions";
+import {generateFineTuneService, generateOutline, processRewrite} from "./gemini";
+import {generateAmazonArticle, generateOutlineAmazon, performSearch} from "./amazonScraperFunctions";
+import {processArticle, processFreeTrial} from "./process"; // Changed from require and adjusted for ESM, assuming dotenv version 16+
 
 router.post("/process", async (req, res) => {
+  console.log("Route handler /process hit");
+
   try {
     let { article, updatedArticleCount, title, id } =
-      processFunctions.process(firebaseFunctions, req);
+      processArticle(updateFirebaseJob, req);
   } catch (e) {
-    return res.status(500).send("Error generating article: " + error);
+    return res.status(500).send("Error generating article: " + e);
   }
 
   res.status(200).send({ article, updatedArticleCount, title, id });
@@ -30,7 +31,7 @@ router.post("/process", async (req, res) => {
 router.post("/processFreeTrial", extractIpMiddleware, async (req, res) => {
   try {
     let { article, updatedArticleCount, title, id } =
-        processFunctions.processFreeTrial(firebaseFunctionsByIp, req);
+        processFreeTrial(firebaseFunctionsByIp, req);
   } catch (e) {
     return res.status(500).send("Error generating article: " + error);
   }
@@ -58,7 +59,7 @@ router.post("/processBulk", async (req, res) => {
   } = req.body;
 
   console.log("Processing bulk blog, adding to queue");
-  const keyWordList = misc.parseKeyWords(keyWord);
+  const keyWordList = parseKeyWords(keyWord);
 
   if (sectionCount > 6) {
     return res.status(500).send("Error Generating Article");
@@ -67,7 +68,7 @@ router.post("/processBulk", async (req, res) => {
   console.log("List: ", keyWordList);
   try {
     keyWordList.forEach((keyWord) => {
-      firebaseFunctions.addToQueue(
+      addToQueue(
         keyWord,
         internalUrls,
         tone,
@@ -97,7 +98,7 @@ router.post("/processBulk", async (req, res) => {
 router.post("/manuallyTriggerBulkQueue", async (req, res) => {
   console.log("Entering manuallyTriggerBulkQueue");
   try {
-    await bulkMiscFunctions.processNextItem();
+    await processNextItem();
   } catch (e) {
     console.log("Error logged at top: ", e);
     return res.status(500).send({ error: e });
@@ -121,7 +122,7 @@ router.post("/processAmazon", async (req, res) => {
     finetuneChosen,
   } = req.body;
 
-  const isWithinArticleCount = await misc.doesUserHaveEnoughArticles(
+  const isWithinArticleCount = await doesUserHaveEnoughArticles(
     currentUser
   );
 
@@ -143,24 +144,24 @@ router.post("/processAmazon", async (req, res) => {
     finetuneChosen.textInputs[0].body != ""
   ) {
     try {
-      finetune = gemini.generateFineTuneService(finetuneChosen.textInputs);
+      finetune = generateFineTuneService(finetuneChosen.textInputs);
     } catch (error) {
       console.log("Error generating finetune ", error);
     }
   }
 
-  context = await amazon.performSearch(
+  context = await performSearch(
     keyWord,
     amazonUrl,
     numberOfProducts,
     affiliate
   );
 
-  outline = await amazon.generateOutlineAmazon(keyWord, context);
+  outline = await generateOutlineAmazon(keyWord, context);
 
   let finishedArticle = "";
   try {
-    finishedArticle = await amazon.generateAmazonArticle(
+    finishedArticle = await generateAmazonArticle(
       outline,
       keyWord,
       context,
@@ -172,12 +173,12 @@ router.post("/processAmazon", async (req, res) => {
     console.log("Error: ", e);
     return res.status(500).send({ error: e });
   }
-  const updatedArticleCount = await firebaseFunctions.decrementUserArticleCount(
+  const updatedArticleCount = await decrementUserArticleCount(
     currentUser
   );
 
   try {
-    jobId = await firebaseFunctions.updateFirebaseJob(
+    jobId = await updateFirebaseJob(
       currentUser,
       jobId,
       "article",
@@ -189,7 +190,7 @@ router.post("/processAmazon", async (req, res) => {
   }
 
   try {
-    jobId = await firebaseFunctions.updateFirebaseJob(
+    jobId = await updateFirebaseJob(
       currentUser,
       jobId,
       "title",
@@ -231,7 +232,7 @@ router.post("/processAmazonFreeTrial", async (req, res) => {
   let hasFreeArticle = false;
 
   try {
-    hasFreeArticle = await firebaseFunctions.validateIpHasFreeArticle(clientIp);
+    hasFreeArticle = await validateIpHasFreeArticle(clientIp);
   } catch (e) {
     return res.status(500).send("Error retrieving data");
   }
@@ -249,24 +250,24 @@ router.post("/processAmazonFreeTrial", async (req, res) => {
     finetuneChosen.textInputs[0].body != ""
   ) {
     try {
-      finetune = gemini.generateFineTuneService(finetuneChosen.textInputs);
+      finetune = generateFineTuneService(finetuneChosen.textInputs);
     } catch (error) {
       console.log("Error generating finetune ", error);
     }
   }
 
-  context = await amazon.performSearch(
+  context = await performSearch(
     keyWord,
     amazonUrl,
     numberOfProducts,
     affiliate
   );
 
-  outline = await amazon.generateOutlineAmazon(keyWord, context);
+  outline = await generateOutlineAmazon(keyWord, context);
 
   let finishedArticle = "";
   try {
-    finishedArticle = await amazon.generateAmazonArticle(
+    finishedArticle = await generateAmazonArticle(
       outline,
       keyWord,
       context,
@@ -302,7 +303,7 @@ router.post("/processAmazonFreeTrial", async (req, res) => {
     return res.status(500).send("Error generating article: " + error);
   }
 
-  await firebaseFunctions.updateIpFreeArticle(clientIp);
+  await updateIpFreeArticle(clientIp);
 
   res.status(200).send({ article: finishedArticle, title: keyWord, id: jobId });
 });
@@ -316,9 +317,9 @@ router.post("/outline", async (req, res) => {
   const articleType = "blog";
 
   try {
-    context = await misc.doSerpResearch(keyWord, "");
+    context = await doSerpResearch(keyWord, "");
     if (currentUser) {
-      jobId = await firebaseFunctions.updateFirebaseJob(
+      jobId = await updateFirebaseJob(
         currentUser,
         jobId,
         "context",
@@ -327,14 +328,14 @@ router.post("/outline", async (req, res) => {
       );
     }
 
-    const responseMessage = await misc.generateOutline(
+    const responseMessage = await generateOutline(
       keyWord,
       sectionCount,
       context
     );
 
     if (currentUser) {
-      jobId = await firebaseFunctions.updateFirebaseJob(
+      jobId = await updateFirebaseJob(
         currentUser,
         jobId,
         "outline",
@@ -350,43 +351,10 @@ router.post("/outline", async (req, res) => {
   }
 });
 
-router.post("/finetune", async (req, res) => {
-  try {
-    await claude.saveFinetuneConfig(
-      req.body.currentUser,
-      req.body.urls,
-      req.body.textInputs,
-      req.body.name
-    );
-    res.status(200).send("Successfully added finetune to db");
-  } catch (error) {
-    res.status(500).send(`Error: ${error}`);
-  }
-});
-
-router.get("/testAmazonScraper", async (req, res) => {
-  const data = await amazon.performSearch("Memory Cards", "amazon.com", 1);
-  res.status(200).send(data);
-});
-
-router.get("/testClaude", async (req, res) => {
-  const data = await amazon.testClaude();
-  res.status(200).send(data.content[0].text);
-});
-
-router.get("/testClaudeOutline", async (req, res) => {
-  const data = await amazon.generateOutlineClaude(
-    "Best ways to lose weight 2024",
-    "2",
-    ""
-  );
-  res.status(200).send(data);
-});
-
 router.post("/addArticleToNewUser", async (req, res) => {
   let { user } = req.body;
 
-  await firebaseFunctions.addArticleFieldToUserDocument(user);
+  await addArticleFieldToUserDocument(user);
 
   res.status(200).send("Success");
 });
@@ -396,7 +364,7 @@ router.put("/saveArticle", async (req, res) => {
 
   console.log("Saving article");
   try {
-    await firebaseFunctions.updateFirebaseJob(user, id, "article", article);
+    await updateFirebaseJob(user, id, "article", article);
   } catch (error) {
     res.status(500).send("Error saving article");
   }
@@ -412,7 +380,7 @@ router.get("/isFreeArticleAvailable", extractIpMiddleware, async (req, res) => {
   let ipAddress = req.clientIp;
   let isFreeArticleAvailable;
   try {
-    isFreeArticleAvailable = await firebaseFunctions.validateIpHasFreeArticle(
+    isFreeArticleAvailable = await validateIpHasFreeArticle(
       ipAddress
     );
   } catch (e) {
@@ -427,7 +395,7 @@ router.post("/processRewrite", async (req, res) => {
   const instructions = req.body.modelInstructions;
 
   try {
-    const response = await gemini.processRewrite(targetSection, instructions);
+    const response = await processRewrite(targetSection, instructions);
     console.log("Response: \n", response);
     res.status(200).send({ rewrittenText: response });
   } catch (e) {
@@ -440,4 +408,4 @@ function extractIpMiddleware(req, res, next) {
   next();
 }
 
-module.exports = router;
+export default router;

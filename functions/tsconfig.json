@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "es2020",
+    "module": "es2020",
+    "moduleResolution": "node",
+    "allowJs": true,
+    "checkJs": false,
+    "outDir": "../dist",  /* Changed outDir to be one level up, at the project root */
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": false,
+    "skipLibCheck": true,
+    "sourceMap": true      /* Optional: Enable source maps for debugging */
+  },
+  "include": [
+    "./**/*"          /* Include all files within the 'functions' directory */
+  ],
+  "exclude": [
+    "node_modules",     /* Exclude node_modules */
+    "../dist"         /* Exclude the output directory to prevent overwriting errors */
+  ]
+}

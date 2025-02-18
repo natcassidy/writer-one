@@ -1,14 +1,10 @@
-const express = require("express");
+import express from 'express'; // Changed from require
 const app = express();
-const cors = require("cors");
-const functions = require("firebase-functions");
-const aiRoutes = require("./routes/aiRoutes");
-const gptRoutes = require("./routes/gptRoutes");
-const adminRoutes = require("./routes/adminRoutes");
-require("dotenv").config();
-const bulMiscFunctions = require("./routes/bulkMiscFunctions");
-const Sentry = require("@sentry/node");
-const { nodeProfilingIntegration } = require("@sentry/profiling-node");
+import cors from 'cors'; // Changed from require
+import * as functions from 'firebase-functions'; // Changed from require, Firebase Functions are often imported as a namespace
+import * as aiRoutes from './routes/aiRoutes.ts'; // Changed from require
+import * as adminRoutes from './routes/adminRoutes.ts'; // Changed from require
+import 'dotenv/config'; // Changed from require and adjusted for ESM
 
 const corsOptions = {
   origin: [
@@ -25,7 +21,6 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 app.use("/ai", aiRoutes);
-app.use("/gpt", gptRoutes);
 app.use("/admin", adminRoutes);
 app.use(Sentry.Handlers.requestHandler());
 app.use(Sentry.Handlers.tracingHandler());

@@ -1,4 +1,4 @@
-const misc = require("./miscFunctions");
+import misc from './miscFunctions.';
 
 const fetchWikipedia = (el) => {
   /*
@@ -42,6 +42,4 @@ const fetchWikipedia = (el) => {
     });
 };
 
-module.exports = {
-  fetchWikipedia,
-};
+export { fetchWikipedia };

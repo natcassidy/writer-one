@@ -1,4 +1,4 @@
-const admin = require("firebase-admin");
+import admin from "firebase-admin";
 
 const updateFirebaseJob = async (
   currentUser,
@@ -474,18 +474,16 @@ async function addArticleFieldToUserDocument(user) {
   );
 }
 
-module.exports = {
-  updateFirebaseJob,
-  getContextFromDb,
-  decrementUserArticleCount,
-  addFinetunetoFirebaseUser,
-  findFinetuneInFirebase,
-  addToQueue,
-  getNextItemFirebase,
-  markItemCompleted,
-  markItemInProgress,
-  markItemInError,
-  validateIpHasFreeArticle,
-  updateIpFreeArticle,
-  addArticleFieldToUserDocument,
-};
+export { updateFirebaseJob };
+export { getContextFromDb };
+export { decrementUserArticleCount };
+export { addFinetunetoFirebaseUser };
+export { findFinetuneInFirebase };
+export { addToQueue };
+export { getNextItemFirebase };
+export { markItemCompleted };
+export { markItemInProgress };
+export { markItemInError };
+export { validateIpHasFreeArticle };
+export { updateIpFreeArticle };
+export { addArticleFieldToUserDocument };
