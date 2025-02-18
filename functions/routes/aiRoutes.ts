@@ -13,30 +13,31 @@ import {
 import {processNextItem} from "./bulkMiscFunctions";
 import {generateFineTuneService, generateOutline, processRewrite} from "./gemini";
 import {generateAmazonArticle, generateOutlineAmazon, performSearch} from "./amazonScraperFunctions";
-import {processArticle, processFreeTrial} from "./process"; // Changed from require and adjusted for ESM, assuming dotenv version 16+
+import {processArticle, processFreeTrial} from "./process";
+import {updateFirebaseJobByIp} from "./firebaseFunctionsNotSignedIn"; // Changed from require and adjusted for ESM, assuming dotenv version 16+
 
 router.post("/process", async (req, res) => {
   console.log("Route handler /process hit");
 
   try {
-    let { article, updatedArticleCount, title, id } =
-      processArticle(updateFirebaseJob, req);
-  } catch (e) {
-    return res.status(500).send("Error generating article: " + e);
-  }
+    const { article, updatedArticleCount, title, id } = // Use const for variables that aren't reassigned
+        await processArticle(updateFirebaseJob, req);
 
-  res.status(200).send({ article, updatedArticleCount, title, id });
+    res.status(200).send({ article, updatedArticleCount, title, id }); // No return here
+
+  } catch (e) {
+    res.status(500).send("Error generating article: " + e); // No return here
+  }
 });
 
 router.post("/processFreeTrial", extractIpMiddleware, async (req, res) => {
   try {
-    let { article, updatedArticleCount, title, id } =
-        processFreeTrial(firebaseFunctionsByIp, req);
+    const { article, updatedArticleCount, title, id } =
+        await processFreeTrial(req);
+    res.status(200).send({ article, title, id: id, updatedArticleCount });
   } catch (e) {
-    return res.status(500).send("Error generating article: " + error);
+    res.status(500).send("Error generating article: " + e);
   }
-
-  res.status(200).send({ article, title: keyWord, id: id });
 });
 
 router.post("/processBulk", async (req, res) => {
@@ -62,7 +63,7 @@ router.post("/processBulk", async (req, res) => {
   const keyWordList = parseKeyWords(keyWord);
 
   if (sectionCount > 6) {
-    return res.status(500).send("Error Generating Article");
+    res.status(500).send("Error Generating Article");
   }
 
   console.log("List: ", keyWordList);
@@ -88,7 +89,7 @@ router.post("/processBulk", async (req, res) => {
     });
   } catch (e) {
     console.log("Error adding to queue: ", e);
-    return res.status(500).send({ error: e });
+    res.status(500).send({ error: e });
   }
 
   console.log("Processing bulk blog, finished adding to queue");
@@ -101,7 +102,7 @@ router.post("/manuallyTriggerBulkQueue", async (req, res) => {
     await processNextItem();
   } catch (e) {
     console.log("Error logged at top: ", e);
-    return res.status(500).send({ error: e });
+    res.status(500).send({ error: e });
   }
 
   console.log("Leaving manuallyTriggerBulkQueue");
@@ -127,10 +128,10 @@ router.post("/processAmazon", async (req, res) => {
   );
 
   if (!isWithinArticleCount) {
-    return res.status(500).send("Word Count Limit Hit");
+    res.status(500).send("Word Count Limit Hit");
   }
 
-  let context = "";
+  let context;
   if (!jobId) {
     jobId = -1;
   }
@@ -144,7 +145,7 @@ router.post("/processAmazon", async (req, res) => {
     finetuneChosen.textInputs[0].body != ""
   ) {
     try {
-      finetune = generateFineTuneService(finetuneChosen.textInputs);
+      finetune = await generateFineTuneService(finetuneChosen.textInputs);
     } catch (error) {
       console.log("Error generating finetune ", error);
     }
@@ -171,7 +172,7 @@ router.post("/processAmazon", async (req, res) => {
     );
   } catch (e) {
     console.log("Error: ", e);
-    return res.status(500).send({ error: e });
+    res.status(500).send({ error: e });
   }
   const updatedArticleCount = await decrementUserArticleCount(
     currentUser
@@ -186,7 +187,7 @@ router.post("/processAmazon", async (req, res) => {
       articleType
     );
   } catch (error) {
-    return res.status(500).send("Error generating article: " + error);
+    res.status(500).send("Error generating article: " + error);
   }
 
   try {
@@ -198,7 +199,7 @@ router.post("/processAmazon", async (req, res) => {
       articleType
     );
   } catch (error) {
-    return res.status(500).send("Error generating article: " + error);
+    res.status(500).send("Error generating article: " + error);
   }
 
   res.status(200).send({
@@ -224,7 +225,7 @@ router.post("/processAmazonFreeTrial", async (req, res) => {
 
   let clientIp = req.clientIp;
 
-  let context = "";
+  let context;
   if (!jobId) {
     jobId = -1;
   }
@@ -234,11 +235,11 @@ router.post("/processAmazonFreeTrial", async (req, res) => {
   try {
     hasFreeArticle = await validateIpHasFreeArticle(clientIp);
   } catch (e) {
-    return res.status(500).send("Error retrieving data");
+    res.status(500).send("Error retrieving data");
   }
 
   if (!hasFreeArticle) {
-    return res.status(500).send("No Free Article Remaining!");
+    res.status(500).send("No Free Article Remaining!");
   }
 
   const articleType = "amazon";
@@ -250,7 +251,7 @@ router.post("/processAmazonFreeTrial", async (req, res) => {
     finetuneChosen.textInputs[0].body != ""
   ) {
     try {
-      finetune = generateFineTuneService(finetuneChosen.textInputs);
+      finetune = await generateFineTuneService(finetuneChosen.textInputs);
     } catch (error) {
       console.log("Error generating finetune ", error);
     }
@@ -276,11 +277,11 @@ router.post("/processAmazonFreeTrial", async (req, res) => {
       finetune
     );
   } catch (e) {
-    return res.status(500).send("Error generating article: ", error);
+    res.status(500).send("Error generating article: " + e);
   }
 
   try {
-    jobId = await firebaseFunctions.updateFirebaseJobByIp(
+    jobId = await updateFirebaseJob(
       clientIp,
       jobId,
       "article",
@@ -288,11 +289,11 @@ router.post("/processAmazonFreeTrial", async (req, res) => {
       articleType
     );
   } catch (error) {
-    return res.status(500).send("Error generating article: " + error);
+    res.status(500).send("Error generating article: " + error);
   }
 
   try {
-    jobId = await firebaseFunctions.updateFirebaseJobByIp(
+    jobId = await updateFirebaseJobByIp(
       clientIp,
       jobId,
       "title",
@@ -300,7 +301,7 @@ router.post("/processAmazonFreeTrial", async (req, res) => {
       articleType
     );
   } catch (error) {
-    return res.status(500).send("Error generating article: " + error);
+    res.status(500).send("Error generating article: " + error);
   }
 
   await updateIpFreeArticle(clientIp);
@@ -347,7 +348,7 @@ router.post("/outline", async (req, res) => {
     res.status(200).send({ responseMessage, jobId });
   } catch (error) {
     console.error("Error:", error);
-    return res.status(500).send(error.message || "An error occurred");
+    res.status(500).send(error.message || "An error occurred");
   }
 });
 
@@ -364,7 +365,7 @@ router.put("/saveArticle", async (req, res) => {
 
   console.log("Saving article");
   try {
-    await updateFirebaseJob(user, id, "article", article);
+    await updateFirebaseJob(user, id, "article", article, "blog");
   } catch (error) {
     res.status(500).send("Error saving article");
   }
@@ -384,7 +385,7 @@ router.get("/isFreeArticleAvailable", extractIpMiddleware, async (req, res) => {
       ipAddress
     );
   } catch (e) {
-    return res.status(500).send("Error retrieving data");
+    res.status(500).send("Error retrieving data");
   }
 
   res.status(200).send({ isFreeArticleAvailable: true });

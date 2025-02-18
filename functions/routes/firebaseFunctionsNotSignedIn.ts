@@ -1,6 +1,6 @@
 import admin from "firebase-admin";
 
-const updateFirebaseJob = async (
+const updateFirebaseJobByIp = async (
     ipAddress,
     jobId,
     fieldName,
@@ -60,6 +60,14 @@ const updateFirebaseJob = async (
     }
 };
 
+function cleanData(data) {
+    if (data === null || data === undefined) return null; // Or some default value
+    if (typeof data !== "object") return data;
+    for (const key of Object.keys(data)) {
+        data[key] = cleanData(data[key]);
+    }
+    return data;
+}
 
 const addJobIdToIpFirebase = async (ipAddress, jobId) => {
     if (!ipAddress) {
@@ -78,4 +86,4 @@ const addJobIdToIpFirebase = async (ipAddress, jobId) => {
     }
 };
 
-export { updateFirebaseJob };
+export { updateFirebaseJobByIp };

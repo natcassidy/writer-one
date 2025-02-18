@@ -1,125 +1,68 @@
 import request from 'supertest';
 import express from 'express';
-import { expect } from 'chai';
-import sinon from 'sinon';
-import esmock from 'esmock'; // Import esmock
+import * as aiRoutesModule from '../aiRoutes'; // Import the actual aiRoutes module
+import * as processModule from '../process';
 
 describe('Simple Test Example', () => {
     it('should pass this basic test', () => {
-        expect(1 + 1).toBe(2); // Use Jest's expect
+        expect(1 + 1).toBe(2);
     });
 });
 
-// describe('ai-router.js with esmock', () => { // Updated describe block name to indicate esmock
-//     let app;
-//
-//     beforeEach(() => {
-//         app = express();
-//         app.use(express.json());
-//     });
-//
-//     describe('/process route', () => {
-//         it('should return 200 and article data on successful process', async () => {
-//             const processStub = sinon.stub().resolves({ // Create a Sinon stub directly (no need to reference processFunctions yet)
-//                 article: 'test article',
-//                 updatedArticleCount: 10,
-//                 title: 'Test Title',
-//                 id: 123
-//             });
-//
-//             const aiRouter = await esmock('../routes/aiRoutes.ts', {
-//                 '../routes/process.ts': {
-//                     processArticle: processStub // Correct method name - match aiRoutes.ts
-//                 }
-//             });
-//
-//             app.use('/', aiRouter.default); // Mount the router (assuming aiRouter.mjs has a default export)
-//
-//             const response = await request(app)
-//                 .post('/process')
-//                 .send({});
-//
-//             expect(response.status).to.equal(200);
-//             expect(response.body).to.deep.equal({
-//                 article: 'test article',
-//                 updatedArticleCount: 10,
-//                 title: 'Test Title',
-//                 id: 123
-//             });
-//             expect(processStub.calledOnce).to.be.true; // Assert that your stub was called
-//             processStub.restore(); // Restore the stub (although esmock might handle this)
-//         });
-//
-//         it('should return 500 and error message if process function throws error', async () => {
-//             const processStub = sinon.stub().rejects(new Error('Processing error'));
-//
-//             const aiRouter = await esmock('../routes/aiRoutes.ts', {
-//                 '../routes/process.ts': {
-//                     processArticle: processStub
-//                 }
-//             });
-//             app.use('/', aiRouter.default);
-//
-//             const response = await request(app)
-//                 .post('/process')
-//                 .send({});
-//
-//             expect(response.status).to.equal(500);
-//             expect(response.text).to.include('Error generating article: Error: Processing error');
-//             expect(processStub.calledOnce).to.be.true;
-//             processStub.restore();
-//         });
-//     });
-//
-//     describe('/processFreeTrial route', () => {
-//         it('should return 200 and article data on successful processFreeTrial', async () => {
-//             const processFreeTrialStub = sinon.stub().resolves({
-//                 article: 'free trial article',
-//                 title: 'Free Trial Title',
-//                 id: 456
-//             });
-//
-//             const aiRouter = await esmock('../routes/aiRoutes.ts', {
-//                 '../routes/process.ts': { // Still mock './process.ts' even for processFreeTrial route
-//                     processFreeTrial: processFreeTrialStub // Mock processFreeTrial export
-//                 }
-//             });
-//             app.use('/', aiRouter.default);
-//
-//             const response = await request(app)
-//                 .post('/processFreeTrial')
-//                 .set('X-Forwarded-For', '192.168.1.100')
-//                 .send({});
-//
-//             expect(response.status).to.equal(200);
-//             expect(response.body).to.deep.equal({
-//                 article: 'free trial article',
-//                 title: 'Free Trial Title',
-//                 id: 456
-//             });
-//             expect(processFreeTrialStub.calledOnce).to.be.true;
-//             processFreeTrialStub.restore();
-//         });
-//
-//         it('should return 500 and error message if processFreeTrial function throws error', async () => {
-//             const processFreeTrialStub = sinon.stub().rejects(new Error('Free trial error'));
-//
-//             const aiRouter = await esmock('../routes/aiRoutes.ts', {
-//                 '../routes/process.ts': {
-//                     processFreeTrial: processFreeTrialStub
-//                 }
-//             });
-//             app.use('/', aiRouter.default);
-//
-//             const response = await request(app)
-//                 .post('/processFreeTrial')
-//                 .set('X-Forwarded-For', '192.168.1.100')
-//                 .send({});
-//
-//             expect(response.status).to.equal(500);
-//             expect(response.text).to.include('Error generating article: Error: Free trial error');
-//             expect(processFreeTrialStub.calledOnce).to.be.true;
-//             processFreeTrialStub.restore();
-//         });
-//     });
-// });
+jest.mock('../process'); // Mock the entire '../process' module (adjust path)
+
+describe('aiRoutes - /process endpoint (using Jest Mocks)', () => {
+    let app: any; // Type as 'any' for express app
+    const mockedProcessArticle = jest.spyOn(processModule, 'processArticle'); // Spy on and mock processArticle
+
+    beforeEach(() => {
+        jest.clearAllMocks(); // Clear all mock function calls before each test
+
+        // Create an express app and use the routes from the actual aiRoutes module
+        app = express();
+        app.use(express.json());
+        app.use('/', aiRoutesModule.default); // Use the actual aiRoutes module
+    });
+
+    it('should call processArticle and return 200 with article data', async () => {
+        // 1. Set up the mock implementation for processArticle using jest.spyOn
+        const mockArticleData = {
+            article: 'Mocked article content',
+            updatedArticleCount: 5,
+            title: 'Mocked Article Title',
+            id: 'mocked-article-id'
+        };
+        mockedProcessArticle.mockReturnValue(Promise.resolve(mockArticleData)); // Use mockReturnValue for simple return
+
+        // 2. Make a POST request to /process
+        const response = await request(app)
+            .post('/process')
+            .send({ /* Request body if needed */ });
+
+        // 3. Assertions
+        expect(response.status).toBe(200);
+        expect(response.body).toEqual(mockArticleData);
+
+        // 4. Verify processArticle was called
+        expect(mockedProcessArticle).toHaveBeenCalledTimes(1); // Jest's way to check call count
+    });
+
+    it('should return 500 if processArticle throws an error', async () => {
+        // 1. Set up processArticle mock to throw an error using jest.spyOn
+        mockedProcessArticle.mockImplementation(() => { // Use mockImplementation for more complex behavior
+            throw new Error('Mocked error in processArticle');
+        });
+
+        // 2. Make a POST request to /process
+        const response = await request(app)
+            .post('/process')
+            .send({ /* Request body if needed */ });
+
+        // 3. Assertions
+        expect(response.status).toBe(500);
+        expect(response.text).toContain('Error generating article');
+
+        // 4. Verify processArticle was called
+        expect(mockedProcessArticle).toHaveBeenCalledTimes(1);
+    });
+});

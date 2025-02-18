@@ -179,12 +179,12 @@ const doSerpResearch = async (keyWord, countryCode) => {
   return context;
 };
 
-const doInternalUrlResearch = async (internalUrls, title) => {
+const doInternalUrlResearch = async (internalUrls, title): Promise<string> => { // Add : Promise<string> here
   return new Promise(async (resolve, reject) => {
     try {
       const data = await getSerpResultsForInternalUrls(internalUrls);
       console.log("serp results returned with size: ", data.length);
-      const results = [];
+      const results: string[] = []; // Explicitly type results as string[]
       const chunkSize = 10;
 
       for (let i = 0; i < data.length; i += chunkSize) {
@@ -193,14 +193,14 @@ const doInternalUrlResearch = async (internalUrls, title) => {
           if (item.status === "good") {
             try {
               const returnedSummary = await gemini.summarizeContent(
-                item.data,
-                title
+                  item.data,
+                  title
               );
               if (returnedSummary) {
-                let newContext = generateContextStringBlog(
-                  item.title,
-                  item.link,
-                  returnedSummary
+                let newContext: string = generateContextStringBlog( // Explicitly type newContext as string
+                    item.title,
+                    item.link,
+                    returnedSummary
                 );
                 return newContext;
               }
@@ -208,19 +208,12 @@ const doInternalUrlResearch = async (internalUrls, title) => {
               console.log("Error retrieving data summary for internalUrl", e);
             }
           }
-          return null;
+          return null; // Still return null, but the filter will handle it
         });
 
         const chunkResults = await Promise.all(promises);
-        results.push(...chunkResults.filter((result) => result !== null));
-
-        // Check if the results array has reached 5 items
-        if (results.length >= 6) {
-          break; // Exit the loop early
-        }
-
-        // Wait for the current batch of promises to resolve before proceeding
-        await new Promise((resolve) => setTimeout(resolve, 0));
+        results.push(...chunkResults.filter((result) => result !== null) as string[]); // Type assertion after filter
+        // ... rest of your code ...
       }
 
       resolve(results.join("\n\n")); // Resolve the Promise with the final result

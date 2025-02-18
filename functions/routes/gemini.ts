@@ -516,9 +516,7 @@ function stripToText(html) {
 async function generateOutline(
   keyword,
   sectionCount,
-  context,
-  includeIntroduction,
-  includeConclusion
+  context
 ) {
   console.log("Entering generateOutline");
 

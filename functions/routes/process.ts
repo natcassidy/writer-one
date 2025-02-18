@@ -2,6 +2,8 @@ import * as misc from "./miscFunctions";
 import * as gemini from "./gemini";
 import * as firebaseFunctions from "./firebaseFunctions";
 import * as firebaseFunctionsNotSignedIn from "./firebaseFunctions";
+import {updateFirebaseJobByIp} from "./firebaseFunctionsNotSignedIn";
+import {updateFirebaseJob} from "./firebaseFunctions";
 
 function generateFinetune(finetuneChosen, finetune) {
   if (
@@ -18,20 +20,20 @@ function generateFinetune(finetuneChosen, finetune) {
   return finetune;
 }
 
-const processFreeTrial = (isFreeTrial, data) => {
+const processFreeTrial = (data) => {
   data.currentUser = data.clientIp;
 
   let hasFreeArticle = true;
 
   if (!hasFreeArticle) {
-    return res.status(500).send("No Free Article Remaining!");
+    throw Error("No Free Article Remaining!");
   }
 
   if (data.sectionCount > 2) {
-    return res.status(500).send("Error Generating Article");
+    throw Error("Error Generating Article");
   }
 
-  return process(firebaseFunctions, data)
+  return processArticle(true, data)
 }
 
 const processArticle = async (isFreeTrial, data) => {
@@ -47,8 +49,6 @@ const processArticle = async (isFreeTrial, data) => {
     jobId = -1,
     finetuneChosen,
     internalUrls,
-    includeIntroduction,
-    includeConclusion,
   } = data;
 
   let context = "",
@@ -67,20 +67,20 @@ const processArticle = async (isFreeTrial, data) => {
   finetune = generateFinetune(finetuneChosen, finetune);
 
   if (internalUrls && internalUrls.length > 0) {
-    internalUrlContext = misc.doInternalUrlResearch(internalUrls, keyWord);
+    internalUrlContext = await misc.doInternalUrlResearch(internalUrls, keyWord);
   }
 
   context = await misc.doSerpResearch(keyWord, "");
 
   if(outline.length == 0) {
     try {
-      await misc.generateOutline(keyWord,sectionCount,context,includeIntroduction,includeConclusion);
+      await misc.generateOutline(keyWord,sectionCount,context);
     } catch (e) {
-      throw new Error(error);
+      throw new Error(e);
     }
   }
 
-  outline = misc.htmlListToJson(outlineFlat);
+  outline = misc.htmlListToJson(outline);
 
   try {
     article = await misc.generateArticle(
@@ -102,15 +102,15 @@ const processArticle = async (isFreeTrial, data) => {
       await firebaseFunctions.decrementUserArticleCount(currentUser);
 
   if(isFreeTrial) {
-    await firebaseFunctionsNotSignedIn.updateFirebaseJob(currentUser,jobId,"context",context, "blog")
-    await firebaseFunctions.updateFirebaseJob(currentUser,jobId,"outline",outline, "blog");
-    await firebaseFunctions.updateFirebaseJob(currentUser,jobId,"article",article, "blog");
-    await firebaseFunctions.updateFirebaseJob(currentUser,jobId,"title",keyWord, "blog");
+    await updateFirebaseJobByIp(currentUser,jobId,"context",context, "blog")
+    await updateFirebaseJobByIp(currentUser,jobId,"outline",outline, "blog");
+    await updateFirebaseJobByIp(currentUser,jobId,"article",article, "blog");
+    await updateFirebaseJobByIp(currentUser,jobId,"title",keyWord, "blog");
   } else {
-    await firebaseFunctions.updateFirebaseJob(currentUser,jobId,"context",context, "blog")
-    await firebaseFunctions.updateFirebaseJob(currentUser,jobId,"outline",outline, "blog");
-    await firebaseFunctions.updateFirebaseJob(currentUser,jobId,"article",article, "blog");
-    await firebaseFunctions.updateFirebaseJob(currentUser,jobId,"title",keyWord, "blog");
+    await updateFirebaseJob(currentUser,jobId,"context",context, "blog")
+    await updateFirebaseJob(currentUser,jobId,"outline",outline, "blog");
+    await updateFirebaseJob(currentUser,jobId,"article",article, "blog");
+    await updateFirebaseJob(currentUser,jobId,"title",keyWord, "blog");
   }
 
   return { article, updatedArticleCount, title: keyWord, id: jobId };
