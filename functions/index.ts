@@ -2,8 +2,9 @@ import express from 'express'; // Changed from require
 const app = express();
 import cors from 'cors'; // Changed from require
 import * as functions from 'firebase-functions'; // Changed from require, Firebase Functions are often imported as a namespace
-import * as aiRoutes from './routes/aiRoutes.ts'; // Changed from require
-import * as adminRoutes from './routes/adminRoutes.ts'; // Changed from require
+import aiRoutes from './routes/aiRoutes'; // Changed from require
+import adminRoutes from './routes/adminRoutes'; // Changed from require
+import * as bulkMiscFunctions from './routes/bulkMiscFunctions';
 import 'dotenv/config'; // Changed from require and adjusted for ESM
 
 const corsOptions = {
@@ -22,9 +23,6 @@ app.use(cors(corsOptions));
 app.use(express.json());
 app.use("/ai", aiRoutes);
 app.use("/admin", adminRoutes);
-app.use(Sentry.Handlers.requestHandler());
-app.use(Sentry.Handlers.tracingHandler());
-app.use(Sentry.Handlers.errorHandler());
 app.set("trust proxy", true);
 
 exports.plugin = functions
@@ -34,6 +32,6 @@ exports.processQueue = functions
   .runWith({ timeoutSeconds: 360 })
   .pubsub.schedule("every 1 minutes")
   .onRun(async (context) => {
-    await bulMiscFunctions.processNextItem();
+    await bulkMiscFunctions.processNextItem();
     return null;
   });

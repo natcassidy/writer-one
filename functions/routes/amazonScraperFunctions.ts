@@ -97,12 +97,19 @@ const generateOutlineAmazon = async (keyWord, context) => {
       id: "1",
       tagName: "h1",
       content: keyWord,
+      link: "",
+      imageUrl: "",
+      price: "",
+      rating: "",
+      asin: "",
+      reviews: [],
+      description: "",
     },
   ];
 
   for (let i = 0; i < context.length; i++) {
     reviewOutline.push({
-      id: i + 2,
+      id: String(i + 2),
       tagName: "h2",
       content: context[i].title,
       link: context[i].link,
@@ -251,229 +258,6 @@ const generateSectionWithRetry = async (
   }
 };
 
-const determineArticleLength = (numProducts) => {
-  return numProducts * 300;
-};
-
-const testClaude = async () => {
-  const anthropic = new Anthropic({
-    apiKey: process.env.CLAUDE_API_KEY,
-  });
-
-  const message = `
-    Title: The Importance of Living a Healthy Life: A Comprehensive Guide I. Introduction A. Definition of a healthy lifestyle B. Brief overview of the benefits of living a healthy life II. Physical Health A. Benefits of regular exercise 1. Improves cardiovascular health 2. Strengthens muscles and bones 3. Helps maintain a healthy weight 4. Boosts energy levels B. Importance of a balanced diet 1. Provides essential nutrients 2. Helps prevent chronic diseases 3. Supports healthy weight management C. Adequate sleep and rest 1. Promotes physical recovery and repair 2. Enhances cognitive function and mental well-being III. Mental Health A. Stress management techniques 1. Meditation and mindfulness 2. Time management and organization 3. Hobbies and leisure activities B. Importance of social connections 1. Building and maintaining relationships 2. Benefits of social support on mental health C. Seeking professional help when needed 1. Recognizing signs of mental health issues 2. Importance of therapy and counseling IV. Work-Life Balance A. Setting boundaries between work and personal life 1. Importance of disconnecting from work 2. Prioritizing personal time and self-care B. Pursuing personal growth and development 1. Lifelong learning and skill acquisition 2. Setting and achieving personal goals C. Cultivating a positive work environment 1. Building positive relationships with colleagues 2. Advocating for a healthy workplace culture V. Preventive Healthcare A. Regular check-ups and screenings 1. Identifying potential health issues early 2. Monitoring chronic conditions B. Immunizations and vaccinations 1. Protecting against preventable diseases 2. Importance of staying up-to-date with recommended vaccinations C. Dental and vision care 1. Maintaining oral health 2. Protecting eye health and vision VI. Overcoming Obstacles to a Healthy Lifestyle A. Time constraints and busy schedules 1. Prioritizing health and self-care 2. Finding efficient ways to incorporate healthy habits B. Financial limitations 1. Affordable ways to exercise and eat healthily 2. Utilizing community resources and support C. Lack of motivation and consistency 1. Setting realistic goals and expectations 2. Finding accountability partners or support groups VII. Long-Term Benefits of a Healthy Lifestyle A. Reduced risk of chronic diseases 1. Lower risk of heart disease, diabetes, and certain cancers 2. Improved overall quality of life B. Increased longevity and life expectancy 1. Healthy habits contributing to a longer lifespan 2. Maintaining independence and functionality in later years C. Positive impact on personal and professional life 1. Enhanced productivity and performance 2. Improved relationships and social well-being VIII. Conclusion A. Recap of the importance of living a healthy life B. Encouragement to prioritize health and well-being C. Call to action for readers to implement healthy lifestyle changes 
-
-    Use the outline provided above to write a 3000 word article.
-    `;
-  return await anthropic.messages.create({
-    model: "claude-2.1",
-    max_tokens: 4000,
-    messages: [{ role: "user", content: "What's your name?" }],
-  });
-};
-
-const generateOutlineClaude = async (keyWord, sectionCount, context) => {
-  const completion = await claude.generateOutlineClaude(
-    keyWord,
-    sectionCount,
-    context
-  );
-  const extractedJSON = extractJsonFromString(completion.content[0].text);
-  const sanitizedJSON = sanitizeJSON(extractedJSON);
-  return processAIResponseToHtml(sanitizedJSON);
-};
-
-function processAIResponseToHtml(responseMessage) {
-  try {
-    const jsonObject = JSON.parse(responseMessage);
-    return flattenJsonToHtmlList(jsonObject);
-  } catch (error) {
-    console.log("error: ", error);
-    throw new Error("Failed to process AI response, ", error);
-  }
-}
-
-function flattenJsonToHtmlList(json) {
-  // Initialize the result array and a variable to keep track of ids
-  const resultList = [];
-  let idCounter = 1;
-
-  const addItem = (tagName, content) => {
-    resultList.push({ id: idCounter.toString(), tagName, content });
-    idCounter++;
-  };
-
-  const addItemWithNotes = (tagName, content, notes) => {
-    resultList.push({ id: idCounter.toString(), tagName, content, notes });
-    idCounter++;
-  };
-
-  // Add the title as an h1 tag
-  addItem("h1", json.outline.title);
-
-  // Check if sections exist and is an array before iterating
-  if (Array.isArray(json.outline.sections)) {
-    json.outline.sections.forEach((section) => {
-      // Add each section name as an h2 tag
-      addItem("h2", section.name);
-
-      // Check if subsections exist and is an array before iterating
-      if (Array.isArray(section.subsections)) {
-        section.subsections.forEach((subsection) => {
-          // Add each subsection name as an h3 tag
-          addItemWithNotes("h3", subsection.name, subsection.notes);
-        });
-      }
-    });
-  }
-
-  return resultList;
-}
-
-const generateArticleClaude = async (
-  outline,
-  keyWord,
-  context,
-  tone,
-  pointOfView,
-  citeSources,
-  finetune,
-  internalUrlContext
-) => {
-  const constructedSections = [];
-  const piecesOfOutline = [];
-  for (const section of outline) {
-    if (section.tagName === "h1" || section.tagName === "h2") {
-      if (piecesOfOutline.length > 0) {
-        const promise = generateSectionsWithRetry(
-          piecesOfOutline,
-          keyWord,
-          context,
-          tone,
-          pointOfView,
-          citeSources,
-          finetune,
-          internalUrlContext
-        );
-        constructedSections.push(promise);
-        piecesOfOutline.length = 0; // Reset for next sections
-      }
-      constructedSections.push(section); // Add the h1 or h2 section itself
-    } else if (section.tagName === "h3") {
-      piecesOfOutline.push(section); // Collect h3 sections for processing
-    }
-  }
-  // Handle any remaining pieces after loop
-  if (piecesOfOutline.length > 0) {
-    const promise = generateSectionsWithRetry(
-      piecesOfOutline,
-      keyWord,
-      context,
-      tone,
-      pointOfView,
-      citeSources,
-      finetune
-    );
-    constructedSections.push(promise);
-  }
-  try {
-    const resolvedSections = await Promise.all(
-      constructedSections.map(async (section) => {
-        if (section instanceof Promise) {
-          return await section;
-        }
-        return section;
-      })
-    );
-    return resolvedSections.flat();
-  } catch (error) {
-    console.error("Failed to generate article correctly:", error);
-    throw new Error("Failed to generate article correctly");
-  }
-};
-
-const generateSectionsWithRetry = async (
-  piecesOfOutline,
-  keyWord,
-  context,
-  tone,
-  pointOfView,
-  citeSources,
-  finetune,
-  internalUrlContext
-) => {
-  let attempt = 0;
-  while (attempt < 3) {
-    try {
-      console.log("Attempt #: ", attempt);
-      const sections = await generateSectionsOfArticle(
-        piecesOfOutline,
-        keyWord,
-        context,
-        tone,
-        pointOfView,
-        citeSources,
-        finetune,
-        internalUrlContext
-      );
-      return sections;
-    } catch (error) {
-      attempt++;
-      if (attempt >= 3) {
-        console.error("Failed to generate sections after 3 attempts:", error);
-        throw error;
-      }
-    }
-  }
-};
-
-const generateSectionsOfArticle = async (
-  piecesOfOutline,
-  keyWord,
-  context,
-  tone,
-  pointOfView,
-  citeSources,
-  finetunePromise,
-  internalUrlContext
-) => {
-  const outlineCopy = structuredClone(piecesOfOutline);
-  try {
-    const completion = await claude.generateSectionClaude(
-      outlineCopy,
-      keyWord,
-      context,
-      tone,
-      pointOfView,
-      citeSources,
-      finetunePromise,
-      internalUrlContext
-    );
-    const extractedJSON = extractJsonFromString(completion.content[0].text);
-    const sanitizedJSON = sanitizeJSON(extractedJSON);
-    let response = "";
-    try {
-      response = JSON.parse(sanitizedJSON);
-    } catch (e) {
-      console.log("Exception: ", e);
-      console.log("With Sanitized Json of : \n", sanitizedJSON);
-      throw new Error(e);
-    }
-
-    for (let i = 0; i < response.paragraphs.length; i++) {
-      outlineCopy[i].sectionContent = response.paragraphs[i];
-    }
-  } catch (error) {
-    console.error("Error generating sections:", error);
-    throw new Error(e);
-  }
-  return outlineCopy;
-};
-
 export { performSearch };
 export { generateOutlineAmazon };
 export { generateAmazonArticle };
-export { determineArticleLength };
-export { testClaude };
-export { generateOutlineClaude };
-export { generateArticleClaude };

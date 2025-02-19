@@ -1,6 +1,7 @@
 import * as firebaseFunctions from "./firebaseFunctions";
 import * as misc from './miscFunctions';
 import * as amazon from "./amazonScraperFunctions";
+import {generateFineTuneService} from "./gemini";
 
 const processBlogArticleFromBulk = async (
   keyWord,
@@ -11,9 +12,7 @@ const processBlogArticleFromBulk = async (
   currentUser,
   finetuneChosen,
   sectionCount,
-  citeSources,
-  includeIntroduction,
-  includeConclusion
+  citeSources
 ) => {
   const isWithinArticleCount = await misc.doesUserHaveEnoughArticles(
     currentUser
@@ -44,7 +43,7 @@ const processBlogArticleFromBulk = async (
     finetuneChosen.textInputs[0].body != ""
   ) {
     try {
-      finetune = gemini.generateFineTuneService(finetuneChosen.textInputs);
+      finetune = generateFineTuneService(finetuneChosen.textInputs);
     } catch (error) {
       console.log("Error generating finetune ", error);
     }
@@ -66,9 +65,7 @@ const processBlogArticleFromBulk = async (
   const outlineFlat = await misc.generateOutline(
     keyWord,
     sectionCount,
-    context,
-    includeIntroduction,
-    includeConclusion
+    context
   );
 
   const outline = misc.htmlListToJson(outlineFlat);
@@ -108,14 +105,16 @@ const processBlogArticleFromBulk = async (
     currentUser,
     jobId,
     "article",
-    article
+    article,
+    "blog"
   );
 
   jobId = await firebaseFunctions.updateFirebaseJob(
     currentUser,
     jobId,
     "title",
-    keyWord
+    keyWord,
+    "blog"
   );
   //Outline will now contain each section filled in with data
   return article;
@@ -146,14 +145,14 @@ const processAmazonArticleFromBulk = async (
   }
 
   let jobId;
-  let context = "";
+  let context;
   if (!jobId) {
     jobId = -1;
   }
 
   const articleType = "amazon";
 
-  let finetune = "";
+  let finetune;
   if (
     finetuneChosen.textInputs &&
     finetuneChosen.textInputs.length != 0 &&
@@ -161,7 +160,7 @@ const processAmazonArticleFromBulk = async (
     finetuneChosen.textInputs[0].body != ""
   ) {
     try {
-      finetune = gemini.generateFineTuneService(finetuneChosen.textInputs);
+      finetune = generateFineTuneService(finetuneChosen.textInputs);
     } catch (error) {
       console.log("Error generating finetune ", error);
     }
@@ -236,7 +235,7 @@ const processNextItem = async () => {
       amazonUrl,
       affiliate,
       numberOfProducts,
-    } = await firebaseFunctions.getNextItemFirebase();
+    } = (await firebaseFunctions.getNextItemFirebase()) as any;
     firebaseFunctions.markItemInProgress(itemId);
     itemIdProcess = itemId;
 

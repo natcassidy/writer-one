@@ -49,7 +49,7 @@ router.post("/webhooks", async (req, res) => {
       isPlanUpdradeOrDowngradeStatus === "Downgrade"
     ) {
       let subscription = await getSubscriptionData(customer);
-      cancelResponse = await cancelSubscription(subscription, oldPlanId);
+      let cancelResponse = await cancelSubscription(subscription, oldPlanId);
     }
 
     console.log("plan status: ", isPlanUpdradeOrDowngradeStatus);

@@ -1,18 +1,8 @@
-import axios from 'axios'; // Changed from require
-import cheerio from 'cheerio'; // Changed from require
 import 'dotenv/config'; // Changed from require and adjusted for ESM
-import { GoogleGenerativeAI } from '@google/generative-ai'; // Changed from require and kept destructuring
+import {FunctionCallingMode, FunctionDeclarationSchemaType, GoogleGenerativeAI} from '@google/generative-ai'; // Changed from require and kept destructuring
 import * as firebaseFunctions from './firebaseFunctions'; // Changed from require and added .mjs extension, assuming firebaseFunctions.js was renamed to firebaseFunctions.ts
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_KEY);
-
-const testGemini = async () => {
-  const prompt = "Write a story about a magic backpack.";
-
-  const result = await model.generateContent(prompt);
-  const response = await result.response;
-  return response.text();
-};
 
 const generateAmazonSection = async (
   sectionHeader,
@@ -449,70 +439,6 @@ const generateFineTuneService = (articles) => {
     });
 };
 
-const createScrapeConfig = (countryCode) => ({
-  rejectUnauthorized: false,
-  proxy: {
-    host: "brd.superproxy.io",
-    port: "22225",
-    auth: {
-      username: `${process.env.BRIGHTDATA_DC_USERNAME}${countryCode}`,
-      password: GEMINI_MODELBRIGHTDATA_DC_PASSWORD,
-    },
-  },
-});
-
-async function processUrlForFinetune(url, scrapeConfig) {
-  try {
-    const response = await axios.get(url, scrapeConfig);
-    let body = stripToText(response.data);
-    body = body.replace(/\s+/g, " ");
-    if (body.length > 10000) {
-      body = body.substring(0, 10000);
-    }
-    return {
-      status: "good",
-      link: url,
-      data: body,
-    };
-  } catch (err) {
-    console.error("Error scraping:", url, err.message);
-    return { status: "bad", type: "scraped", link: url, error: err.message };
-  }
-}
-
-function stripToText(html) {
-  if (!html) {
-    return "";
-  }
-  const $ = cheerio.load(html);
-  $("script").remove();
-  $("noscript").remove();
-  $("style").remove();
-  $("svg").remove();
-  $("img").remove();
-  $("nav").remove();
-  $("iframe").remove();
-  $("form").remove();
-  $("input").remove();
-  $("button").remove();
-  $("select").remove();
-  $("textarea").remove();
-  $("audio").remove();
-  $("video").remove();
-  $("canvas").remove();
-  $("embed").remove();
-
-  $("*")
-    .contents()
-    .each(function () {
-      if (this.nodeType === 8) {
-        $(this).remove();
-      }
-    });
-
-  return $("body").prop("textContent");
-}
-
 async function generateOutline(
   keyword,
   sectionCount,
@@ -523,37 +449,37 @@ async function generateOutline(
   const generateOutlineFunction = {
     name: "generateOutline",
     description:
-      "Generate an outline for the given keyword using the structure provided. The title section should be the introduction.",
+        "Generate an outline for the given keyword using the structure provided. The title section should be the introduction.",
     parameters: {
-      type: "object",
+      type: "object" as FunctionDeclarationSchemaType, // Type assertion here
       properties: {
         title: {
-          type: "string",
+          type: "string" as FunctionDeclarationSchemaType, // Type assertion here
         },
         notesForIntroduction: {
-          type: "string",
+          type: "string" as FunctionDeclarationSchemaType, // Type assertion here
         },
         sections: {
-          type: "array",
+          type: "array" as FunctionDeclarationSchemaType, // Type assertion here
           items: {
-            type: "object",
+            type: "object" as FunctionDeclarationSchemaType, // Type assertion here
             properties: {
               name: {
-                type: "string",
+                type: "string" as FunctionDeclarationSchemaType, // Type assertion here
               },
               notes: {
-                type: "string",
+                type: "string" as FunctionDeclarationSchemaType, // Type assertion here
               },
               subsections: {
-                type: "array",
+                type: "array" as FunctionDeclarationSchemaType, // Type assertion here
                 items: {
-                  type: "object",
+                  type: "object" as FunctionDeclarationSchemaType, // Type assertion here
                   properties: {
                     name: {
-                      type: "string",
+                      type: "string" as FunctionDeclarationSchemaType, // Type assertion here
                     },
                     notes: {
-                      type: "string",
+                      type: "string" as FunctionDeclarationSchemaType, // Type assertion here
                     },
                   },
                   required: ["name", "notes"],
@@ -570,23 +496,22 @@ async function generateOutline(
 
   const tools = [
     {
-      function_declarations: [generateOutlineFunction],
+      functionDeclarations: [generateOutlineFunction],
     },
   ];
 
   const toolConfig = {
-    function_calling_config: {
-      mode: "ANY",
+    functionCallingConfig: {
+      mode: FunctionCallingMode.ANY, // Use AUTO instead of ANY if ANY is not a valid member
     },
   };
 
+  // @ts-ignore
   const model = genAI.getGenerativeModel({
     model: process.env.GEMINI_MODEL_PRO,
     tools,
     toolConfig,
   });
-
-  let numberOfSections = sectionCount;
 
   const prompt = `
   ### System Prompt: You are an expert at analyzing data and producing well-formatted JSON responses for generating article outlines.
@@ -721,6 +646,5 @@ export { generateSection };
 export { generateOutline };
 export { saveFinetuneConfig };
 export { generateFineTuneService };
-export { testGemini };
 export { summarizeContent };
 export { processRewrite };
