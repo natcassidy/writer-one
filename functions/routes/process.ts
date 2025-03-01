@@ -4,6 +4,7 @@ import * as firebaseFunctions from "./firebaseFunctions";
 import * as firebaseFunctionsNotSignedIn from "./firebaseFunctions";
 import {updateFirebaseJobByIp} from "./firebaseFunctionsNotSignedIn";
 import {updateFirebaseJob} from "./firebaseFunctions";
+import {htmlListToJson} from "./miscFunctions";
 
 function generateFinetune(finetuneChosen, finetune) {
   if (
@@ -74,13 +75,13 @@ const processArticle = async (isFreeTrial, data) => {
 
   if(outline.length == 0) {
     try {
-      await misc.generateOutline(keyWord,sectionCount,context);
+      outline = await misc.generateOutline(keyWord,sectionCount,context);
     } catch (e) {
       throw new Error(e);
     }
   }
 
-  outline = misc.htmlListToJson(outline);
+  outline = htmlListToJson(outline);
 
   try {
     article = await misc.generateArticle(
