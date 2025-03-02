@@ -1,6 +1,13 @@
 import 'dotenv/config'; // Changed from require and adjusted for ESM
-import {FunctionCallingMode, FunctionDeclarationSchemaType, GoogleGenerativeAI} from '@google/generative-ai'; // Changed from require and kept destructuring
-import * as firebaseFunctions from './firebaseFunctions'; // Changed from require and added .mjs extension, assuming firebaseFunctions.js was renamed to firebaseFunctions.ts
+import {
+  EnhancedGenerateContentResponse,
+  FunctionCallingMode,
+  FunctionDeclarationSchemaType,
+  GenerateContentResult,
+  GoogleGenerativeAI
+} from '@google/generative-ai'; // Changed from require and kept destructuring
+import * as firebaseFunctions from './firebaseFunctions';
+import {StructuredOutline} from "./miscFunctions"; // Changed from require and added .mjs extension, assuming firebaseFunctions.js was renamed to firebaseFunctions.ts
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_KEY);
 
@@ -186,28 +193,23 @@ const generateAmazonIntro = async (
 };
 
 const generateSection = async (
-  outline,
-  keyWord,
-  context,
-  tone,
-  pointOfView,
-  citeSources,
-  finetune,
-  internalUrlContext,
-  internalUrls
-) => {
-  let fineTuneData = "";
-  let internalUrlData;
+  outline: StructuredOutline,
+  keyWord: string,
+  context: string,
+  tone: string,
+  pointOfView: string,
+  citeSources: boolean,
+  finetune: string,
+  internalUrls: string
+): Promise<string> => {
+
+  let fineTuneData: string = "";
+  let internalUrlData: string;
+
   try {
     fineTuneData = await finetune;
   } catch (e) {
     console.log("Error caught on finetune generating  section:", e);
-  }
-
-  try {
-    internalUrlData = await internalUrlContext;
-  } catch (e) {
-    console.log("Error caught on internalUrl generating  section:", e);
   }
 
   if (internalUrls && internalUrls != "" && !internalUrlData) {
@@ -231,7 +233,7 @@ const generateSection = async (
     generationConfig,
   });
 
-  const includeFinetune =
+  const includeFinetune: string =
     fineTuneData && fineTuneData != ""
       ? `
           * Style of Writing To Use:
@@ -239,18 +241,18 @@ const generateSection = async (
 
         `
       : "";
-  const includeTone = tone
+  const includeTone: string = tone
     ? `  * Ensure you write with the following tone: ${tone}\n`
     : "";
-  const includeCitedSources = citeSources
+  const includeCitedSources: string = citeSources
     ? `  * Link to articles from the context provided.  You should write this article with the intention of linking to other sites throughout it.  Use links naturally in the paragraphs if it's appropriate, do not place all of the links at the end.
          * Include at least 1 link in this markdown format: [Link Text](URL)
       `
     : "";
-  const includePointOfView = pointOfView
+  const includePointOfView: string = pointOfView
     ? `  * Please write this article using the following point of view: ${pointOfView}`
     : "";
-  const includeInternalUrl = internalUrlData
+  const includeInternalUrl: string = internalUrlData
     ? `### Primary Source linking instructions: You MUST include a link in 1 of your sections from the following context. Use it naturally in the article if it's appropriate, DO NOT ADD LINKS TO THE END OF THE ARTICLE. 
        Link context: \n ${internalUrlData}
        
@@ -273,7 +275,7 @@ const generateSection = async (
        
        ### Remember you must link to ATLEAST 1 if not more of these url(s): [${internalUrls}], AND MUST LINK THEM THROUGHOUT THE ARTICLE USING THE MARKDOWN FORMAT.`
     : "";
-  const prompt = `
+  const prompt: string = `
     ### System Instruction: You are an expert article writer specializing in generating high-quality, informative content on various topics. You can follow detailed instructions precisely.
 
     ### Task: Generate an article on this topic: ${keyWord}. Ensure it adheres to the following guidelines:
@@ -317,14 +319,11 @@ const generateSection = async (
       `
       * Remember you MUST link to these url(s): ${internalUrls}
       `
-    }
+  }
     `;
-
-  const result = await model.generateContent(prompt);
-  const response = await result.response;
-  const text = response.text();
-
-  return text;
+  const result: GenerateContentResult = await model.generateContent(prompt);
+  const response: EnhancedGenerateContentResponse = await result.response;
+  return response.text();
 };
 
 const saveFinetuneConfig = async (currentUser, urls, textInputs, name) => {
@@ -428,9 +427,9 @@ const generateFinetune = async (articles): Promise<String> => {
   }
 };
 
-const generateFineTuneService = (articles) => {
+const generateFineTuneService = (articles): Promise<string> => {
   return generateFinetune(articles)
-    .then((response) => {
+    .then((response: string) => {
       return response;
     })
     .catch((error) => {

@@ -12,7 +12,7 @@ interface Article {
   id: number
 }
 
-interface ArticleParams {
+export interface ArticleParams {
   keyWord: string,
   sectionCount: number,
   tone: string,
@@ -21,24 +21,36 @@ interface ArticleParams {
   outline: UnStructuredSection[],
   currentUser: string,
   jobId: number,
-  finetuneChosen: string,
+  finetuneChosen: FinetuneParam,
   internalUrls: string[],
   clientIp: string
 }
 
-function generateFinetune(finetuneChosen, finetune): string {
+export interface FinetuneParam {
+  textInputs: TextInput[];
+}
+
+interface TextInput {
+  body: string
+}
+
+function generateFinetune(finetuneParams: FinetuneParam): Promise<string> {
   if (
-      finetuneChosen.textInputs &&
-      finetuneChosen.textInputs.length != 0 &&
-      finetuneChosen.textInputs[0].body != ""
+      finetuneParams.textInputs &&
+      finetuneParams.textInputs.length != 0 &&
+      finetuneParams.textInputs[0].body != ""
   ) {
+    let finetune: Promise<string>
+
     try {
-      finetune = gemini.generateFineTuneService(finetuneChosen.textInputs);
+      finetune = gemini.generateFineTuneService(finetuneParams.textInputs);
     } catch (error) {
       console.log("Error generating finetune ", error);
     }
+    return finetune;
+  } else {
+    return Promise.resolve("")
   }
-  return finetune;
 }
 
 const processFreeTrial = (data: ArticleParams): Promise<Article> => {
@@ -74,8 +86,7 @@ const processArticle = async (isFreeTrial: boolean, data: ArticleParams): Promis
   } = data;
 
   let context: string = "",
-    finetune: string = "",
-    internalUrlContext: string = "",
+    finetune: Promise<string>,
     article: string = "";
 
   const isWithinArticleCount: boolean = await misc.doesUserHaveEnoughArticles(currentUser);
@@ -86,11 +97,7 @@ const processArticle = async (isFreeTrial: boolean, data: ArticleParams): Promis
     throw new Error("Error Generating Article");
   }
 
-  finetune = generateFinetune(finetuneChosen, finetune);
-
-  if (internalUrls && internalUrls.length > 0) {
-    internalUrlContext = await misc.doInternalUrlResearch(internalUrls, keyWord);
-  }
+  finetune = generateFinetune(finetuneChosen);
 
   context = await misc.doSerpResearch(keyWord, "");
 
@@ -113,7 +120,6 @@ const processArticle = async (isFreeTrial: boolean, data: ArticleParams): Promis
       pointOfView,
       citeSources,
       finetune,
-      internalUrlContext,
       internalUrls
     );
   } catch (error) {

@@ -1,5 +1,5 @@
 import * as miscModule  from "../miscFunctions";
-import {processArticle, processFreeTrial} from "../process";
+import {FinetuneParam, processArticle, processFreeTrial} from "../process";
 import * as geminiModule from "../gemini";
 import * as firebaseModule from "../firebaseFunctions"
 import * as firebaseModuleIP from "../firebaseFunctionsNotSignedIn";
@@ -31,17 +31,31 @@ jest.mock("../firebaseFunctionsNotSignedIn", () => ({
 }));
 
 test('Call process article', () => {
+    let section = [{
+        id: "",
+        tagName: "",
+        content: "",
+        notes: "string"
+    }]
+
+    let finetune: FinetuneParam = {
+        textInputs: [{
+            body: ""
+        }]
+    }
+
     let data = {
         keyWord: "test",
         sectionCount: 2,
         tone: "",
         pointOfView: "",
-        citeSources: "",
-        outline: "",
+        citeSources: false,
+        outline: section,
         currentUser: "test",
         jobId: -1,
-        finetuneChosen: "",
-        internalUrls: "",
+        finetuneChosen: finetune,
+        internalUrls: [""],
+        clientIp: ""
     }
 
     const mockedDoesUserHaveEnoughArticles = miscModule.doesUserHaveEnoughArticles as jest.MockedFunction<typeof miscModule.doesUserHaveEnoughArticles>;
@@ -58,7 +72,7 @@ test('Call process article', () => {
             tagName: "",
             content: "",
             notes: "",
-            clientNotes: ""
+            id: ""
         }
     ]
     console.log("mockedDoesUserHaveEnoughArticles:", mockedDoesUserHaveEnoughArticles);
@@ -68,7 +82,7 @@ test('Call process article', () => {
     mockGenerateArticle.mockReturnValue(Promise.resolve(""));
     mockGenerateFinetune.mockReturnValue(Promise.resolve(""))
     mockUpdateFirebaseJobByIp.mockReturnValue(Promise.resolve(true));
-    mockDecrment.mockReturnValue(Promise.resolve(""));
+    mockDecrment.mockReturnValue(Promise.resolve(1));
     mockJobUpdate.mockReturnValue(Promise.resolve(""));
     // miscModule.doesUserHaveEnoughArticles  <---- this method doesn't exist on the object'
 

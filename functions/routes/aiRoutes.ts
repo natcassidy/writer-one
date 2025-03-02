@@ -13,7 +13,7 @@ import {
 import {processNextItem} from "./bulkMiscFunctions";
 import {generateFineTuneService, generateOutline, processRewrite} from "./gemini";
 import {generateAmazonArticle, generateOutlineAmazon, performSearch} from "./amazonScraperFunctions";
-import {processArticle, processFreeTrial} from "./process";
+import {ArticleParams, processArticle, processFreeTrial} from "./process";
 import {updateFirebaseJobByIp} from "./firebaseFunctionsNotSignedIn"; // Changed from require and adjusted for ESM, assuming dotenv version 16+
 
 router.post("/process", async (req, res) => {
@@ -21,7 +21,7 @@ router.post("/process", async (req, res) => {
 
   try {
     const { article, updatedArticleCount, title, id } = // Use const for variables that aren't reassigned
-        await processArticle(updateFirebaseJob, req);
+        await processArticle(false, req.body as ArticleParams);
 
     res.status(200).send({ article, updatedArticleCount, title, id }); // No return here
 
@@ -33,7 +33,7 @@ router.post("/process", async (req, res) => {
 router.post("/processFreeTrial", extractIpMiddleware, async (req, res) => {
   try {
     const { article, updatedArticleCount, title, id } =
-        await processFreeTrial(req);
+        await processFreeTrial(req.body as ArticleParams);
     res.status(200).send({ article, title, id: id, updatedArticleCount });
   } catch (e) {
     res.status(500).send("Error generating article: " + e);

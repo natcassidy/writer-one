@@ -596,7 +596,6 @@ const generateSectionsWithRetry = async (
   pointOfView,
   citeSources,
   finetune,
-  internalUrlContext,
   internalUrls
 ) => {
   const maxAttempts = 3;
@@ -613,7 +612,6 @@ const generateSectionsWithRetry = async (
         pointOfView,
         citeSources,
         finetune,
-        internalUrlContext,
         internalUrls
       );
 
@@ -638,7 +636,6 @@ const generateSectionsOfArticle = async (
   pointOfView,
   citeSources,
   finetunePromise,
-  internalUrlContext,
   internalUrls
 ) => {
   const outlineCopy = structuredClone(piecesOfOutline);
@@ -651,7 +648,6 @@ const generateSectionsOfArticle = async (
       pointOfView,
       citeSources,
       finetunePromise,
-      internalUrlContext,
       internalUrls
     );
 
@@ -670,7 +666,6 @@ const generateSections = async (
   pointOfView,
   citeSources,
   finetune,
-  internalUrlContext,
   internalUrls
 ) => {
   try {
@@ -682,7 +677,6 @@ const generateSections = async (
       pointOfView,
       citeSources,
       finetune,
-      internalUrlContext,
       internalUrls
     );
   } catch (error) {
@@ -702,9 +696,8 @@ const generateArticle = async (
   pointOfView,
   citeSources,
   finetune,
-  internalUrlContext,
   internalUrls
-) => {
+): Promise<string> => {
   try {
     if (!outline || !outline.sections || outline.sections.length === 0) {
       throw new Error("Invalid outline provided");
@@ -724,7 +717,6 @@ const generateArticle = async (
           pointOfView,
           citeSources,
           finetune,
-          internalUrlContext,
           internalUrls
         )
       );
@@ -747,7 +739,6 @@ const generateArticle = async (
           pointOfView,
           citeSources,
           finetune,
-          internalUrlContext,
           internalUrls
         )
       );
@@ -761,7 +752,6 @@ const generateArticle = async (
           pointOfView,
           citeSources,
           finetune,
-          internalUrlContext,
           internalUrls
         )
       );
@@ -769,9 +759,7 @@ const generateArticle = async (
 
     let resolvedSections = await Promise.all(sectionPromises);
 
-    let fullArticle = resolvedSections.join("\n");
-
-    return fullArticle;
+    return resolvedSections.join("\n");
   } catch (error) {
     console.error("Failed to generate article correctly:", error);
     throw new Error("Failed to generate article correctly");

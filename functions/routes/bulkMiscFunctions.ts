@@ -90,7 +90,6 @@ const processBlogArticleFromBulk = async (
       pointOfView,
       citeSources,
       finetune,
-      internalUrlContext,
       internalUrls
     );
   } catch (e) {
