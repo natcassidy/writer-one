@@ -22,7 +22,7 @@ export interface ArticleParams {
   currentUser: string,
   jobId: number,
   finetuneChosen: FinetuneParam,
-  internalUrls: string[],
+  internalUrls: string,
   clientIp: string
 }
 

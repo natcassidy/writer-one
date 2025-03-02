@@ -589,14 +589,14 @@ const generateOutline =
 };
 
 const generateSectionsWithRetry = async (
-  piecesOfOutline,
-  keyWord,
-  context,
-  tone,
-  pointOfView,
-  citeSources,
-  finetune,
-  internalUrls
+  piecesOfOutline: StructuredOutline,
+  keyWord: string,
+  context: string,
+  tone: string,
+  pointOfView: string,
+  citeSources: boolean,
+  finetune: Promise<string>,
+  internalUrls: string
 ) => {
   const maxAttempts = 3;
   let attempt = 0;
@@ -629,14 +629,14 @@ const generateSectionsWithRetry = async (
 };
 
 const generateSectionsOfArticle = async (
-  piecesOfOutline,
-  keyWord,
-  context,
-  tone,
-  pointOfView,
-  citeSources,
-  finetunePromise,
-  internalUrls
+  piecesOfOutline: StructuredOutline,
+  keyWord: string,
+  context: string,
+  tone: string,
+  pointOfView: string,
+  citeSources: boolean,
+  finetunePromise: Promise<string>,
+  internalUrls: string
 ) => {
   const outlineCopy = structuredClone(piecesOfOutline);
   try {
@@ -659,14 +659,14 @@ const generateSectionsOfArticle = async (
 };
 
 const generateSections = async (
-  section,
-  keyWord,
-  context,
-  tone,
-  pointOfView,
-  citeSources,
-  finetune,
-  internalUrls
+  section: StructuredOutline,
+  keyWord: string,
+  context: string,
+  tone: string,
+  pointOfView: string,
+  citeSources: boolean,
+  finetune: Promise<string>,
+  internalUrls: string
 ) => {
   try {
     return await generateSectionsWithRetry(
@@ -689,22 +689,22 @@ const generateSections = async (
 };
 
 const generateArticle = async (
-  outline,
-  keyWord,
-  context,
-  tone,
-  pointOfView,
-  citeSources,
-  finetune,
-  internalUrls
+  outline: StructuredOutline,
+  keyWord: string,
+  context: string,
+  tone: string,
+  pointOfView: string,
+  citeSources: boolean,
+  finetune: Promise<string>,
+  internalUrls: string
 ): Promise<string> => {
   try {
     if (!outline || !outline.sections || outline.sections.length === 0) {
       throw new Error("Invalid outline provided");
     }
 
-    let sections = outline.sections;
-    let sectionPromises = [];
+    let sections: StructuredSection[] = outline.sections;
+    let sectionPromises: Promise<string>[] = [];
 
     if (sections.length <= 3) {
       // Include all sections in a single call with the full outline
@@ -722,11 +722,12 @@ const generateArticle = async (
       );
     } else {
       // Split the outline into two parts
-      let firstThreeSectionsOutline = {
+      let firstThreeSectionsOutline: StructuredOutline = {
         ...outline,
         sections: sections.slice(0, 3),
       };
-      let remainingSections = {
+      let remainingSections: StructuredOutline = {
+        ...outline,
         sections: sections.slice(3),
       };
 

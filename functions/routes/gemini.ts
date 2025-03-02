@@ -199,7 +199,7 @@ const generateSection = async (
   tone: string,
   pointOfView: string,
   citeSources: boolean,
-  finetune: string,
+  finetune: Promise<string>,
   internalUrls: string
 ): Promise<string> => {
 

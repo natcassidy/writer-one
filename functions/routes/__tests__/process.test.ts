@@ -54,7 +54,7 @@ test('Call process article', () => {
         currentUser: "test",
         jobId: -1,
         finetuneChosen: finetune,
-        internalUrls: [""],
+        internalUrls: "",
         clientIp: ""
     }
 
