@@ -235,7 +235,7 @@ const arraysMatch = (arr1, arr2) => {
   return true;
 };
 
-const decrementUserArticleCount = async (currentUser) => {
+const decrementUserArticleCount = async (currentUser): Promise<number> => {
   if (!currentUser) {
     throw new Error("No user defined");
   }

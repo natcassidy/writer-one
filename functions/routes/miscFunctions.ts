@@ -5,6 +5,33 @@ import admin from "firebase-admin";
 import 'dotenv/config';
 import * as gemini from "./gemini";
 
+export interface UnStructuredSection {
+  id: string,
+  tagName: string,
+  content: string,
+  notes: string
+}
+
+export interface StructuredSection {
+  name: string,
+  notes: string,
+  clientNotes: string,
+  subsections: StructuredSubSection[],
+}
+
+export interface StructuredSubSection {
+  name: string,
+  notes: string,
+  clientNotes: string,
+}
+
+export interface StructuredOutline {
+  sections: StructuredSection[],
+  title: string,
+  notesForIntroduction: string,
+  clientNotes: string
+}
+
 const stripEscapeChars = (string) => {
   let junkRegex = /([:\u200F\u200E\f\n\r\t\v]| {2,})/g;
   string = string.replace(junkRegex, "");
@@ -44,7 +71,7 @@ function stripToText(html) {
   return $("body").prop("textContent");
 }
 
-function flattenJsonToHtmlList(json) {
+function flattenJsonToHtmlList(json): UnStructuredSection[] {
   // Initialize the result array and a variable to keep track of ids
   const resultList = [];
   let idCounter = 1;
@@ -76,7 +103,7 @@ function flattenJsonToHtmlList(json) {
   return resultList;
 }
 
-function htmlListToJson(flatList) {
+function htmlListToJson(flatList): StructuredOutline {
   const result = {
     sections: [],
     title: "",
@@ -85,7 +112,6 @@ function htmlListToJson(flatList) {
   };
 
   let currentSection = null;
-  let currentSubsection = null;
 
   flatList.forEach((item) => {
     const { tagName, content, notes, clientNotes } = item;
@@ -154,7 +180,7 @@ const doesUserHaveEnoughArticles = async (currentUser) => {
 };
 
 // Function to process AI response and convert to HTML list
-function processAIResponseToHtml(responseMessage) {
+function processAIResponseToHtml(responseMessage): UnStructuredSection[] {
   try {
     return flattenJsonToHtmlList(responseMessage);
   } catch (error) {
@@ -534,10 +560,11 @@ const parseIp = (req) => {
   );
 };
 
-const generateOutline = async (keyWord, sectionCount, context) => {
-  const maxAttempts = 3;
-  let attempt = 0;
-  let response;
+const generateOutline =
+    async (keyWord: string, sectionCount: number, context: string): Promise<UnStructuredSection[]> => {
+  const maxAttempts: number = 3;
+  let attempt: number = 0;
+  let response: string;
 
   while (attempt < maxAttempts) {
     try {

@@ -1,12 +1,32 @@
 import * as misc from "./miscFunctions";
 import * as gemini from "./gemini";
 import * as firebaseFunctions from "./firebaseFunctions";
-import * as firebaseFunctionsNotSignedIn from "./firebaseFunctions";
 import {updateFirebaseJobByIp} from "./firebaseFunctionsNotSignedIn";
 import {updateFirebaseJob} from "./firebaseFunctions";
-import {htmlListToJson} from "./miscFunctions";
+import {htmlListToJson, StructuredOutline, UnStructuredSection} from "./miscFunctions";
 
-function generateFinetune(finetuneChosen, finetune) {
+interface Article {
+  article: string,
+  updatedArticleCount: number,
+  title: string,
+  id: number
+}
+
+interface ArticleParams {
+  keyWord: string,
+  sectionCount: number,
+  tone: string,
+  pointOfView: string,
+  citeSources: boolean,
+  outline: UnStructuredSection[],
+  currentUser: string,
+  jobId: number,
+  finetuneChosen: string,
+  internalUrls: string[],
+  clientIp: string
+}
+
+function generateFinetune(finetuneChosen, finetune): string {
   if (
       finetuneChosen.textInputs &&
       finetuneChosen.textInputs.length != 0 &&
@@ -21,10 +41,10 @@ function generateFinetune(finetuneChosen, finetune) {
   return finetune;
 }
 
-const processFreeTrial = (data) => {
+const processFreeTrial = (data: ArticleParams): Promise<Article> => {
   data.currentUser = data.clientIp;
 
-  let hasFreeArticle = true;
+  let hasFreeArticle: boolean = true;
 
   if (!hasFreeArticle) {
     throw Error("No Free Article Remaining!");
@@ -37,7 +57,8 @@ const processFreeTrial = (data) => {
   return processArticle(true, data)
 }
 
-const processArticle = async (isFreeTrial, data) => {
+
+const processArticle = async (isFreeTrial: boolean, data: ArticleParams): Promise<Article> => {
   console.log("processing article now");
   let {
     keyWord,
@@ -52,12 +73,12 @@ const processArticle = async (isFreeTrial, data) => {
     internalUrls,
   } = data;
 
-  let context = "",
-    finetune = "",
-    internalUrlContext = "",
-    article = "";
+  let context: string = "",
+    finetune: string = "",
+    internalUrlContext: string = "",
+    article: string = "";
 
-  const isWithinArticleCount = await misc.doesUserHaveEnoughArticles(currentUser);
+  const isWithinArticleCount: boolean = await misc.doesUserHaveEnoughArticles(currentUser);
 
   if (!isWithinArticleCount) {
     throw new Error("Article Count Limit Hit");
@@ -81,11 +102,11 @@ const processArticle = async (isFreeTrial, data) => {
     }
   }
 
-  outline = htmlListToJson(outline);
+  let modifiedOutline: StructuredOutline = htmlListToJson(outline);
 
   try {
     article = await misc.generateArticle(
-      outline,
+      modifiedOutline,
       keyWord,
       context,
       tone,
@@ -99,17 +120,17 @@ const processArticle = async (isFreeTrial, data) => {
     throw new Error(error);
   }
 
-  const updatedArticleCount =
+  const updatedArticleCount: number =
       await firebaseFunctions.decrementUserArticleCount(currentUser);
 
   if(isFreeTrial) {
     await updateFirebaseJobByIp(currentUser,jobId,"context",context, "blog")
-    await updateFirebaseJobByIp(currentUser,jobId,"outline",outline, "blog");
+    await updateFirebaseJobByIp(currentUser,jobId,"outline",modifiedOutline, "blog");
     await updateFirebaseJobByIp(currentUser,jobId,"article",article, "blog");
     await updateFirebaseJobByIp(currentUser,jobId,"title",keyWord, "blog");
   } else {
     await updateFirebaseJob(currentUser,jobId,"context",context, "blog")
-    await updateFirebaseJob(currentUser,jobId,"outline",outline, "blog");
+    await updateFirebaseJob(currentUser,jobId,"outline",modifiedOutline, "blog");
     await updateFirebaseJob(currentUser,jobId,"article",article, "blog");
     await updateFirebaseJob(currentUser,jobId,"title",keyWord, "blog");
   }

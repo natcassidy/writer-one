@@ -345,7 +345,7 @@ const saveFinetuneConfig = async (currentUser, urls, textInputs, name) => {
   console.log("Finished saveFinetuneConfig");
 };
 
-const generateFinetune = async (articles) => {
+const generateFinetune = async (articles): Promise<String> => {
   try {
     console.log("Generating fineTune");
     const articlesJoined = articles
@@ -440,10 +440,10 @@ const generateFineTuneService = (articles) => {
 };
 
 async function generateOutline(
-  keyword,
-  sectionCount,
-  context
-) {
+  keyword: string,
+  sectionCount: number,
+  context: string
+): Promise<any> {
   console.log("Entering generateOutline");
 
   const generateOutlineFunction = {
@@ -547,7 +547,7 @@ async function generateOutline(
   const result = await chat.sendMessage(prompt);
 
   try {
-    let response = await result.response.candidates[0].content.parts[0]
+    let response = result.response.candidates[0].content.parts[0]
       .functionCall.args;
 
     console.log(response);
