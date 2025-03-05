@@ -2,7 +2,30 @@ import axios from 'axios'; // Changed from require
 import 'dotenv/config'; // Changed from require and adjusted for ESM
 import * as gemini from './gemini'; // Changed from require
 import * as misc from './miscFunctions'; // Changed from require
-import * as Anthropic from '@anthropic-ai/sdk'; // Changed from require
+
+interface AmazonProducts {
+  title: string,
+  description: string,
+  image: string,
+  link: string,
+  price: string,
+  rating: string,
+  asin: string,
+  reviews: any[],
+}
+
+interface AmazonOutline {
+  id: string,
+  tagName: string,
+  content: string,
+  link: string,
+  imageUrl: string,
+  price: string,
+  rating: string,
+  asin: string,
+  reviews: any[],
+  description: string,
+}
 
 const getProduct = async (asin) => {
   const params = {
@@ -29,7 +52,7 @@ const performSearch = async (
   domain = "amazon.com",
   resultCount = 5,
   affiliateID = ""
-) => {
+): Promise<AmazonProducts[]> => {
   const params = {
     api_key: process.env.ASIN_API_KEY,
     type: "search",
@@ -88,7 +111,7 @@ const performSearch = async (
   }
 };
 
-const generateOutlineAmazon = async (keyWord, context) => {
+const generateOutlineAmazon = async (keyWord: string, context: AmazonProducts[]): Promise<AmazonOutline[]> => {
   // const completion = await generateOutlineWithAI(keyWord);
   // const fetchedTitle = JSON.parse(completion.choices[0].message.tool_calls[0].function.arguments)
   // const title = fetchedTitle.title
@@ -126,16 +149,16 @@ const generateOutlineAmazon = async (keyWord, context) => {
 };
 
 const generateAmazonArticle = async (
-  outline,
-  keyWord,
-  context,
-  tone,
-  pointOfView,
-  finetune
+  outline: AmazonOutline[],
+  keyWord: string,
+  context: AmazonProducts[],
+  tone: string,
+  pointOfView: string,
+  finetune: string
 ) => {
-  const promises = [];
+  const promises: Promise<void>[] = [];
   try {
-    let introContextString = "";
+    let introContextString: string = "";
     for (const section of outline) {
       if (section.tagName == "h2") {
         introContextString += misc.generateContextStringAmazonIntro(section);
@@ -143,9 +166,9 @@ const generateAmazonArticle = async (
     }
 
     for (const section of outline) {
-      let contextString = "";
-      let sectionType = "";
-      let promise;
+      let contextString: string = "";
+      let sectionType: string = "";
+      let promise: Promise<void>;
       if (section.tagName == "h1") {
         sectionType = "intro";
         promise = generateSectionWithRetry(
@@ -210,12 +233,12 @@ const generateSectionWithRetry = async (
   pointOfView,
   finetune,
   sectionType
-) => {
-  let attempt = 0;
+): Promise<void> => {
+  let attempt: number = 0;
   while (attempt < 3) {
     try {
       if (sectionType === "intro") {
-        const completion = await gemini.generateAmazonIntro(
+        const completion: string = await gemini.generateAmazonIntro(
           section.content,
           keyWord,
           contextString,
@@ -226,7 +249,7 @@ const generateSectionWithRetry = async (
         section.summary = completion;
         return; // Exit the function if successful
       } else if (sectionType === "section") {
-        const completion = await gemini.generateAmazonSection(
+        const completion: string = await gemini.generateAmazonSection(
           section.content,
           keyWord,
           contextString,

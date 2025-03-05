@@ -2,6 +2,7 @@ import * as firebaseFunctions from "./firebaseFunctions";
 import * as misc from './miscFunctions';
 import * as amazon from "./amazonScraperFunctions";
 import {generateFineTuneService} from "./gemini";
+import {StructuredOutline, UnStructuredSection} from "./miscFunctions";
 
 const processBlogArticleFromBulk = async (
   keyWord,
@@ -13,8 +14,8 @@ const processBlogArticleFromBulk = async (
   finetuneChosen,
   sectionCount,
   citeSources
-) => {
-  const isWithinArticleCount = await misc.doesUserHaveEnoughArticles(
+): Promise<string> => {
+  const isWithinArticleCount: boolean = await misc.doesUserHaveEnoughArticles(
     currentUser
   );
 
@@ -26,16 +27,16 @@ const processBlogArticleFromBulk = async (
     throw new Error("Error Generating Article");
   }
 
-  let jobId;
-  let context = "";
+  let jobId: string;
+  let context: string = "";
+
   if (!jobId) {
-    jobId = -1;
+    jobId = "-1"";
   }
 
-  const articleType = "blog";
+  const articleType: string = "blog";
 
-  let finetune;
-  let internalUrlContext;
+  let finetune:  Promise<string>;
 
   if (
     finetuneChosen.textInputs &&
@@ -49,10 +50,6 @@ const processBlogArticleFromBulk = async (
     }
   }
 
-  if (internalUrls && internalUrls.length > 0) {
-    internalUrlContext = misc.doInternalUrlResearch(internalUrls, keyWord);
-  }
-
   context = await misc.doSerpResearch(keyWord, "");
 
   jobId = await firebaseFunctions.updateFirebaseJob(
@@ -62,13 +59,14 @@ const processBlogArticleFromBulk = async (
     context,
     articleType
   );
-  const outlineFlat = await misc.generateOutline(
+
+  const outlineFlat: UnStructuredSection[] = await misc.generateOutline(
     keyWord,
     sectionCount,
     context
   );
 
-  const outline = misc.htmlListToJson(outlineFlat);
+  const outline: StructuredOutline = misc.htmlListToJson(outlineFlat);
 
   jobId = await firebaseFunctions.updateFirebaseJob(
     currentUser,
@@ -80,7 +78,7 @@ const processBlogArticleFromBulk = async (
   console.log("outline: \n", outline);
 
   console.log("generating article");
-  let article;
+  let article: string;
   try {
     article = await misc.generateArticle(
       outline,
@@ -96,7 +94,7 @@ const processBlogArticleFromBulk = async (
     throw new Error(e);
   }
 
-  const updatedArticleCount = await firebaseFunctions.decrementUserArticleCount(
+  const updatedArticleCount: number = await firebaseFunctions.decrementUserArticleCount(
     currentUser
   );
 
@@ -134,8 +132,8 @@ const processAmazonArticleFromBulk = async (
   amazonUrl,
   affiliate,
   numberOfProducts
-) => {
-  const isWithinArticleCount = await misc.doesUserHaveEnoughArticles(
+): Promise<string> => {
+  const isWithinArticleCount: boolean = await misc.doesUserHaveEnoughArticles(
     currentUser
   );
 
@@ -143,15 +141,15 @@ const processAmazonArticleFromBulk = async (
     throw new Error("Article Count Limit Hit");
   }
 
-  let jobId;
-  let context;
+  let jobId: string;
+  let context: string;
   if (!jobId) {
-    jobId = -1;
+    jobId = "-1";
   }
 
-  const articleType = "amazon";
+  const articleType: string = "amazon";
 
-  let finetune;
+  let finetune: string;
   if (
     finetuneChosen.textInputs &&
     finetuneChosen.textInputs.length != 0 &&
@@ -159,7 +157,7 @@ const processAmazonArticleFromBulk = async (
     finetuneChosen.textInputs[0].body != ""
   ) {
     try {
-      finetune = generateFineTuneService(finetuneChosen.textInputs);
+      finetune = await generateFineTuneService(finetuneChosen.textInputs);
     } catch (error) {
       console.log("Error generating finetune ", error);
     }
@@ -239,7 +237,7 @@ const processNextItem = async () => {
     itemIdProcess = itemId;
 
     if (isAmazonArticle) {
-      const article = await processAmazonArticleFromBulk(
+      const article: string = await processAmazonArticleFromBulk(
         keyWord,
         internalUrls,
         tone,

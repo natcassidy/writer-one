@@ -6,7 +6,7 @@ const updateFirebaseJob = async (
   fieldName,
   data,
   articleType
-) => {
+): Promise<string> => {
   if (!currentUser) {
     throw new Error("No user defined");
   }

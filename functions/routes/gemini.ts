@@ -347,7 +347,7 @@ const saveFinetuneConfig = async (currentUser, urls, textInputs, name) => {
 const generateFinetune = async (articles): Promise<String> => {
   try {
     console.log("Generating fineTune");
-    const articlesJoined = articles
+    const articlesJoined: string = articles
       .map(
         (article) =>
           `
