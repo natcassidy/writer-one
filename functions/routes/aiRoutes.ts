@@ -312,8 +312,8 @@ router.post("/processAmazonFreeTrial", async (req, res) => {
 router.post("/outline", async (req, res) => {
   let { keyWord, sectionCount, currentUser } = req.body;
 
-  let context = "";
-  let jobId = -1;
+  let context: string = "";
+  let jobId: string = "-1";
 
   const articleType = "blog";
 

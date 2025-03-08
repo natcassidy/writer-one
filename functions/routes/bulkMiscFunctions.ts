@@ -3,6 +3,7 @@ import * as misc from './miscFunctions';
 import * as amazon from "./amazonScraperFunctions";
 import {generateFineTuneService} from "./gemini";
 import {StructuredOutline, UnStructuredSection} from "./miscFunctions";
+import AmazonProducts from "./amazonScraperFunctions";
 
 const processBlogArticleFromBulk = async (
   keyWord,
@@ -27,11 +28,11 @@ const processBlogArticleFromBulk = async (
     throw new Error("Error Generating Article");
   }
 
-  let jobId: string;
+  let jobId: string = "";
   let context: string = "";
 
   if (!jobId) {
-    jobId = "-1"";
+    jobId = "-1";
   }
 
   const articleType: string = "blog";
@@ -142,7 +143,7 @@ const processAmazonArticleFromBulk = async (
   }
 
   let jobId: string;
-  let context: string;
+  let context: AmazonProducts[];
   if (!jobId) {
     jobId = "-1";
   }

@@ -3,7 +3,7 @@ import 'dotenv/config'; // Changed from require and adjusted for ESM
 import * as gemini from './gemini'; // Changed from require
 import * as misc from './miscFunctions'; // Changed from require
 
-interface AmazonProducts {
+export default interface AmazonProducts {
   title: string,
   description: string,
   image: string,
