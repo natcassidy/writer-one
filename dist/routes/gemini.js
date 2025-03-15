@@ -1,62 +1,77 @@
-import 'dotenv/config'; // Changed from require and adjusted for ESM
-import {
-  ChatSession,
-  EnhancedGenerateContentResponse,
-  FunctionCallingMode,
-  FunctionDeclarationSchemaType,
-  GenerateContentResult,
-  GoogleGenerativeAI
-} from '@google/generative-ai'; // Changed from require and kept destructuring
-import * as firebaseFunctions from './firebaseFunctions';
-import {OutlineUnstructured, StructuredOutline} from "./miscFunctions"; // Changed from require and added .mjs extension, assuming firebaseFunctions.js was renamed to firebaseFunctions.ts
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_KEY);
-
-const generateAmazonSection = async (
-  sectionHeader,
-  keyWord,
-  context,
-  tone,
-  pointOfView,
-  finetunePromise
-) => {
-  console.log("Entering generateAmazonSection");
-  let fineTuneData = "";
-
-  try {
-    fineTuneData = await finetunePromise;
-  } catch (e) {
-    console.log("Error caught on finetune generating gemini section:", e);
-  }
-
-  const generationConfig = {
-    max_output_tokens: 8000,
-    temperature: 0.9,
-    top_p: 0.1,
-    top_k: 16,
-  };
-
-  const model = genAI.getGenerativeModel({
-    model: process.env.GEMINI_MODEL,
-    generationConfig,
-  });
-
-  const includeFinetune =
-    fineTuneData && fineTuneData != ""
-      ? `
+"use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.processRewrite = exports.summarizeContent = exports.generateFineTuneService = exports.saveFinetuneConfig = exports.generateSection = exports.generateAmazonIntro = exports.generateAmazonSection = exports.generateFinetune = void 0;
+exports.generateOutline = generateOutline;
+require("dotenv/config"); // Changed from require and adjusted for ESM
+const generative_ai_1 = require("@google/generative-ai"); // Changed from require and kept destructuring
+const firebaseFunctions = __importStar(require("./firebaseFunctions"));
+const genAI = new generative_ai_1.GoogleGenerativeAI(process.env.GEMINI_KEY);
+const generateAmazonSection = async (sectionHeader, keyWord, context, tone, pointOfView, finetunePromise) => {
+    console.log("Entering generateAmazonSection");
+    let fineTuneData = "";
+    try {
+        fineTuneData = await finetunePromise;
+    }
+    catch (e) {
+        console.log("Error caught on finetune generating gemini section:", e);
+    }
+    const generationConfig = {
+        max_output_tokens: 8000,
+        temperature: 0.9,
+        top_p: 0.1,
+        top_k: 16,
+    };
+    const model = genAI.getGenerativeModel({
+        model: process.env.GEMINI_MODEL,
+        generationConfig,
+    });
+    const includeFinetune = fineTuneData && fineTuneData != ""
+        ? `
           * Style of Writing To Use:
           ${fineTuneData}
 
         `
-      : "";
-
-  const includeTone = tone
-    ? `  * Ensure you write with the following tone: ${tone}\n`
-    : "";
-  const includePointOfView = pointOfView
-    ? `  * Please write this article using the following point of view: ${pointOfView}`
-    : "";
-  const prompt = `
+        : "";
+    const includeTone = tone
+        ? `  * Ensure you write with the following tone: ${tone}\n`
+        : "";
+    const includePointOfView = pointOfView
+        ? `  * Please write this article using the following point of view: ${pointOfView}`
+        : "";
+    const prompt = `
         ### System Instruction: You are an expert article writer specializing in generating high-quality, informative content on various topics. You can follow detailed instructions precisely.
 
         ### Task: Generate an overview of this product: ${keyWord} for a section titled: ${sectionHeader}.
@@ -106,59 +121,45 @@ const generateAmazonSection = async (
         * Use Markdown for format the bullet points
         * Don't include an h1 or h2 at the beginning with the name of the product, simply start your section off in a paragraph.  Like the example provided above.
         `;
-
-  const result = await model.generateContent(prompt);
-  const response = await result.response;
-  const text = response.text();
-
-  return text;
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+    return text;
 };
-
-const generateAmazonIntro = async (
-  sectionHeader,
-  keyWord,
-  context,
-  tone,
-  pointOfView,
-  finetunePromise
-) => {
-  console.log("Entering generateAmazonSection");
-  let fineTuneData = "";
-
-  try {
-    fineTuneData = await finetunePromise;
-  } catch (e) {
-    console.log("Error caught on finetune generating gemini section:", e);
-  }
-
-  const generationConfig = {
-    max_output_tokens: 8000,
-    temperature: 0.9,
-    top_p: 0.1,
-    top_k: 16,
-  };
-
-  const model = genAI.getGenerativeModel({
-    model: process.env.GEMINI_MODEL,
-    generationConfig,
-  });
-
-  const includeFinetune =
-    fineTuneData && fineTuneData != ""
-      ? `
+exports.generateAmazonSection = generateAmazonSection;
+const generateAmazonIntro = async (sectionHeader, keyWord, context, tone, pointOfView, finetunePromise) => {
+    console.log("Entering generateAmazonSection");
+    let fineTuneData = "";
+    try {
+        fineTuneData = await finetunePromise;
+    }
+    catch (e) {
+        console.log("Error caught on finetune generating gemini section:", e);
+    }
+    const generationConfig = {
+        max_output_tokens: 8000,
+        temperature: 0.9,
+        top_p: 0.1,
+        top_k: 16,
+    };
+    const model = genAI.getGenerativeModel({
+        model: process.env.GEMINI_MODEL,
+        generationConfig,
+    });
+    const includeFinetune = fineTuneData && fineTuneData != ""
+        ? `
           * Style of Writing To Use:
           ${fineTuneData}
 
         `
-      : "";
-
-  const includeTone = tone
-    ? `  * Ensure you write with the following tone: ${tone}\n`
-    : "";
-  const includePointOfView = pointOfView
-    ? `  * Please write this article using the following point of view: ${pointOfView}`
-    : "";
-  const prompt = `
+        : "";
+    const includeTone = tone
+        ? `  * Ensure you write with the following tone: ${tone}\n`
+        : "";
+    const includePointOfView = pointOfView
+        ? `  * Please write this article using the following point of view: ${pointOfView}`
+        : "";
+    const prompt = `
         ### System Instruction: You are an expert article writer specializing in generating high-quality, informative content on various topics. You can follow detailed instructions precisely.
 
         ### Task: Generate an introduction for an article review this product: ${keyWord}
@@ -179,82 +180,64 @@ const generateAmazonIntro = async (
         * Make sure your opening sentence to the section is unique and doesn't just reiterate the primary keyword.  Avoid using closing statements at the end of the section. 
         * Use Markdown for format the bullet points if you choose to include bullet points (you don't have to)
         `;
-
-  const result = await model.generateContent(prompt);
-  const response = await result.response;
-  const text = response.text();
-
-  console.log("________________________");
-  console.log("prompt: \n", prompt);
-  console.log("________________________");
-  console.log("Sections: \n", response);
-  console.log("________________________");
-  console.log("Sections: \n", text);
-  return text;
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+    console.log("________________________");
+    console.log("prompt: \n", prompt);
+    console.log("________________________");
+    console.log("Sections: \n", response);
+    console.log("________________________");
+    console.log("Sections: \n", text);
+    return text;
 };
-
-const generateSection = async (
-  outline: StructuredOutline,
-  keyWord: string,
-  context: string,
-  tone: string,
-  pointOfView: string,
-  citeSources: boolean,
-  finetune: Promise<string>,
-  internalUrls: string
-): Promise<string> => {
-
-  let fineTuneData: string = "";
-  let internalUrlData: string;
-
-  try {
-    fineTuneData = await finetune;
-  } catch (e) {
-    console.log("Error caught on finetune generating  section:", e);
-  }
-
-  if (internalUrls && internalUrls != "" && !internalUrlData) {
-    internalUrlData = `
+exports.generateAmazonIntro = generateAmazonIntro;
+const generateSection = async (outline, keyWord, context, tone, pointOfView, citeSources, finetune, internalUrls) => {
+    let fineTuneData = "";
+    let internalUrlData;
+    try {
+        fineTuneData = await finetune;
+    }
+    catch (e) {
+        console.log("Error caught on finetune generating  section:", e);
+    }
+    if (internalUrls && internalUrls != "" && !internalUrlData) {
+        internalUrlData = `
     ${internalUrls}
     Try to determine a title or name for the url(s) above and reference the name when linking to it.
     \n`;
-  }
-
-  console.log("Entering generateSection");
-
-  const generationConfig = {
-    max_output_tokens: 8000,
-    temperature: 0.9,
-    top_p: 0.1,
-    top_k: 16,
-  };
-
-  const model = genAI.getGenerativeModel({
-    model: process.env.GEMINI_MODEL,
-    generationConfig,
-  });
-
-  const includeFinetune: string =
-    fineTuneData && fineTuneData != ""
-      ? `
+    }
+    console.log("Entering generateSection");
+    const generationConfig = {
+        max_output_tokens: 8000,
+        temperature: 0.9,
+        top_p: 0.1,
+        top_k: 16,
+    };
+    const model = genAI.getGenerativeModel({
+        model: process.env.GEMINI_MODEL,
+        generationConfig,
+    });
+    const includeFinetune = fineTuneData && fineTuneData != ""
+        ? `
           * Style of Writing To Use:
           ${fineTuneData}
 
         `
-      : "";
-  const includeTone: string = tone
-    ? `  * Ensure you write with the following tone: ${tone}\n`
-    : "";
-  const includeCitedSources: string = citeSources
-    ? `  * Link to articles from the context provided.  You should write this article with the intention of linking to other sites throughout it.  Use links naturally in the paragraphs if it's appropriate, do not place all of the links at the end.
+        : "";
+    const includeTone = tone
+        ? `  * Ensure you write with the following tone: ${tone}\n`
+        : "";
+    const includeCitedSources = citeSources
+        ? `  * Link to articles from the context provided.  You should write this article with the intention of linking to other sites throughout it.  Use links naturally in the paragraphs if it's appropriate, do not place all of the links at the end.
          * Include at least 1 link in this markdown format: [Link Text](URL)
       `
-    : "";
-  const includePointOfView: string = pointOfView
-    ? `  * Please write this article using the following point of view: ${pointOfView}`
-    : "";
-  const includeInternalUrl: string = internalUrlData
-    ? `### Primary Source linking instructions: You MUST include a link in 1 of your sections from the following context. Use it naturally in the article if it's appropriate, DO NOT ADD LINKS TO THE END OF THE ARTICLE. 
+        : "";
+    const includePointOfView = pointOfView
+        ? `  * Please write this article using the following point of view: ${pointOfView}`
+        : "";
+    const includeInternalUrl = internalUrlData
+        ? `### Primary Source linking instructions: You MUST include a link in 1 of your sections from the following context. Use it naturally in the article if it's appropriate, DO NOT ADD LINKS TO THE END OF THE ARTICLE. 
        Link context: \n ${internalUrlData}
        
        Here is an example of how you should include the link below. Only pay attention to the structure and natural inclusion of the link.  Pay close attention to how the links aren't placed at the end of the sections, but included naturally in the paragraphs.
@@ -275,8 +258,8 @@ const generateSection = async (
         
        
        ### Remember you must link to ATLEAST 1 if not more of these url(s): [${internalUrls}], AND MUST LINK THEM THROUGHOUT THE ARTICLE USING THE MARKDOWN FORMAT.`
-    : "";
-  const prompt: string = `
+        : "";
+    const prompt = `
     ### System Instruction: You are an expert article writer specializing in generating high-quality, informative content on various topics. You can follow detailed instructions precisely.
 
     ### Task: Generate an article on this topic: ${keyWord}. Ensure it adheres to the following guidelines:
@@ -314,51 +297,41 @@ const generateSection = async (
     * THE NOTES IN THE OUTLINE ARE MEANT TO BE A REFERENCE AND GUIDELINE FOR WRITING THE SECTION(S).  YOU MUST WRITE YOUR OWN VERSION OF THE SECTION(S).
     * ONLY USE THE SECTIONS IN THE OUTLINE, DO NOT ADD ADDITIONAL HEADERS OR SECTIONS.
     * DO NOT ADD A TITLE UNLESS THERE IS AN INTRO SECTION IN THE OUTLINE
-    ${
-      internalUrls &&
-      internalUrls != "" &&
-      `
+    ${internalUrls &&
+        internalUrls != "" &&
+        `
       * Remember you MUST link to these url(s): ${internalUrls}
-      `
-  }
+      `}
     `;
-  const result: GenerateContentResult = await model.generateContent(prompt);
-  const response: EnhancedGenerateContentResponse = await result.response;
-  return response.text();
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    return response.text();
 };
-
+exports.generateSection = generateSection;
 const saveFinetuneConfig = async (currentUser, urls, textInputs, name) => {
-  console.log("Entering saveFinetuneConfig");
-  try {
-    if (name != "") {
-      await firebaseFunctions.addFinetunetoFirebaseUser(
-        currentUser,
-        urls,
-        name,
-        textInputs
-      );
+    console.log("Entering saveFinetuneConfig");
+    try {
+        if (name != "") {
+            await firebaseFunctions.addFinetunetoFirebaseUser(currentUser, urls, name, textInputs);
+        }
     }
-  } catch (error) {
-    console.log("Error: ", error);
-    throw new Error(error);
-  }
-  console.log("Finished saveFinetuneConfig");
+    catch (error) {
+        console.log("Error: ", error);
+        throw new Error(error);
+    }
+    console.log("Finished saveFinetuneConfig");
 };
-
-const generateFinetune = async (articles): Promise<String> => {
-  try {
-    console.log("Generating fineTune");
-    const articlesJoined: string = articles
-      .map(
-        (article) =>
-          `
+exports.saveFinetuneConfig = saveFinetuneConfig;
+const generateFinetune = async (articles) => {
+    try {
+        console.log("Generating fineTune");
+        const articlesJoined = articles
+            .map((article) => `
         ### Article to analyze for style and voice: 
         \n ${article.body}
-        \n`
-      )
-      .join("");
-
-    const prompt = `
+        \n`)
+            .join("");
+        const prompt = `
       ### System Prompt: You are an expert ghost writer capable of capturing another authors voice, style, tone of writing.
 
       ### User Request:  Your job is to analyze the below article(s) and determine how to immitate the writing style of them.
@@ -403,117 +376,104 @@ const generateFinetune = async (articles): Promise<String> => {
       5. Encourage the AI model to recommend experimenting with different techniques and finding a unique voice that resonates with the reader.
 
       Please ensure your response is 1000+ words.  Strive to be as detailed as possible.`;
-
-    const generationConfig = {
-      max_output_tokens: 8000,
-      temperature: 0.9,
-      top_p: 0.1,
-      top_k: 16,
-    };
-
-    const model = genAI.getGenerativeModel({
-      model: process.env.GEMINI_MODEL,
-      generationConfig,
-    });
-
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
-
-    console.log("Prompt finetune: \n", prompt);
-    return text;
-  } catch (error) {
-    console.error("Error in generateFinetune:", error);
-    throw error;
-  }
+        const generationConfig = {
+            max_output_tokens: 8000,
+            temperature: 0.9,
+            top_p: 0.1,
+            top_k: 16,
+        };
+        const model = genAI.getGenerativeModel({
+            model: process.env.GEMINI_MODEL,
+            generationConfig,
+        });
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        const text = response.text();
+        console.log("Prompt finetune: \n", prompt);
+        return text;
+    }
+    catch (error) {
+        console.error("Error in generateFinetune:", error);
+        throw error;
+    }
 };
-
-const generateFineTuneService = (articles): Promise<string> => {
-  return generateFinetune(articles)
-    .then((response: string) => {
-      return response;
+exports.generateFinetune = generateFinetune;
+const generateFineTuneService = (articles) => {
+    return generateFinetune(articles)
+        .then((response) => {
+        return response;
     })
-    .catch((error) => {
-      console.error("Error generating sections:", error);
-      throw new Error(error);
+        .catch((error) => {
+        console.error("Error generating sections:", error);
+        throw new Error(error);
     });
 };
-
-async function generateOutline(
-  keyword: string,
-  sectionCount: number,
-  context: string
-): Promise<OutlineUnstructured> {
-  console.log("Entering generateOutline");
-
-  const generateOutlineFunction = {
-    name: "generateOutline",
-    description:
-        "Generate an outline for the given keyword using the structure provided. The title section should be the introduction.",
-    parameters: {
-      type: "object" as FunctionDeclarationSchemaType, // Type assertion here
-      properties: {
-        title: {
-          type: "string" as FunctionDeclarationSchemaType, // Type assertion here
-        },
-        notesForIntroduction: {
-          type: "string" as FunctionDeclarationSchemaType, // Type assertion here
-        },
-        sections: {
-          type: "array" as FunctionDeclarationSchemaType, // Type assertion here
-          items: {
-            type: "object" as FunctionDeclarationSchemaType, // Type assertion here
+exports.generateFineTuneService = generateFineTuneService;
+async function generateOutline(keyword, sectionCount, context) {
+    console.log("Entering generateOutline");
+    const generateOutlineFunction = {
+        name: "generateOutline",
+        description: "Generate an outline for the given keyword using the structure provided. The title section should be the introduction.",
+        parameters: {
+            type: "object", // Type assertion here
             properties: {
-              name: {
-                type: "string" as FunctionDeclarationSchemaType, // Type assertion here
-              },
-              notes: {
-                type: "string" as FunctionDeclarationSchemaType, // Type assertion here
-              },
-              subsections: {
-                type: "array" as FunctionDeclarationSchemaType, // Type assertion here
-                items: {
-                  type: "object" as FunctionDeclarationSchemaType, // Type assertion here
-                  properties: {
-                    name: {
-                      type: "string" as FunctionDeclarationSchemaType, // Type assertion here
-                    },
-                    notes: {
-                      type: "string" as FunctionDeclarationSchemaType, // Type assertion here
-                    },
-                  },
-                  required: ["name", "notes"],
+                title: {
+                    type: "string", // Type assertion here
                 },
-              },
+                notesForIntroduction: {
+                    type: "string", // Type assertion here
+                },
+                sections: {
+                    type: "array", // Type assertion here
+                    items: {
+                        type: "object", // Type assertion here
+                        properties: {
+                            name: {
+                                type: "string", // Type assertion here
+                            },
+                            notes: {
+                                type: "string", // Type assertion here
+                            },
+                            subsections: {
+                                type: "array", // Type assertion here
+                                items: {
+                                    type: "object", // Type assertion here
+                                    properties: {
+                                        name: {
+                                            type: "string", // Type assertion here
+                                        },
+                                        notes: {
+                                            type: "string", // Type assertion here
+                                        },
+                                    },
+                                    required: ["name", "notes"],
+                                },
+                            },
+                        },
+                        required: ["name", "subsections", "notes"],
+                    },
+                },
             },
-            required: ["name", "subsections", "notes"],
-          },
+            required: ["title", "sections", "notesForIntroduction"],
         },
-      },
-      required: ["title", "sections", "notesForIntroduction"],
-    },
-  };
-
-  const tools = [
-    {
-      functionDeclarations: [generateOutlineFunction],
-    },
-  ];
-
-  const toolConfig = {
-    functionCallingConfig: {
-      mode: FunctionCallingMode.ANY, // Use AUTO instead of ANY if ANY is not a valid member
-    },
-  };
-
-  // @ts-ignore
-  const model = genAI.getGenerativeModel({
-    model: process.env.GEMINI_MODEL_PRO,
-    tools,
-    toolConfig,
-  });
-
-  const prompt = `
+    };
+    const tools = [
+        {
+            functionDeclarations: [generateOutlineFunction],
+        },
+    ];
+    const toolConfig = {
+        functionCallingConfig: {
+            mode: generative_ai_1.FunctionCallingMode.ANY, // Use AUTO instead of ANY if ANY is not a valid member
+        },
+    };
+    // @ts-ignore
+    const model = genAI.getGenerativeModel({
+        model: process.env.GEMINI_MODEL_PRO,
+        tools,
+        toolConfig,
+    });
+    const prompt = `
   ### System Prompt: You are an expert at analyzing data and producing well-formatted JSON responses for generating article outlines.
 
   ### User Prompt: Generate an outline for the keyword: ${keyword}.
@@ -542,39 +502,34 @@ async function generateOutline(
     ]
   }
   `;
-
-  const chat: ChatSession = model.startChat();
-  const result: GenerateContentResult = await chat.sendMessage(prompt);
-
-  try {
-    let response: object = result.response.candidates[0].content.parts[0]
-      .functionCall.args;
-
-    console.log(response);
-    return response as OutlineUnstructured;
-  } catch (e) {
-    console.log("Exception Outline: ", e);
-    throw new Error(e);
-  }
+    const chat = model.startChat();
+    const result = await chat.sendMessage(prompt);
+    try {
+        let response = result.response.candidates[0].content.parts[0]
+            .functionCall.args;
+        console.log(response);
+        return response;
+    }
+    catch (e) {
+        console.log("Exception Outline: ", e);
+        throw new Error(e);
+    }
 }
-
 const summarizeContent = async (content, keyWord) => {
-  const now = new Date();
-  console.log(now.toLocaleString());
-  console.log("Summarizing content");
-  const generationConfig = {
-    max_output_tokens: 8000,
-    temperature: 0.9,
-    top_p: 0.1,
-    top_k: 16,
-  };
-
-  const model = genAI.getGenerativeModel({
-    model: process.env.GEMINI_MODEL_FLASH,
-    generationConfig,
-  });
-
-  const prompt = `
+    const now = new Date();
+    console.log(now.toLocaleString());
+    console.log("Summarizing content");
+    const generationConfig = {
+        max_output_tokens: 8000,
+        temperature: 0.9,
+        top_p: 0.1,
+        top_k: 16,
+    };
+    const model = genAI.getGenerativeModel({
+        model: process.env.GEMINI_MODEL_FLASH,
+        generationConfig,
+    });
+    const prompt = `
   Extract the most important and specific information from the provided content that is directly related to the subject: ${keyWord}. Include key details such as:
 
   Specific brand names, product names, companies, features, ingredients, etc.
@@ -589,29 +544,26 @@ const summarizeContent = async (content, keyWord) => {
   Article Content:
   ${content}
   `;
-
-  const result = await model.generateContent(prompt);
-  const response = await result.response;
-  const now2 = new Date();
-  console.log(now2.toLocaleString());
-  console.log("Finished Summarizing content");
-  return response.text();
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const now2 = new Date();
+    console.log(now2.toLocaleString());
+    console.log("Finished Summarizing content");
+    return response.text();
 };
-
+exports.summarizeContent = summarizeContent;
 const processRewrite = async (targetSection, instructions) => {
-  const generationConfig = {
-    max_output_tokens: 8000,
-    temperature: 0.9,
-    top_p: 0.1,
-    top_k: 16,
-  };
-
-  const model = genAI.getGenerativeModel({
-    model: process.env.GEMINI_MODEL,
-    generationConfig,
-  });
-
-  const prompt = `
+    const generationConfig = {
+        max_output_tokens: 8000,
+        temperature: 0.9,
+        top_p: 0.1,
+        top_k: 16,
+    };
+    const model = genAI.getGenerativeModel({
+        model: process.env.GEMINI_MODEL,
+        generationConfig,
+    });
+    const prompt = `
   ### System Prompt: You are the world's foremost article writer, able to handle complex instructions.
   
   ### Task: Rewrite the following text based on the user's instructions.
@@ -626,25 +578,16 @@ const processRewrite = async (targetSection, instructions) => {
   * Strive to keep the same structure of markdown as the original text UNLESS the *** User Instructions *** specify otherwise.
   * If no *** User Instructions *** provided, then simply rewrite the provided text.
   `;
-
-  try {
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
-
-    console.log("Rewrite text: \n", text);
-    return text;
-  } catch (e) {
-    throw new Error(e);
-  }
+    try {
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        const text = response.text();
+        console.log("Rewrite text: \n", text);
+        return text;
+    }
+    catch (e) {
+        throw new Error(e);
+    }
 };
-
-export { generateFinetune };
-export { generateAmazonSection };
-export { generateAmazonIntro };
-export { generateSection };
-export { generateOutline };
-export { saveFinetuneConfig };
-export { generateFineTuneService };
-export { summarizeContent };
-export { processRewrite };
+exports.processRewrite = processRewrite;
+//# sourceMappingURL=gemini.js.map

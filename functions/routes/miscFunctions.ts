@@ -12,6 +12,25 @@ export interface UnStructuredSection {
   notes: string
 }
 
+export interface OutlineUnstructured {
+  title: string,
+  notesForIntroduction: string,
+  sections: OutlineUnstructuredSection[]
+}
+
+export interface OutlineUnstructuredSection {
+  name: string,
+  notes: string,
+  subsections: OutlineUnstructuredSubsection[]
+}
+
+export interface OutlineUnstructuredSubsection {
+  name: string,
+  notes: string
+}
+
+
+
 export interface StructuredSection {
   name: string,
   notes: string,
@@ -71,10 +90,10 @@ function stripToText(html) {
   return $("body").prop("textContent");
 }
 
-function flattenJsonToHtmlList(json): UnStructuredSection[] {
+function flattenJsonToHtmlList(json: OutlineUnstructured): UnStructuredSection[] {
   // Initialize the result array and a variable to keep track of ids
-  const resultList = [];
-  let idCounter = 1;
+  const resultList: UnStructuredSection[] = [];
+  let idCounter: number = 1;
 
   const addItem = (tagName, content, notes) => {
     resultList.push({ id: idCounter.toString(), tagName, content, notes });
@@ -180,7 +199,7 @@ const doesUserHaveEnoughArticles = async (currentUser) => {
 };
 
 // Function to process AI response and convert to HTML list
-function processAIResponseToHtml(responseMessage): UnStructuredSection[] {
+function processAIResponseToHtml(responseMessage: OutlineUnstructured): UnStructuredSection[] {
   try {
     return flattenJsonToHtmlList(responseMessage);
   } catch (error) {
@@ -564,7 +583,7 @@ const generateOutline =
     async (keyWord: string, sectionCount: number, context: string): Promise<UnStructuredSection[]> => {
   const maxAttempts: number = 3;
   let attempt: number = 0;
-  let response: string;
+  let response: OutlineUnstructured;
 
   while (attempt < maxAttempts) {
     try {

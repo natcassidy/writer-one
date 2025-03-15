@@ -108,7 +108,7 @@ const processArticle = async (isFreeTrial: boolean, data: ArticleParams): Promis
       throw new Error(e);
     }
   }
-
+// This needs to simply be added to the above method
   let modifiedOutline: StructuredOutline = htmlListToJson(outline);
 
   try {
