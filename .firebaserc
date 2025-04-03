@@ -1,9 +1,0 @@
-{
-  "projects": {
-    "default": "writeeasy-675b2",
-    "prod": "writeeasy-675b2",
-    "dev": "writeeasy-675b2"
-  },
-  "targets": {},
-  "etags": {}
-}
