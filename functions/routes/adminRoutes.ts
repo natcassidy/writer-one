@@ -1,89 +1,111 @@
-const express = require("express");
-const router = express.Router();
-const Stripe = require("stripe");
-require("dotenv").config();
-const stripe = Stripe(process.env.STRIPE_KEY);
-const admin = require("firebase-admin");
+import express, { Request, Response, Router } from "express";
+// Import specific Firestore types needed
+import { QueryDocumentSnapshot } from "firebase-admin/firestore";
+import Stripe from "stripe";
+import dotenv from "dotenv";
+import admin from "firebase-admin";
 
-router.get("/health", (req, res) => {
+dotenv.config();
+
+const router: Router = express.Router();
+
+const stripeKey = process.env.STRIPE_KEY as string;
+const stripe = new Stripe(stripeKey);
+
+router.get("/health", (req: Request, res: Response) => {
   res.status(200).send("I'm alive admin");
 });
 
-router.post("/webhooks", async (req, res) => {
-  const paymentIntent = req.body.data.object.id;
-  const customer = req.body.data.object.customer;
+// Explicitly type the async handler's return as Promise<void> or Promise<Response>
+// Promise<void> is often safer if you aren't intentionally returning the 'res' object itself.
+router.post("/webhooks", async (req: Request, res: Response): Promise<void> => {
+  try { // Wrap main logic in try/catch for async errors
+    const paymentIntent = req.body.data.object.id;
+    const customer = req.body.data.object.customer;
 
-  console.log("Payment intent : ", paymentIntent);
-  // Confirm the payment status using the Stripe API
-  const payment = await stripe.paymentIntents.retrieve(paymentIntent);
+    console.log("Payment intent : ", paymentIntent);
+    const payment: Stripe.PaymentIntent = await stripe.paymentIntents.retrieve(paymentIntent);
 
-  if (payment.status === "succeeded") {
-    console.log("payment status succeeded");
+    if (payment.status === "succeeded") {
+      console.log("payment status succeeded");
 
-    const invoiceId = payment.invoice;
-    let stripePricing = await getPricingFromStripe(invoiceId);
-    let articleCount = 0;
+      const invoiceId: any = payment.invoice;
+      let stripePricing: string | number = await getPricingFromStripe(invoiceId);
+      let articleCount: number = 0;
 
-    console.log(stripePricing);
+      console.log(stripePricing);
 
-    if (stripePricing === process.env.PRICE_10_PRICE) {
-      articleCount = 10;
-    } else if (stripePricing === process.env.PRICE_30_PRICE) {
-      articleCount = 30;
-    } else if (stripePricing === process.env.PRICE_100_PRICE) {
-      articleCount = 100;
-    } else if (stripePricing === process.env.PRICE_300_PRICE) {
-      articleCount = 300;
-    }
+      if (stripePricing === process.env.PRICE_10_PRICE) {
+        articleCount = 10;
+      } else if (stripePricing === process.env.PRICE_30_PRICE) {
+        articleCount = 30;
+      } else if (stripePricing === process.env.PRICE_100_PRICE) {
+        articleCount = 100;
+      } else if (stripePricing === process.env.PRICE_300_PRICE) {
+        articleCount = 300;
+      }
 
-    let oldPlanId = await getOldPlanId(customer);
-    //Must do some sort of lookup to find out old info
-    let isPlanUpdradeOrDowngradeStatus = isPlanUpgradeOrDowngrade(
-      stripePricing,
-      oldPlanId
-    );
-    let isAppendApplied = isAppendAppliedCheck(isPlanUpdradeOrDowngradeStatus);
+      let oldPlanId: string | null = await getOldPlanId(customer);
+      let isPlanUpdradeOrDowngradeStatus = isPlanUpgradeOrDowngrade(
+          stripePricing,
+          oldPlanId
+      );
+      let isAppendApplied: boolean = isAppendAppliedCheck(
+          isPlanUpdradeOrDowngradeStatus
+      );
 
-    if (
-      isPlanUpdradeOrDowngradeStatus === "Upgrade" ||
-      isPlanUpdradeOrDowngradeStatus === "Downgrade"
-    ) {
-      let subscription = await getSubscriptionData(customer);
-      let cancelResponse = await cancelSubscription(subscription, oldPlanId);
-    }
+      if (
+          isPlanUpdradeOrDowngradeStatus === "Upgrade" ||
+          isPlanUpdradeOrDowngradeStatus === "Downgrade"
+      ) {
+        let subscription: Stripe.ApiList<Stripe.Subscription> = await getSubscriptionData(customer);
+        let cancelResponse: number = await cancelSubscription(subscription, oldPlanId);
+      }
 
-    console.log("plan status: ", isPlanUpdradeOrDowngradeStatus);
+      console.log("plan status: ", isPlanUpdradeOrDowngradeStatus);
 
-    let planInfoStatus = await updateFirebasePlanInfo(
-      isAppendApplied,
-      articleCount,
-      stripePricing,
-      customer
-    );
+      let planInfoStatus: "Success" | "Error" = await updateFirebasePlanInfo(
+          isAppendApplied,
+          articleCount,
+          stripePricing,
+          customer
+      );
 
-    if (planInfoStatus === "Success") {
-      return res.status(200).send({ message: "Plan updated Successfully" });
+      if (planInfoStatus === "Success") {
+        // No return needed here for Promise<void>
+        res.status(200).send({ message: "Plan updated Successfully" });
+        return; // Explicit return void
+      } else {
+        // No return needed here for Promise<void>
+        res.status(500).send({ message: "Payment failed" });
+        return; // Explicit return void
+      }
     } else {
-      return res.status(500).send({ message: "Payment failed" });
+      // No return needed here for Promise<void>
+      res.status(500).send({ error: "Payment failed" });
+      return; // Explicit return void
     }
-  } else {
-    return res.status(500).send({ error: "Payment failed" });
+  } catch (error) {
+    console.error("Webhook handler error:", error);
+    // Ensure response is sent even on unexpected errors
+    if (!res.headersSent) {
+      res.status(500).send({ error: "Internal server error" });
+    }
+    // No explicit return needed, as function returns Promise<void>
   }
 });
 
-const getPricingFromStripe = async (invoiceId) => {
+
+const getPricingFromStripe = async (invoiceId: any): Promise<string | number> => {
   if (invoiceId) {
     try {
-      // Retrieve the invoice using the Stripe API
-      const invoice = await stripe.invoices.retrieve(invoiceId);
+      const invoice: Stripe.Invoice = await stripe.invoices.retrieve(invoiceId);
 
-      // Check if there are any line items in the invoice
       if (invoice.lines.data.length > 0) {
-        const lineItem = invoice.lines.data[0]; // Get the first line item
-        console.log(lineItem.description); // Product description
-        console.log(lineItem.price.id); // Price ID
-
-        return lineItem.price.id; // Return the price ID
+        const lineItem = invoice.lines.data[0];
+        console.log(lineItem.description);
+        console.log(lineItem.price?.id);
+        return lineItem.price?.id ?? 0;
       } else {
         console.log("No line items found in the invoice.");
         return 0;
@@ -99,44 +121,44 @@ const getPricingFromStripe = async (invoiceId) => {
 };
 
 const updateFirebasePlanInfo = async (
-  isAppendApplied,
-  articleCount,
-  stripePricing,
-  customer
-) => {
+    isAppendApplied: boolean,
+    articleCount: number,
+    stripePricing: string | number,
+    customer: string
+): Promise<"Success" | "Error"> => {
   try {
     const customerRef = await admin
-      .firestore()
-      .collection("customers")
-      .where("stripeId", "==", customer)
-      .get();
+        .firestore()
+        .collection("customers")
+        .where("stripeId", "==", customer)
+        .get();
 
     await Promise.all(
-      customerRef.docs.map(async (doc) => {
-        if (isAppendApplied) {
-          // Retrieve the current words count and add the new wordCount to it
-          const currentArticles = doc.data().articles || 0; // Fallback to 0 if 'words' field is not present
-          await doc.ref.update({
-            articles: currentArticles + articleCount,
-            plan: stripePricing ? stripePricing : 0,
-          });
-        } else {
-          // Replace the existing words value with the new wordCount
-          await doc.ref.update({
-            articles: articleCount,
-            plan: stripePricing ? stripePricing : 0,
-          });
-        }
-      })
+        // Explicitly type 'doc' here
+        customerRef.docs.map(async (doc: QueryDocumentSnapshot) => {
+          if (isAppendApplied) {
+            const currentArticles = doc.data().articles || 0;
+            await doc.ref.update({
+              articles: currentArticles + articleCount,
+              plan: stripePricing ? stripePricing : 0,
+            });
+          } else {
+            await doc.ref.update({
+              articles: articleCount,
+              plan: stripePricing ? stripePricing : 0,
+            });
+          }
+        })
     );
 
     return "Success";
   } catch (e) {
+    console.error("Error updating Firebase:", e);
     return "Error";
   }
 };
 
-const isPlanUpgradeOrDowngrade = (newPlanId, oldPlanId) => {
+const isPlanUpgradeOrDowngrade = (newPlanId: string | number | null, oldPlanId: string | null): string => {
   const currentPlansInOrderOfPrice = [
     {
       planId: process.env.PRICE_10_PRICE,
@@ -156,19 +178,17 @@ const isPlanUpgradeOrDowngrade = (newPlanId, oldPlanId) => {
     },
   ];
 
-  // Check if both plan IDs are the same
   if (newPlanId === oldPlanId || oldPlanId == null) {
     return "Same Plan";
   }
 
   let newPlanIdPosition = currentPlansInOrderOfPrice.findIndex(
-    (plan) => plan.planId === newPlanId
+      (plan) => plan.planId === newPlanId
   );
   let oldPlanIdPosition = currentPlansInOrderOfPrice.findIndex(
-    (plan) => plan.planId === oldPlanId
+      (plan) => plan.planId === oldPlanId
   );
 
-  // Check if either plan ID is not found in the list
   if (newPlanIdPosition === -1 || oldPlanIdPosition === -1) {
     throw new Error("One or both plan IDs are not found in the current plans.");
   }
@@ -176,37 +196,33 @@ const isPlanUpgradeOrDowngrade = (newPlanId, oldPlanId) => {
   return newPlanIdPosition > oldPlanIdPosition ? "Upgrade" : "Downgrade";
 };
 
-const getOldPlanId = async (customer) => {
+const getOldPlanId = async (customer: string): Promise<string | null> => {
   try {
-    // Query Firestore for the customer document
     const customerRef = await admin
-      .firestore()
-      .collection("customers")
-      .where("stripeId", "==", customer)
-      .get();
+        .firestore()
+        .collection("customers")
+        .where("stripeId", "==", customer)
+        .get();
 
-    // Check if any documents are found
     if (customerRef.empty) {
       console.log("No matching customer found.");
       return null;
     }
 
-    // Assuming there's only one document per customer
     const customerDoc = customerRef.docs[0];
     const customerData = customerDoc.data();
 
-    // Return the plan ID
-    return customerData.plan || null;
+    return typeof customerData.plan === 'string' ? customerData.plan : null;
   } catch (e) {
     console.error("Error retrieving old plan ID:", e);
     return null;
   }
 };
 
-const isAppendAppliedCheck = (isPlanUpdradeOrDowngradeStatus) => {
+const isAppendAppliedCheck = (isPlanUpdradeOrDowngradeStatus: string): boolean => {
   if (
-    isPlanUpdradeOrDowngradeStatus === "Upgrade" ||
-    isPlanUpdradeOrDowngradeStatus === "Downgrade"
+      isPlanUpdradeOrDowngradeStatus === "Upgrade" ||
+      isPlanUpdradeOrDowngradeStatus === "Downgrade"
   ) {
     return true;
   } else {
@@ -214,43 +230,41 @@ const isAppendAppliedCheck = (isPlanUpdradeOrDowngradeStatus) => {
   }
 };
 
-const getSubscriptionData = async (customerId) => {
-  let sub = await stripe.subscriptions.list({
+const getSubscriptionData = async (customerId: string): Promise<Stripe.ApiList<Stripe.Subscription>> => {
+  let sub: Stripe.ApiList<Stripe.Subscription> = await stripe.subscriptions.list({
     customer: customerId,
   });
-
   return sub;
 };
 
-const cancelSubscription = async (subscriptions, oldPlanId) => {
-  const subscriptionIdToUpgrade = findOldSubscriptionId(
-    subscriptions,
-    oldPlanId
+const cancelSubscription = async (subscriptions: Stripe.ApiList<Stripe.Subscription>, oldPlanId: string | null): Promise<number> => {
+  const subscriptionIdToUpgrade: string | null = findOldSubscriptionId(
+      subscriptions,
+      oldPlanId
   );
 
-  const subscription = await stripe.subscriptions.cancel(
-    subscriptionIdToUpgrade
+  if (!subscriptionIdToUpgrade) {
+    console.error("Could not find subscription to cancel for plan:", oldPlanId);
+    return 0;
+  }
+
+  const subscription: Stripe.Subscription = await stripe.subscriptions.cancel(
+      subscriptionIdToUpgrade
   );
 
   return 1;
 };
 
-const findOldSubscriptionId = (subscriptions, oldPlanId) => {
-  //find the subscription with the oldPrice to cancel
-  let subscriptionIdToUpgrade = null;
+const findOldSubscriptionId = (subscriptions: Stripe.ApiList<Stripe.Subscription>, oldPlanId: string | null): string | null => {
+  let subscriptionIdToUpgrade: string | null = null;
 
-  // Loop through each subscription
   for (const subscription of subscriptions.data) {
-    // Loop through each item in the subscription
     for (const item of subscription.items.data) {
-      // Check if the item's price matches the oldPlanId
-      if (item.price.id === oldPlanId) {
-        // If match is found, store the subscription ID and break the loop
+      if (item.price?.id === oldPlanId) {
         subscriptionIdToUpgrade = subscription.id;
         break;
       }
     }
-    // Break the outer loop if we have found the subscription ID
     if (subscriptionIdToUpgrade) break;
   }
 
