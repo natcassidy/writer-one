@@ -2,13 +2,13 @@
   "compilerOptions": {
     "target": "es2020",
     "module": "es2020",
-    "moduleResolution": "nodenext",
+    "moduleResolution": "node",
     "allowJs": true,
     "checkJs": false,
-    "outDir": "./dist",
+    "outDir": "../dist",
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
-    "strict": true,
+    "strict": false,
     "skipLibCheck": true,
     "sourceMap": true
   },
