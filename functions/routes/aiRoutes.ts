@@ -211,7 +211,7 @@ router.post("/processAmazon", async (req, res) => {
   });
 });
 
-router.post("/processAmazonFreeTrial", async (req, res) => {
+router.post("/processAmazonFreeTrial", extractIpMiddleware, async (req, res) => {
   let {
     keyWord,
     tone,
@@ -225,6 +225,10 @@ router.post("/processAmazonFreeTrial", async (req, res) => {
   } = req.body;
 
   let clientIp = req.clientIp;
+
+  if(!clientIp) {
+    clientIp = "127.0.0.1";
+  }
 
   let context;
   if (!jobId) {
@@ -251,11 +255,11 @@ router.post("/processAmazonFreeTrial", async (req, res) => {
     finetuneChosen.textInputs[0].body != "" &&
     finetuneChosen.textInputs[0].body != ""
   ) {
-    try {
-      finetune = await generateFineTuneService(finetuneChosen.textInputs);
-    } catch (error) {
-      console.log("Error generating finetune ", error);
-    }
+    // try {
+    //   finetune = await generateFineTuneService(finetuneChosen.textInputs);
+    // } catch (error) {
+    //   console.log("Error generating finetune ", error);
+    // }
   }
 
   context = await performSearch(
@@ -281,29 +285,29 @@ router.post("/processAmazonFreeTrial", async (req, res) => {
     res.status(500).send("Error generating article: " + e);
   }
 
-  try {
-    jobId = await updateFirebaseJob(
-      clientIp,
-      jobId,
-      "article",
-      finishedArticle,
-      articleType
-    );
-  } catch (error) {
-    res.status(500).send("Error generating article: " + error);
-  }
-
-  try {
-    jobId = await updateFirebaseJobByIp(
-      clientIp,
-      jobId,
-      "title",
-      keyWord,
-      articleType
-    );
-  } catch (error) {
-    res.status(500).send("Error generating article: " + error);
-  }
+  // try {
+  //   jobId = await updateFirebaseJob(
+  //     clientIp,
+  //     jobId,
+  //     "article",
+  //     finishedArticle,
+  //     articleType
+  //   );
+  // } catch (error) {
+  //   res.status(500).send("Error generating article: " + error);
+  // }
+  //
+  // try {
+  //   jobId = await updateFirebaseJobByIp(
+  //     clientIp,
+  //     jobId,
+  //     "title",
+  //     keyWord,
+  //     articleType
+  //   );
+  // } catch (error) {
+  //   res.status(500).send("Error generating article: " + error);
+  // }
 
   await updateIpFreeArticle(clientIp);
 
