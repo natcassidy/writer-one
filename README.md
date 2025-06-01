@@ -3,7 +3,6 @@
 This backend powers Writer-One, a platform designed to elevate AI content creation beyond simple prompts. It addresses common limitations of basic AI interfaces by integrating real-time data, custom user configurations, and robust background processing for a richer, more efficient content generation experience.
 
 **See it in action:** [Writer-One Frontend](https://writer-one-frontend.vercel.app/)
-**Frontend Code:** [GitHub - Writer-One Frontend](https://github.com/natcassidy/Writer-One-Frontend)
 
 ## Solving Real-World Content Challenges
 
