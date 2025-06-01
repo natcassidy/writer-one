@@ -2,11 +2,11 @@ import admin from "firebase-admin";
 
 const updateFirebaseJobByIp = async (
     ipAddress,
-    jobId,
+    jobId: string,
     fieldName,
     data,
     articleType
-) => {
+): Promise<string> => {
     if (!ipAddress) {
         throw new Error("No ipAddress defined");
     }
@@ -14,7 +14,7 @@ const updateFirebaseJobByIp = async (
     const cleanedData = cleanData(data);
 
     try {
-        if (jobId === -1) {
+        if (jobId === "-1") {
             const newJobData = {
                 [fieldName]: cleanedData,
                 lastModified: Date.now(),

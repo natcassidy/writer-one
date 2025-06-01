@@ -1,9 +1,23 @@
 import * as cheerio from "cheerio";
 import axios from "axios";
 import qs from "qs";
-import admin from "firebase-admin";
 import 'dotenv/config';
 import * as gemini from "./gemini.js";
+import { appInstance } from "../config/firebase.js"; // Ensure this path is correct
+import { getFirestore } from 'firebase-admin/firestore';
+
+// This check is crucial. If appInstance is undefined due to init failure, this will prevent further errors.
+if (!appInstance) {
+  console.error("Firebase appInstance is not initialized. Firestore cannot be accessed.");
+  // Depending on how you want to handle this, you might throw an error or have a fallback.
+  // For now, let's make db undefined so operations on it will clearly fail.
+  // This helps to pinpoint that the issue is with appInstance.
+  // However, ideally, the app would not even try to use db if appInstance is not set.
+}
+
+// This line is correct for v10 modular SDK: getFirestore(appInstance)
+// It will throw an error if appInstance is undefined or not a valid Firebase App.
+const db = appInstance ? getFirestore(appInstance) : undefined as any;// This is the v10+ recommended way
 
 export interface UnStructuredSection {
   id: string,
@@ -175,8 +189,11 @@ const doesUserHaveEnoughArticles = async (currentUser) => {
     throw new Error("No user defined");
   }
 
-  const userRef = admin
-    .firestore()
+  if(!currentUser.uid) {
+
+  }
+
+  const userRef = db
     .collection("customers")
     .doc(currentUser.uid);
 

@@ -1,4 +1,18 @@
-import admin from "firebase-admin";
+import { appInstance } from "../config/firebase.js"; // Ensure this path is correct
+import { getFirestore } from 'firebase-admin/firestore';
+
+// This check is crucial. If appInstance is undefined due to init failure, this will prevent further errors.
+if (!appInstance) {
+  console.error("Firebase appInstance is not initialized. Firestore cannot be accessed.");
+  // Depending on how you want to handle this, you might throw an error or have a fallback.
+  // For now, let's make db undefined so operations on it will clearly fail.
+  // This helps to pinpoint that the issue is with appInstance.
+  // However, ideally, the app would not even try to use db if appInstance is not set.
+}
+
+// This line is correct for v10 modular SDK: getFirestore(appInstance)
+// It will throw an error if appInstance is undefined or not a valid Firebase App.
+const db = appInstance ? getFirestore(appInstance) : undefined as any;
 
 const updateFirebaseJob = async (
   currentUser,
@@ -10,7 +24,7 @@ const updateFirebaseJob = async (
   if (!currentUser) {
     throw new Error("No user defined");
   }
-  const jobsCollection = admin.firestore().collection("jobs");
+  const jobsCollection = db.collection("jobs");
   const cleanedData = cleanData(data);
 
   try {
@@ -75,7 +89,7 @@ const getContextFromDb = async (currentUser, jobId) => {
     throw new Error("No user defined");
   }
 
-  const jobsCollection = admin.firestore().collection("jobs");
+  const jobsCollection = db.collection("jobs");
 
   let context = "";
 
@@ -102,8 +116,7 @@ const addJobIdToUserFirebase = async (currentUser, jobId) => {
     throw new Error("No user defined");
   }
 
-  const userRef = admin
-    .firestore()
+  const userRef = db
     .collection("customers")
     .doc(currentUser.uid);
 
@@ -149,8 +162,7 @@ const addFinetunetoFirebaseUser = async (
     textInputs: textInputs,
   };
 
-  const userRef = admin
-    .firestore()
+  const userRef = db
     .collection("customers")
     .doc(currentUser.uid);
 
@@ -188,8 +200,7 @@ const findFinetuneInFirebase = async (currentUser, urls, name) => {
     throw new Error("No user defined");
   }
 
-  const userRef = admin
-    .firestore()
+  const userRef = db
     .collection("customers")
     .doc(currentUser.uid);
 
@@ -240,8 +251,7 @@ const decrementUserArticleCount = async (currentUser): Promise<number> => {
     throw new Error("No user defined");
   }
 
-  const userRef = admin
-    .firestore()
+  const userRef = db
     .collection("customers")
     .doc(currentUser.uid);
 
@@ -292,7 +302,7 @@ const addToQueue = async (
   includeConclusion = false
 ) => {
   try {
-    await admin.firestore().collection("queue").add({
+    await db.collection("queue").add({
       keyWord,
       internalUrls,
       tone,
@@ -318,8 +328,7 @@ const addToQueue = async (
 
 const getNextItemFirebase = async () => {
   // Check the count of items with status "inProgress"
-  const inProgressSnapshot = await admin
-    .firestore()
+  const inProgressSnapshot = await db
     .collection("queue")
     .where("status", "==", "inProgress")
     .get();
@@ -328,8 +337,7 @@ const getNextItemFirebase = async () => {
     throw new Error("Maximum limit of inProgress items reached");
   }
 
-  const snapshot = await admin
-    .firestore()
+  const snapshot = await db
     .collection("queue")
     .where("status", "==", "pending")
     .orderBy("createdAt")
@@ -348,7 +356,7 @@ const getNextItemFirebase = async () => {
 const markItemCompleted = async (itemId) => {
   try {
     // Update the item status to 'completed'
-    await admin.firestore().collection("queue").doc(itemId).update({
+    await db.collection("queue").doc(itemId).update({
       status: "completed",
     });
 
@@ -361,7 +369,7 @@ const markItemCompleted = async (itemId) => {
 const markItemInProgress = async (itemId) => {
   try {
     // Update the item status to 'completed'
-    await admin.firestore().collection("queue").doc(itemId).update({
+    await db.collection("queue").doc(itemId).update({
       status: "inProgress",
     });
 
@@ -374,7 +382,7 @@ const markItemInProgress = async (itemId) => {
 const markItemInError = async (itemId) => {
   try {
     // Update the item status to 'completed'
-    await admin.firestore().collection("queue").doc(itemId).update({
+    await db.collection("queue").doc(itemId).update({
       status: "inError",
     });
 
@@ -386,12 +394,12 @@ const markItemInError = async (itemId) => {
 
 async function validateIpHasFreeArticle(ipAddress) {
   try {
-    const ipTrialRef = admin.firestore().collection("ipTrial").doc(ipAddress);
+    const ipTrialRef = db.collection("ipTrial").doc(ipAddress);
     const ipTrialDoc = await ipTrialRef.get();
 
     if (ipTrialDoc.exists) {
       const { docsCreated } = ipTrialDoc.data();
-      return docsCreated === 0;
+      return docsCreated < 1;
     } else {
       await createIpTrialDoc(ipAddress);
       return true;
@@ -404,7 +412,7 @@ async function validateIpHasFreeArticle(ipAddress) {
 
 async function createIpTrialDoc(ipAddress) {
   try {
-    const ipTrialRef = admin.firestore().collection("ipTrial").doc(ipAddress);
+    const ipTrialRef = db.collection("ipTrial").doc(ipAddress);
     await ipTrialRef.set({
       ip: ipAddress,
       docsCreated: 0,
@@ -418,7 +426,7 @@ async function createIpTrialDoc(ipAddress) {
 
 async function updateIpFreeArticle(ipAddress) {
   try {
-    const ipTrialRef = admin.firestore().collection("ipTrial").doc(ipAddress);
+    const ipTrialRef = db.collection("ipTrial").doc(ipAddress);
     await ipTrialRef.update({
       docsCreated: 1,
       updatedAt: Date.now(),
@@ -439,7 +447,7 @@ async function addArticleFieldToUserDocument(user) {
       // Wait for a short period
       await new Promise((resolve) => setTimeout(resolve, delayMs));
 
-      const docRef = admin.firestore().collection("customers").doc(user.uid);
+      const docRef = db.collection("customers").doc(user.uid);
       const doc = await docRef.get();
 
       if (doc.exists) {

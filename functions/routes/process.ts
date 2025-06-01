@@ -9,7 +9,7 @@ interface Article {
   article: string,
   updatedArticleCount: number,
   title: string,
-  id: number
+  id: string
 }
 
 export interface ArticleParams {
@@ -20,7 +20,7 @@ export interface ArticleParams {
   citeSources: boolean,
   outline: UnStructuredSection[],
   currentUser: string,
-  jobId: number,
+  jobId: string,
   finetuneChosen: FinetuneParam,
   internalUrls: string,
   clientIp: string
@@ -54,6 +54,10 @@ function generateFinetune(finetuneParams: FinetuneParam): Promise<string> {
 }
 
 const processFreeTrial = (data: ArticleParams): Promise<Article> => {
+  if(data.clientIp == "" || !data.clientIp) {
+    data.clientIp = "127.0.0.1"
+  }
+
   data.currentUser = data.clientIp;
 
   let hasFreeArticle: boolean = true;
@@ -80,16 +84,25 @@ const processArticle = async (isFreeTrial: boolean, data: ArticleParams): Promis
     citeSources,
     outline,
     currentUser,
-    jobId = -1,
+    jobId = "-1",
     finetuneChosen,
     internalUrls,
   } = data;
+
+  if(jobId === "") {
+    jobId = "-1";
+  }
 
   let context: string = "",
     finetune: Promise<string>,
     article: string = "";
 
-  const isWithinArticleCount: boolean = await misc.doesUserHaveEnoughArticles(currentUser);
+  let isWithinArticleCount: boolean = false;
+  if(isFreeTrial) {
+    isWithinArticleCount = await firebaseFunctions.validateIpHasFreeArticle(data.clientIp);
+  } else {
+    isWithinArticleCount = await misc.doesUserHaveEnoughArticles(currentUser);
+  }
 
   if (!isWithinArticleCount) {
     throw new Error("Article Count Limit Hit");
@@ -99,7 +112,7 @@ const processArticle = async (isFreeTrial: boolean, data: ArticleParams): Promis
 
   finetune = generateFinetune(finetuneChosen);
 
-  context = await misc.doSerpResearch(keyWord, "");
+  // context = await misc.doSerpResearch(keyWord, "");
 
   if(outline.length == 0) {
     try {
@@ -108,6 +121,17 @@ const processArticle = async (isFreeTrial: boolean, data: ArticleParams): Promis
       throw new Error(e);
     }
   }
+
+  if(isFreeTrial) {
+    jobId = await updateFirebaseJobByIp(
+        data.clientIp,
+        jobId,
+        "outline",
+        outline,
+        "blog"
+    );
+  }
+
 // This needs to simply be added to the above method
   let modifiedOutline: StructuredOutline = htmlListToJson(outline);
 
@@ -126,15 +150,19 @@ const processArticle = async (isFreeTrial: boolean, data: ArticleParams): Promis
     throw new Error(error);
   }
 
-  const updatedArticleCount: number =
-      await firebaseFunctions.decrementUserArticleCount(currentUser);
+  let updatedArticleCount: number = 0;
 
   if(isFreeTrial) {
     await updateFirebaseJobByIp(currentUser,jobId,"context",context, "blog")
     await updateFirebaseJobByIp(currentUser,jobId,"outline",modifiedOutline, "blog");
     await updateFirebaseJobByIp(currentUser,jobId,"article",article, "blog");
     await updateFirebaseJobByIp(currentUser,jobId,"title",keyWord, "blog");
+
+    await firebaseFunctions.updateIpFreeArticle(data.clientIp);
   } else {
+    updatedArticleCount =
+        await firebaseFunctions.decrementUserArticleCount(currentUser);
+
     await updateFirebaseJob(currentUser,jobId,"context",context, "blog")
     await updateFirebaseJob(currentUser,jobId,"outline",modifiedOutline, "blog");
     await updateFirebaseJob(currentUser,jobId,"article",article, "blog");
