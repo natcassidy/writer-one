@@ -2,19 +2,20 @@ import express from "express";
 
 const router = express.Router();
 import 'dotenv/config';
-import {doesUserHaveEnoughArticles, doSerpResearch, parseKeyWords} from "./miscFunctions";
+import {doesUserHaveEnoughArticles, doSerpResearch, parseKeyWords} from "./miscFunctions.js";
 import {
   addArticleFieldToUserDocument,
   addToQueue,
   decrementUserArticleCount,
   updateFirebaseJob, updateIpFreeArticle,
   validateIpHasFreeArticle
-} from "./firebaseFunctions";
-import {processNextItem} from "./bulkMiscFunctions";
-import {generateFineTuneService, generateOutline, processRewrite} from "./gemini";
-import {generateAmazonArticle, generateOutlineAmazon, performSearch} from "./amazonScraperFunctions";
-import {ArticleParams, processArticle, processFreeTrial} from "./process";
-import {updateFirebaseJobByIp} from "./firebaseFunctionsNotSignedIn"; // Changed from require and adjusted for ESM, assuming dotenv version 16+
+} from "./firebaseFunctions.js";
+import {processNextItem} from "./bulkMiscFunctions.js";
+import {generateFineTuneService, generateOutline, processRewrite} from "./gemini.js";
+import {generateAmazonArticle, generateOutlineAmazon, performSearch} from "./amazonScraperFunctions.js";
+import {ArticleParams, processArticle, processFreeTrial} from "./process.js";
+import {updateFirebaseJobByIp} from "./firebaseFunctionsNotSignedIn.js";
+import * as misc from "./miscFunctions.js";
 
 router.post("/process", async (req, res) => {
   console.log("Route handler /process hit");
@@ -318,32 +319,28 @@ router.post("/outline", async (req, res) => {
   const articleType = "blog";
 
   try {
-    context = await doSerpResearch(keyWord, "");
-    if (currentUser) {
-      jobId = await updateFirebaseJob(
-        currentUser,
-        jobId,
-        "context",
-        context,
-        articleType
-      );
-    }
+    // context = await doSerpResearch(keyWord, "");
+    // if (currentUser) {
+    //   jobId = await updateFirebaseJob(
+    //     currentUser,
+    //     jobId,
+    //     "context",
+    //     context,
+    //     articleType
+    //   );
+    // }
 
-    const responseMessage = await generateOutline(
-      keyWord,
-      sectionCount,
-      context
-    );
+    const responseMessage = await misc.generateOutline(keyWord,sectionCount,context);
 
-    if (currentUser) {
-      jobId = await updateFirebaseJob(
-        currentUser,
-        jobId,
-        "outline",
-        responseMessage,
-        articleType
-      );
-    }
+    // if (currentUser) {
+    //   jobId = await updateFirebaseJob(
+    //     currentUser,
+    //     jobId,
+    //     "outline",
+    //     responseMessage,
+    //     articleType
+    //   );
+    // }
 
     res.status(200).send({ responseMessage, jobId });
   } catch (error) {
@@ -377,16 +374,20 @@ router.get("/testIP", extractIpMiddleware, (req, res) => {
   res.status(200).send(req.clientIp);
 });
 
+router.get("/health", extractIpMiddleware, (req, res) => {
+  res.status(200).send(req.clientIp);
+});
+
 router.get("/isFreeArticleAvailable", extractIpMiddleware, async (req, res) => {
-  let ipAddress = req.clientIp;
-  let isFreeArticleAvailable;
-  try {
-    isFreeArticleAvailable = await validateIpHasFreeArticle(
-      ipAddress
-    );
-  } catch (e) {
-    res.status(500).send("Error retrieving data");
-  }
+  // let ipAddress = req.clientIp;
+  // let isFreeArticleAvailable;
+  // try {
+  //   isFreeArticleAvailable = await validateIpHasFreeArticle(
+  //     ipAddress
+  //   );
+  // } catch (e) {
+  //   res.status(500).send("Error retrieving data");
+  // }
 
   res.status(200).send({ isFreeArticleAvailable: true });
 });

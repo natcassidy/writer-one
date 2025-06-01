@@ -1,9 +1,9 @@
-import * as firebaseFunctions from "./firebaseFunctions";
-import * as misc from './miscFunctions';
-import * as amazon from "./amazonScraperFunctions";
-import {generateFineTuneService} from "./gemini";
-import {StructuredOutline, UnStructuredSection} from "./miscFunctions";
-import AmazonProducts from "./amazonScraperFunctions";
+import * as firebaseFunctions from "./firebaseFunctions.js";
+import * as misc from './miscFunctions.js';
+import * as amazon from "./amazonScraperFunctions.js";
+import {generateFineTuneService} from "./gemini.js";
+import {StructuredOutline, UnStructuredSection} from "./miscFunctions.js";
+import AmazonProducts from "./amazonScraperFunctions.js";
 
 const processBlogArticleFromBulk = async (
   keyWord,

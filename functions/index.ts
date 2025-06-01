@@ -2,9 +2,9 @@ import express from 'express'; // Changed from require
 const app = express();
 import cors from 'cors'; // Changed from require
 import * as functions from 'firebase-functions'; // Changed from require, Firebase Functions are often imported as a namespace
-import aiRoutes from './routes/aiRoutes'; // Changed from require
-import adminRoutes from './routes/adminRoutes'; // Changed from require
-import * as bulkMiscFunctions from './routes/bulkMiscFunctions';
+import aiRoutes from './routes/aiRoutes.js'; // Changed from require
+import adminRoutes from './routes/adminRoutes.js'; // Changed from require
+import * as bulkMiscFunctions from './routes/bulkMiscFunctions.js';
 import 'dotenv/config'; // Changed from require and adjusted for ESM
 
 const corsOptions = {
@@ -25,13 +25,14 @@ app.use("/ai", aiRoutes);
 app.use("/admin", adminRoutes);
 app.set("trust proxy", true);
 
-exports.plugin = functions
-  .runWith({ timeoutSeconds: 360, memory: "1GB" })
-  .https.onRequest(app);
-exports.processQueue = functions
-  .runWith({ timeoutSeconds: 360 })
-  .pubsub.schedule("every 1 minutes")
-  .onRun(async (context) => {
-    await bulkMiscFunctions.processNextItem();
-    return null;
-  });
+export const plugin = functions
+    .runWith({ timeoutSeconds: 360, memory: "1GB" })
+    .https.onRequest(app);
+
+export const processQueue = functions
+    .runWith({ timeoutSeconds: 360 })
+    .pubsub.schedule("every 1 minutes")
+    .onRun(async (context) => {
+      await bulkMiscFunctions.processNextItem();
+      return null;
+    });

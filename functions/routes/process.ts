@@ -1,9 +1,9 @@
-import * as misc from "./miscFunctions";
-import * as gemini from "./gemini";
-import * as firebaseFunctions from "./firebaseFunctions";
-import {updateFirebaseJobByIp} from "./firebaseFunctionsNotSignedIn";
-import {updateFirebaseJob} from "./firebaseFunctions";
-import {htmlListToJson, StructuredOutline, UnStructuredSection} from "./miscFunctions";
+import * as misc from "./miscFunctions.js";
+import * as gemini from "./gemini.js";
+import * as firebaseFunctions from "./firebaseFunctions.js";
+import {updateFirebaseJobByIp} from "./firebaseFunctionsNotSignedIn.js";
+import {updateFirebaseJob} from "./firebaseFunctions.js";
+import {htmlListToJson, StructuredOutline, UnStructuredSection} from "./miscFunctions.js";
 
 interface Article {
   article: string,

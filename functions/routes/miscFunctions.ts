@@ -1,9 +1,9 @@
-import cheerio from "cheerio";
+import * as cheerio from "cheerio";
 import axios from "axios";
 import qs from "qs";
 import admin from "firebase-admin";
 import 'dotenv/config';
-import * as gemini from "./gemini";
+import * as gemini from "./gemini.js";
 
 export interface UnStructuredSection {
   id: string,

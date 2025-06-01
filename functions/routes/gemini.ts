@@ -7,8 +7,8 @@ import {
   GenerateContentResult,
   GoogleGenerativeAI
 } from '@google/generative-ai'; // Changed from require and kept destructuring
-import * as firebaseFunctions from './firebaseFunctions';
-import {OutlineUnstructured, StructuredOutline} from "./miscFunctions"; // Changed from require and added .mjs extension, assuming firebaseFunctions.js was renamed to firebaseFunctions.ts
+import * as firebaseFunctions from './firebaseFunctions.js';
+import {OutlineUnstructured, StructuredOutline} from "./miscFunctions.js"; // Changed from require and added .mjs extension, assuming firebaseFunctions.js was renamed to firebaseFunctions.ts
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_KEY);
 

@@ -1,7 +1,7 @@
 import axios from 'axios'; // Changed from require
 import 'dotenv/config'; // Changed from require and adjusted for ESM
-import * as gemini from './gemini'; // Changed from require
-import * as misc from './miscFunctions'; // Changed from require
+import * as gemini from './gemini.js'; // Changed from require
+import * as misc from './miscFunctions.js'; // Changed from require
 
 export default interface AmazonProducts {
   title: string,
